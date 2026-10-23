@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pragati Colour &amp; Type</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+Bhai+2:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&family=Noto+Sans+Gujarati:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* =====================================================
+   COLOUR + TYPOGRAPHY TOKENS (derived from the logo)
+   Copy this :root block into any project.
+   ===================================================== */
+:root{
+  /* ---- Reference palette: sampled straight from the logo ---- */
+  --ref-lotus:#E0077D;
+  --ref-plum:#A3447F;
+  --ref-saffron:#F08000;
+  --ref-sky:#0090CF;
+  --ref-lavender:#8A76C6;
+  --ref-gold:#D0935C;
+  --ref-indigo:#2E3192;
+
+  /* ---- Primary: lotus plum ---- */
+  --color-primary:#8E2466;
+  --color-on-primary:#FFFFFF;
+  --color-primary-container:#FCE7F3;
+  --color-on-primary-container:#4A0D33;
+  --color-primary-hover:#761C55;
+
+  /* ---- Secondary: lettering indigo ---- */
+  --color-secondary:#2E3192;
+  --color-on-secondary:#FFFFFF;
+  --color-secondary-container:#E6E7F7;
+  --color-on-secondary-container:#1A1C5C;
+
+  /* ---- Accent: saffron ---- */
+  --color-accent:#F08000;
+  --color-on-accent:#1F1300;
+  --color-accent-container:#FFF1DE;
+  --color-on-accent-container:#7A3A00;
+
+  /* ---- Tertiary: sky ---- */
+  --color-tertiary:#00739F;
+  --color-on-tertiary:#FFFFFF;
+  --color-tertiary-container:#E0F2FE;
+  --color-on-tertiary-container:#0C4A6E;
+
+  /* ---- Heritage gold: decoration only ---- */
+  --color-heritage:#C08552;
+  --color-heritage-text:#9A6A3A;
+
+  /* ---- Neutrals: warm ivory ---- */
+  --color-background:#FFFBF5;
+  --color-surface:#FFFFFF;
+  --color-surface-variant:#F6F0EA;
+  --color-on-surface:#1C1530;
+  --color-on-surface-variant:#5B5068;
+  --color-outline:#7A6E86;
+  --color-outline-variant:#EADFD6;
+  --color-inverse-surface:#2A2135;
+  --color-inverse-on-surface:#F4EEF7;
+
+  /* ---- Status ---- */
+  --color-success:#15803D; --color-on-success:#FFFFFF; --color-success-container:#DCFCE7; --color-on-success-container:#14532D;
+  --color-warning:#B45309; --color-on-warning:#FFFFFF; --color-warning-container:#FEF3C7; --color-on-warning-container:#92400E;
+  --color-error:#B91C1C;   --color-on-error:#FFFFFF;   --color-error-container:#FEE2E2;   --color-on-error-container:#7F1D1D;
+
+  /* ---- Fonts ---- */
+  --font-display:"Baloo Bhai 2","Noto Sans Gujarati",system-ui,sans-serif;
+  --font-body:"Inter","Noto Sans Gujarati","Noto Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --font-gujarati:"Noto Sans Gujarati","Baloo Bhai 2",sans-serif;
+  --font-mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+}
+:root[data-theme="dark"]{
+  --color-primary:#F0A8D4;--color-on-primary:#3B0A28;--color-primary-container:#5A1840;--color-on-primary-container:#FCE7F3;--color-primary-hover:#F7C9E5;
+  --color-secondary:#AEB0F0;--color-on-secondary:#14154A;--color-secondary-container:#2B2D6E;--color-on-secondary-container:#E6E7F7;
+  --color-accent:#FFB860;--color-on-accent:#1F1300;--color-accent-container:#4A2300;--color-on-accent-container:#FFD9A8;
+  --color-tertiary:#38BDF8;--color-on-tertiary:#082F49;--color-tertiary-container:#0C4A6E;--color-on-tertiary-container:#E0F2FE;
+  --color-heritage:#D9A577;--color-heritage-text:#E3B88E;
+  --color-background:#0F0B14;--color-surface:#16101F;--color-surface-variant:#241B2E;--color-on-surface:#F4EEF7;--color-on-surface-variant:#B8AEC4;--color-outline:#8A7F96;--color-outline-variant:#3A2F45;
+  --color-inverse-surface:#F4EEF7;--color-inverse-on-surface:#1C1530;
+  --color-success:#4ADE80;--color-on-success:#052E16;--color-success-container:#14532D;--color-on-success-container:#DCFCE7;
+  --color-warning:#FBBF24;--color-on-warning:#1F1300;--color-warning-container:#451A03;--color-on-warning-container:#FDE68A;
+  --color-error:#F87171;--color-on-error:#450A0A;--color-error-container:#7F1D1D;--color-on-error-container:#FEE2E2;
+}
+
+/* ---- Type scale classes ---- */
+.display-l {font:700 48px/56px var(--font-display);letter-spacing:-.5px}
+.display-m {font:700 40px/48px var(--font-display);letter-spacing:-.25px}
+.headline-l{font:700 32px/40px var(--font-display);letter-spacing:-.25px}
+.headline-m{font:600 28px/36px var(--font-display)}
+.headline-s{font:600 24px/32px var(--font-body)}
+.title-l   {font:600 20px/28px var(--font-body)}
+.title-m   {font:600 16px/24px var(--font-body);letter-spacing:.1px}
+.title-s   {font:600 14px/20px var(--font-body);letter-spacing:.1px}
+.body-l    {font:400 16px/24px var(--font-body);letter-spacing:.15px}
+.body-m    {font:400 14px/20px var(--font-body);letter-spacing:.25px}
+.body-s    {font:400 12px/16px var(--font-body);letter-spacing:.4px}
+.label-l   {font:600 14px/20px var(--font-body);letter-spacing:.1px}
+.label-m   {font:600 12px/16px var(--font-body);letter-spacing:.5px}
+.label-s   {font:600 11px/16px var(--font-body);letter-spacing:.5px}
+.mono      {font:500 14px/20px var(--font-mono)}
+
+/* =====================================================
+   Page layout (for this reference sheet only)
+   ===================================================== */
+*{box-sizing:border-box}
+body{margin:0;background:var(--color-background);color:var(--color-on-surface);font:400 16px/1.5 var(--font-body);-webkit-font-smoothing:antialiased}
+header{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:12px;padding:12px 20px;background:color-mix(in srgb,var(--color-surface) 92%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--color-outline-variant)}
+header b{font:700 20px var(--font-display);color:var(--color-secondary)}
+header .sp{flex:1}
+.btn{height:40px;padding:0 18px;border-radius:999px;border:1px solid var(--color-outline);background:transparent;color:var(--color-primary);font:600 14px var(--font-body);cursor:pointer}
+.btn:focus-visible{outline:2px solid var(--color-primary);outline-offset:2px}
+main{max-width:1180px;margin:0 auto;padding:32px 20px 80px}
+section{padding:36px 0;border-bottom:1px solid var(--color-outline-variant)}
+section:last-child{border:0}
+h2{font:700 30px/38px var(--font-display);margin:0 0 6px}
+.lead{color:var(--color-on-surface-variant);max-width:68ch;margin:0 0 24px}
+h3{font:600 15px/22px var(--font-body);margin:28px 0 12px;display:flex;align-items:center;gap:8px}
+h3::before{content:"";width:8px;height:8px;border-radius:2px;background:var(--color-heritage);transform:rotate(45deg)}
+.muted{color:var(--color-on-surface-variant)}
+code{font:500 12px var(--font-mono);background:var(--color-surface-variant);padding:1px 6px;border-radius:4px}
+
+.ref{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px}
+.ref div{border-radius:12px;overflow:hidden;border:1px solid var(--color-outline-variant);background:var(--color-surface)}
+.ref i{display:block;height:88px}
+.ref p{margin:0;padding:10px 12px;font-size:12px;line-height:1.5}
+.ref p b{display:block;font-size:13px}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+.sw{border-radius:12px;overflow:hidden;border:1px solid var(--color-outline-variant);background:var(--color-surface)}
+.sw .chip{height:80px;display:flex;align-items:flex-end;justify-content:space-between;padding:10px 12px;font:600 14px var(--font-body)}
+.sw .meta{padding:10px 12px;font-size:12px;line-height:1.55}
+.sw .meta b{display:block;font-size:13px}
+
+.ramp{display:flex;border-radius:12px;overflow:hidden;border:1px solid var(--color-outline-variant)}
+.ramp div{flex:1;height:64px;display:flex;align-items:flex-end;padding:6px;font:600 10px var(--font-mono)}
+
+.card{background:var(--color-surface);border:1px solid var(--color-outline-variant);border-radius:12px;padding:24px}
+.scale-row{display:grid;grid-template-columns:150px 1fr;gap:16px;align-items:baseline;padding:12px 0;border-bottom:1px solid var(--color-outline-variant)}
+.scale-row:last-child{border:0}
+.scale-row .k{font:500 12px/1.4 var(--font-mono);color:var(--color-on-surface-variant)}
+.fonts{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}
+.fonts .card .big{font-size:44px;line-height:1.1;margin:10px 0}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--color-outline-variant)}
+th{background:var(--color-surface-variant);font:600 12px var(--font-body)}
+.tw{overflow-x:auto;border:1px solid var(--color-outline-variant);border-radius:12px;background:var(--color-surface)}
+pre{background:var(--color-inverse-surface);color:var(--color-inverse-on-surface);border-radius:12px;padding:20px;overflow:auto;font:500 12.5px/1.6 var(--font-mono);max-height:480px;margin:0}
+.pair{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+.pair .card{display:flex;flex-direction:column;gap:6px}
+@media (max-width:560px){.scale-row{grid-template-columns:1fr;gap:4px}.display-l{font-size:36px;line-height:44px}}
+</style>
+</head>
+<body>
+<header>
+  <b>Pragati Colour &amp; Type</b>
+  <span class="sp"></span>
+  <button class="btn" id="theme" aria-label="Toggle dark mode">Dark mode</button>
+</header>
+
+<main>
+
+<!-- ============ COLOUR ============ -->
+<section>
+  <h2>Colour scheme</h2>
+  <p class="lead">Seven hues taken from the logo, turned into accessible roles for light and dark mode. Use the role tokens in your UI, not the raw reference values. Every text pairing below meets WCAG AA (4.5:1 or higher).</p>
+
+  <h3>Reference palette (from the logo)</h3>
+  <div class="ref">
+    <div><i style="background:#E0077D"></i><p><b>Lotus</b><code>#E0077D</code><br><span class="muted">Illustration, large accents</span></p></div>
+    <div><i style="background:#A3447F"></i><p><b>Plum</b><code>#A3447F</code><br><span class="muted">Ribbon, banners</span></p></div>
+    <div><i style="background:#F08000"></i><p><b>Saffron</b><code>#F08000</code><br><span class="muted">Highlight accent</span></p></div>
+    <div><i style="background:#0090CF"></i><p><b>Sky</b><code>#0090CF</code><br><span class="muted">Icons, charts only</span></p></div>
+    <div><i style="background:#8A76C6"></i><p><b>Lavender</b><code>#8A76C6</code><br><span class="muted">Icons, charts only</span></p></div>
+    <div><i style="background:#D0935C"></i><p><b>Gold</b><code>#D0935C</code><br><span class="muted">Ornament, dividers</span></p></div>
+    <div><i style="background:#2E3192"></i><p><b>Indigo</b><code>#2E3192</code><br><span class="muted">Headings, brand name</span></p></div>
+  </div>
+
+  <h3>Role tokens (live contrast ratios)</h3>
+  <div class="grid" id="swatches"></div>
+
+  <h3>Neutral ramp</h3>
+  <div class="ramp" id="ramp"></div>
+
+  <h3>Usage rules</h3>
+  <div class="tw"><table>
+    <thead><tr><th>Colour</th><th>Use for</th><th>Avoid</th></tr></thead>
+    <tbody>
+      <tr><td><b>Primary</b> (lotus plum)</td><td>Main buttons, links, active states, focus ring</td><td>More than one filled primary button in a group</td></tr>
+      <tr><td><b>Secondary</b> (indigo)</td><td>Headings, brand name, Gujarati display text</td><td>Large background areas</td></tr>
+      <tr><td><b>Accent</b> (saffron)</td><td>Highlights, badges, featured items</td><td>Body text on white (use on-accent-container instead)</td></tr>
+      <tr><td><b>Tertiary</b> (sky)</td><td>Info messages, secondary links, charts</td><td>Raw #0090CF for text (3.6:1)</td></tr>
+      <tr><td><b>Heritage gold</b></td><td>Borders, ornaments, section markers</td><td>Text smaller than 24px (3.1:1)</td></tr>
+      <tr><td><b>Raw lotus</b> #E0077D</td><td>Illustrations, hero graphics</td><td>Small text and button fills (4.7:1, too close to the limit)</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- ============ TYPE ============ -->
+<section>
+  <h2>Typography</h2>
+  <p class="lead">A rounded display face that matches the logo's Gujarati lettering, a clean sans for everything else, and a monospace for codes and numbers.</p>
+
+  <h3>Typefaces</h3>
+  <div class="fonts">
+    <div class="card">
+      <div class="label-m muted">DISPLAY · Baloo Bhai 2</div>
+      <div class="big" style="font-family:var(--font-display);font-weight:700;color:var(--color-secondary)">પ્રગતિ Aa</div>
+      <div class="body-m muted">Headlines and hero text. Supports Gujarati and Latin. Weights 500–800.</div>
+    </div>
+    <div class="card">
+      <div class="label-m muted">BODY · Inter</div>
+      <div class="big" style="font-family:var(--font-body);font-weight:600">Aa Gg 123</div>
+      <div class="body-m muted">UI text, paragraphs, labels and buttons. Weights 400–700.</div>
+    </div>
+    <div class="card">
+      <div class="label-m muted">GUJARATI BODY · Noto Sans Gujarati</div>
+      <div class="big" style="font-family:var(--font-gujarati);font-weight:500">સ્વાગત</div>
+      <div class="body-m muted">Gujarati paragraphs and labels. Pairs with Inter at the same size.</div>
+    </div>
+    <div class="card">
+      <div class="label-m muted">MONO · JetBrains Mono</div>
+      <div class="big" style="font-family:var(--font-mono);font-weight:600;font-size:36px">AB12-9X</div>
+      <div class="body-m muted">Codes, IDs, phone numbers and tabular figures.</div>
+    </div>
+  </div>
+
+  <h3>Type scale</h3>
+  <div class="card">
+    <div class="scale-row"><span class="k">display-l<br>48 / 56 · 700</span><span class="display-l">પ્રગતિ મંડળ</span></div>
+    <div class="scale-row"><span class="k">display-m<br>40 / 48 · 700</span><span class="display-m">Growing together</span></div>
+    <div class="scale-row"><span class="k">headline-l<br>32 / 40 · 700</span><span class="headline-l">Section heading</span></div>
+    <div class="scale-row"><span class="k">headline-m<br>28 / 36 · 600</span><span class="headline-m">Page heading</span></div>
+    <div class="scale-row"><span class="k">headline-s<br>24 / 32 · 600</span><span class="headline-s">Card heading</span></div>
+    <div class="scale-row"><span class="k">title-l<br>20 / 28 · 600</span><span class="title-l">Dialog title</span></div>
+    <div class="scale-row"><span class="k">title-m<br>16 / 24 · 600</span><span class="title-m">List item title</span></div>
+    <div class="scale-row"><span class="k">title-s<br>14 / 20 · 600</span><span class="title-s">Small title</span></div>
+    <div class="scale-row"><span class="k">body-l<br>16 / 24 · 400</span><span class="body-l">Default paragraph text for reading. Keep lines between 45 and 75 characters.</span></div>
+    <div class="scale-row"><span class="k">body-m<br>14 / 20 · 400</span><span class="body-m">Secondary text, table cells and descriptions.</span></div>
+    <div class="scale-row"><span class="k">body-s<br>12 / 16 · 400</span><span class="body-s muted">Captions, helper text and timestamps.</span></div>
+    <div class="scale-row"><span class="k">label-l<br>14 / 20 · 600</span><span class="label-l">Button label</span></div>
+    <div class="scale-row"><span class="k">label-m<br>12 / 16 · 600</span><span class="label-m">Badge label</span></div>
+    <div class="scale-row"><span class="k">label-s<br>11 / 16 · 600</span><span class="label-s">OVERLINE</span></div>
+    <div class="scale-row"><span class="k">mono<br>14 / 20 · 500</span><span class="mono">+91 98765 43210 · AB12-9X</span></div>
+  </div>
+
+  <h3>Colour + text pairings</h3>
+  <div class="pair">
+    <div class="card" style="background:var(--color-primary);color:var(--color-on-primary);border:0"><span class="label-m">ON PRIMARY</span><span class="headline-s">Plum heading</span><span class="body-m">White text on lotus plum.</span></div>
+    <div class="card" style="background:var(--color-accent-container);color:var(--color-on-accent-container);border:0"><span class="label-m">ON ACCENT CONTAINER</span><span class="headline-s" style="font-family:var(--font-display)">Saffron highlight</span><span class="body-m">Deep amber text on saffron tint.</span></div>
+    <div class="card" style="background:var(--color-secondary-container);color:var(--color-on-secondary-container);border:0"><span class="label-m">ON SECONDARY CONTAINER</span><span class="headline-s" style="font-family:var(--font-display)">ગુજરાતી શીર્ષક</span><span class="body-m">Indigo text on indigo tint.</span></div>
+  </div>
+</section>
+
+<!-- ============ TOKENS ============ -->
+<section>
+  <h2>CSS tokens</h2>
+  <p class="lead">Paste this into your project's global stylesheet. Add the Google Fonts link from this file's &lt;head&gt; as well.</p>
+  <p><button class="btn" id="copy">Copy CSS</button></p>
+  <pre id="out"></pre>
+</section>
+</main>
+
+<script>
+(function(){
+  const root=document.documentElement;
+  const t=document.getElementById('theme');
+  t.onclick=()=>{root.dataset.theme=root.dataset.theme==='dark'?'light':'dark';t.textContent=root.dataset.theme==='dark'?'Light mode':'Dark mode';render()};
+
+  const roles=[
+    ['primary','on-primary','Primary'],['primary-container','on-primary-container','Primary container'],
+    ['secondary','on-secondary','Secondary'],['secondary-container','on-secondary-container','Secondary container'],
+    ['accent','on-accent','Accent'],['accent-container','on-accent-container','Accent container'],
+    ['tertiary','on-tertiary','Tertiary'],['tertiary-container','on-tertiary-container','Tertiary container'],
+    ['surface','on-surface','Surface'],['surface-variant','on-surface-variant','Surface variant'],
+    ['background','on-surface','Background'],['inverse-surface','inverse-on-surface','Inverse surface'],
+    ['success','on-success','Success'],['warning','on-warning','Warning'],['error','on-error','Error'],
+    ['error-container','on-error-container','Error container']
+  ];
+  const L=h=>{h=h.trim().replace('#','');const c=[0,2,4].map(i=>parseInt(h.slice(i,i+2),16)/255).map(x=>x<=.03928?x/12.92:((x+.055)/1.055)**2.4);return .2126*c[0]+.7152*c[1]+.0722*c[2]};
+  const cr=(a,b)=>{const x=L(a),y=L(b);return((Math.max(x,y)+.05)/(Math.min(x,y)+.05)).toFixed(1)};
+  function render(){
+    const cs=getComputedStyle(root),v=n=>cs.getPropertyValue('--color-'+n).trim().toUpperCase();
+    document.getElementById('swatches').innerHTML=roles.map(([b,f,n])=>`<div class="sw"><div class="chip" style="background:var(--color-${b});color:var(--color-${f})"><span>Aa</span><span>${cr(v(b),v(f))}:1</span></div><div class="meta"><b>${n}</b><code>--color-${b}</code> ${v(b)}<br><code>--color-${f}</code> ${v(f)}</div></div>`).join('');
+    const ramp=['background','surface','surface-variant','outline-variant','outline','on-surface-variant','on-surface'];
+    document.getElementById('ramp').innerHTML=ramp.map((n,i)=>`<div style="background:var(--color-${n});color:${i<4?'var(--color-on-surface)':'var(--color-surface)'}">${v(n)}</div>`).join('');
+  }
+  render();
+
+  const rule=[...document.styleSheets].flatMap(s=>{try{return[...s.cssRules]}catch(e){return[]}}).find(r=>r.selectorText===':root');
+  let out=':root{\n';for(const p of rule.style)out+='  '+p+': '+rule.style.getPropertyValue(p).trim()+';\n';out+='}';
+  document.getElementById('out').textContent=out;
+  document.getElementById('copy').onclick=e=>{try{navigator.clipboard.writeText(out)}catch(_){}e.target.textContent='Copied';setTimeout(()=>e.target.textContent='Copy CSS',2000)};
+})();
+</script>
+</body>
+</html>

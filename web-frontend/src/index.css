@@ -1,0 +1,69 @@
+@import url('https://fonts.googleapis.com/css2?family=Baloo+Bhai+2:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&family=Noto+Sans+Gujarati:wght@400;500;600&display=swap');
+@import 'tailwindcss';
+
+/* Pragati colour & type tokens (docs/samaj app.html). Each --color-x becomes bg-x / text-x / border-x. */
+@theme {
+  --color-primary: #8E2466;
+  --color-on-primary: #FFFFFF;
+  --color-primary-container: #FCE7F3;
+  --color-on-primary-container: #4A0D33;
+  --color-primary-hover: #761C55;
+
+  --color-secondary: #2E3192;
+  --color-on-secondary: #FFFFFF;
+  --color-secondary-container: #E6E7F7;
+  --color-on-secondary-container: #1A1C5C;
+
+  --color-accent: #F08000;
+  --color-on-accent: #1F1300;
+  --color-accent-container: #FFF1DE;
+  --color-on-accent-container: #7A3A00;
+
+  --color-tertiary: #00739F;
+  --color-on-tertiary: #FFFFFF;
+  --color-tertiary-container: #E0F2FE;
+  --color-on-tertiary-container: #0C4A6E;
+
+  --color-heritage: #C08552;
+  --color-heritage-text: #9A6A3A;
+
+  --color-background: #FFFBF5;
+  --color-surface: #FFFFFF;
+  --color-surface-variant: #F6F0EA;
+  --color-on-surface: #1C1530;
+  --color-on-surface-variant: #5B5068;
+  --color-outline: #7A6E86;
+  --color-outline-variant: #EADFD6;
+  --color-inverse-surface: #2A2135;
+  --color-inverse-on-surface: #F4EEF7;
+
+  --color-success: #15803D; --color-on-success: #FFFFFF; --color-success-container: #DCFCE7; --color-on-success-container: #14532D;
+  --color-warning: #B45309; --color-on-warning: #FFFFFF; --color-warning-container: #FEF3C7; --color-on-warning-container: #92400E;
+  --color-error: #B91C1C; --color-on-error: #FFFFFF; --color-error-container: #FEE2E2; --color-on-error-container: #7F1D1D;
+
+  --font-display: "Baloo Bhai 2", "Noto Sans Gujarati", system-ui, sans-serif;
+  --font-sans: "Inter", "Noto Sans Gujarati", "Noto Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-primary: #F0A8D4; --color-on-primary: #3B0A28; --color-primary-container: #5A1840; --color-on-primary-container: #FCE7F3; --color-primary-hover: #F7C9E5;
+  --color-secondary: #AEB0F0; --color-on-secondary: #14154A; --color-secondary-container: #2B2D6E; --color-on-secondary-container: #E6E7F7;
+  --color-accent: #FFB860; --color-on-accent: #1F1300; --color-accent-container: #4A2300; --color-on-accent-container: #FFD9A8;
+  --color-tertiary: #38BDF8; --color-on-tertiary: #082F49; --color-tertiary-container: #0C4A6E; --color-on-tertiary-container: #E0F2FE;
+  --color-heritage: #D9A577; --color-heritage-text: #E3B88E;
+  --color-background: #0F0B14; --color-surface: #16101F; --color-surface-variant: #241B2E; --color-on-surface: #F4EEF7; --color-on-surface-variant: #B8AEC4; --color-outline: #8A7F96; --color-outline-variant: #3A2F45;
+  --color-inverse-surface: #F4EEF7; --color-inverse-on-surface: #1C1530;
+  --color-success: #4ADE80; --color-on-success: #052E16; --color-success-container: #14532D; --color-on-success-container: #DCFCE7;
+  --color-warning: #FBBF24; --color-on-warning: #1F1300; --color-warning-container: #451A03; --color-on-warning-container: #FDE68A;
+  --color-error: #F87171; --color-on-error: #450A0A; --color-error-container: #7F1D1D; --color-on-error-container: #FEE2E2;
+}
+
+body {
+  @apply bg-background text-on-surface font-sans antialiased;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
