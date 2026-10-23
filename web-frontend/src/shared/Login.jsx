@@ -2,18 +2,23 @@ import { useState } from 'react'
 import { api, setToken, useSubmit } from './api'
 import { Button, ErrorText, Field, inputCls } from './ui'
 
-// POST /login -> token when the server has MFA off; else (first time) /mfa/enroll -> /mfa/verify -> token. The panel then checks the role.
-export default function Login({ onLogin, notice }) {
+const WRONG_PANEL = {
+  SUPER_ADMIN: 'This panel is for the Super Admin. City Admins sign in at /city-admin/.',
+  CITY_ADMIN: 'This panel is for City Admins. The Super Admin signs in at /super-admin/.',
+}
+
+// POST /login -> token when the server has MFA off; else (first time) /mfa/enroll -> /mfa/verify -> token. Then the role must match the panel.
+export default function Login({ role, label, onLogin, notice }) {
   const [ticket, setTicket] = useState(null)
   const [enroll, setEnroll] = useState(null) // { secret, otpauth_uri } on first login
 
   async function start(token) {
     setToken(token)
     const me = await api('/admin/auth/me')
-    if (me.role !== 'SUPER_ADMIN') {
+    if (me.role !== role) {
       await api('/admin/auth/logout', { method: 'POST' }).catch(() => {})
       setToken(null)
-      throw new Error('This panel is for the Super Admin. City Admins use the City Admin panel.')
+      throw new Error(WRONG_PANEL[role])
     }
     onLogin(me)
   }
@@ -38,7 +43,7 @@ export default function Login({ onLogin, notice }) {
         <div className="mb-8 text-center">
           <Lotus className="mx-auto mb-3 h-12 w-12" />
           <h1 className="font-display text-[32px] leading-10 font-bold text-secondary">Samaj</h1>
-          <p className="text-xs font-semibold tracking-[.5px] text-heritage-text uppercase">Super Admin</p>
+          <p className="text-xs font-semibold tracking-[.5px] text-heritage-text uppercase">{label}</p>
         </div>
 
         <div className="rounded-2xl border border-outline-variant bg-surface p-6 shadow-sm">

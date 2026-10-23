@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { api, fmtDate, qs, useLoad, useSubmit, useToast } from '../api'
-import { Button, ErrorText, Field, FormActions, Modal, PageHeader, StatusBadge, Table, Toolbar, inputCls } from '../ui'
+import { api, fmtDate, qs, useLoad, useSubmit, useToast } from '../../shared/api'
+import { Button, ErrorText, Field, FormActions, Modal, PageHeader, StatusBadge, Table, Toolbar, inputCls } from '../../shared/ui'
 
 export default function Cities() {
   const [active, setActive] = useState('')

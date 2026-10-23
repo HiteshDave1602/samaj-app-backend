@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { api, fmtDate, fmtDateTime, qs, useLoad, useSubmit, useToast } from '../api'
-import { Badge, Button, ErrorText, Field, FormActions, Modal, PageHeader, StatusBadge, Table, Toolbar, inputCls } from '../ui'
+import { api, fmtDate, fmtDateTime, qs, useLoad, useSubmit, useToast } from '../../shared/api'
+import { Badge, Button, ErrorText, Field, FormActions, Modal, PageHeader, StatusBadge, Table, Toolbar, inputCls } from '../../shared/ui'
 
 export default function CityAdmins() {
   const [filters, setFilters] = useState({ city_id: '', status: '' })

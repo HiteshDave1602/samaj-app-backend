@@ -1,16 +1,5 @@
-import { fmtDateTime, useLoad } from '../api'
-import { Badge, Card, PageHeader, Table } from '../ui'
-
-function Stat({ label, value, href, tone }) {
-  return (
-    <a href={href} className="group">
-      <Card className="h-full p-5 transition-colors group-hover:border-primary">
-        <div className="text-xs font-semibold tracking-[.5px] text-on-surface-variant uppercase">{label}</div>
-        <div className={`mt-2 font-display text-[40px] leading-[48px] font-bold ${tone ?? 'text-secondary'}`}>{value ?? '–'}</div>
-      </Card>
-    </a>
-  )
-}
+import { fmtDateTime, useLoad } from '../../shared/api'
+import { Badge, PageHeader, Stat, Table } from '../../shared/ui'
 
 const hoursSince = (iso) => Math.floor((Date.now() - new Date(iso)) / 36e5)
 

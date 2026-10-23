@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { api, fmtDateTime, qs, useLoad, useSubmit, useToast } from '../api'
-import { Badge, Button, ErrorText, Field, FormActions, Modal, PageHeader, Pager, StatusBadge, Table, Toolbar, inputCls } from '../ui'
+import { api, fmtDateTime, qs, useLoad, useSubmit, useToast } from './api'
+import { Badge, Button, ErrorText, Field, FormActions, Modal, PageHeader, Pager, StatusBadge, Table, Toolbar, inputCls } from './ui'
 
 const LIMIT = 20
 
@@ -12,19 +12,22 @@ const toLocalInput = (iso) => {
 }
 const toIso = (local) => new Date(local).toISOString()
 
-export default function Content() {
+// Both panels. A City Admin works on their own city only, so there is no audience to pick.
+export default function Content({ me }) {
+  const cityAdmin = me.role === 'CITY_ADMIN'
+  const base = cityAdmin ? '/cityadmin/content' : '/superadmin/content'
   const [filters, setFilters] = useState({ content_type: '', status: '', scope: '' })
   const [offset, setOffset] = useState(0)
   const [editing, setEditing] = useState(null) // {} for new
-  const cities = useLoad('/superadmin/cities')
+  const cities = useLoad(cityAdmin ? null : '/superadmin/cities')
   const scope = filters.scope === 'all' ? { all_cities: true } : { city_id: filters.scope }
-  const list = useLoad(`/superadmin/content${qs({ content_type: filters.content_type, status: filters.status, ...scope, limit: LIMIT, offset })}`)
+  const list = useLoad(`${base}${qs({ content_type: filters.content_type, status: filters.status, ...scope, limit: LIMIT, offset })}`)
   const cityName = Object.fromEntries(cities.data?.map((c) => [c.city_id, c.name]) ?? [])
   const set = (k) => (e) => { setFilters((f) => ({ ...f, [k]: e.target.value })); setOffset(0) }
 
   return (
     <>
-      <PageHeader title="News & Ads" subtitle="Publish to one city or to every city. Items go live at their start time and expire at their end time.">
+      <PageHeader title="News & Ads" subtitle={`${cityAdmin ? `Publish to members in ${me.city_name}.` : 'Publish to one city or to every city.'} Items go live at their start time and expire at their end time.`}>
         <Button onClick={() => setEditing({})}>Create</Button>
       </PageHeader>
       <Toolbar>
@@ -41,15 +44,17 @@ export default function Content() {
             {['LIVE', 'SCHEDULED', 'DRAFT', 'EXPIRED', 'CANCELLED'].map((s) => <option key={s} value={s}>{s[0] + s.slice(1).toLowerCase()}</option>)}
           </select>
         </Field>
-        <Field label="Audience">
-          <select value={filters.scope} onChange={set('scope')} className={inputCls}>
-            <option value="">Everything</option>
-            <option value="all">All-city items only</option>
-            {cities.data?.map((c) => <option key={c.city_id} value={c.city_id}>{c.name}</option>)}
-          </select>
-        </Field>
+        {!cityAdmin && (
+          <Field label="Audience">
+            <select value={filters.scope} onChange={set('scope')} className={inputCls}>
+              <option value="">Everything</option>
+              <option value="all">All-city items only</option>
+              {cities.data?.map((c) => <option key={c.city_id} value={c.city_id}>{c.name}</option>)}
+            </select>
+          </Field>
+        )}
       </Toolbar>
-      <Table head={['Item', 'Audience', 'Runs', 'Status', '']} error={list.error} loading={list.loading} empty="No news or ads match.">
+      <Table head={cityAdmin ? ['Item', 'Runs', 'Status', ''] : ['Item', 'Audience', 'Runs', 'Status', '']} error={list.error} loading={list.loading} empty="No news or ads match.">
         {list.data?.items.map((c) => (
           <tr key={c.content_id}>
             <td>
@@ -64,7 +69,7 @@ export default function Content() {
                 </div>
               </div>
             </td>
-            <td>{c.city_id ? cityName[c.city_id] ?? '…' : <Badge tone="primary">All cities</Badge>}</td>
+            {!cityAdmin && <td>{c.city_id ? cityName[c.city_id] ?? '…' : <Badge tone="primary">All cities</Badge>}</td>}
             <td className="text-xs whitespace-nowrap text-on-surface-variant">{fmtDateTime(c.start_at)}<br />to {fmtDateTime(c.end_at)}</td>
             <td><StatusBadge status={c.status} /></td>
             <td className="text-right">
@@ -75,14 +80,15 @@ export default function Content() {
       </Table>
       {list.data && <Pager total={list.data.total} limit={LIMIT} offset={offset} onChange={setOffset} />}
       {editing && (
-        <ContentForm item={editing} cities={cities.data?.filter((c) => c.is_active || c.city_id === editing.city_id) ?? []}
+        <ContentForm item={editing} base={base} cities={cityAdmin ? null : cities.data?.filter((c) => c.is_active || c.city_id === editing.city_id) ?? []}
           onClose={() => setEditing(null)} onSaved={() => { setEditing(null); list.reload() }} />
       )}
     </>
   )
 }
 
-function ContentForm({ item, cities, onClose, onSaved }) {
+/** cities: null for a City Admin (always their own city). */
+function ContentForm({ item, base, cities, onClose, onSaved }) {
   const isNew = !item.content_id
   const [type, setType] = useState(item.content_type ?? 'NEWS')
   const [media, setMedia] = useState(item.media_key ? { media_key: item.media_key, media_url: item.media_url, width: item.media_width, height: item.media_height } : null)
@@ -97,13 +103,13 @@ function ContentForm({ item, cities, onClose, onSaved }) {
     form.append('file', file)
     setUploading(true)
     setUploadError(null)
-    try { setMedia(await api('/superadmin/content/media', { method: 'POST', form })) } catch (x) { setUploadError(x.message) } finally { setUploading(false) }
+    try { setMedia(await api(`${base}/media`, { method: 'POST', form })) } catch (x) { setUploadError(x.message) } finally { setUploading(false) }
   }
 
   async function cancelItem() {
     if (!confirm(`Cancel "${item.title}"? Cancelled items can't be changed again.`)) return
     try {
-      await api(`/superadmin/content/${item.content_id}`, { method: 'PUT', body: { status: 'CANCELLED' } })
+      await api(`${base}/${item.content_id}`, { method: 'PUT', body: { status: 'CANCELLED' } })
       toast('Cancelled')
       onSaved()
     } catch (x) { setUploadError(x.message) }
@@ -120,9 +126,9 @@ function ContentForm({ item, cities, onClose, onSaved }) {
       ...(media && media.media_key !== item.media_key ? { media_key: media.media_key } : {}),
     }
     if (isNew) {
-      await api('/superadmin/content', { method: 'POST', body: { ...body, content_type: type, city_id: f.city_id || null, media_key: media?.media_key } })
+      await api(base, { method: 'POST', body: { ...body, content_type: type, city_id: f.city_id || null, media_key: media?.media_key } })
     } else {
-      await api(`/superadmin/content/${item.content_id}`, { method: 'PUT', body })
+      await api(`${base}/${item.content_id}`, { method: 'PUT', body })
     }
     toast(isNew ? (f.status === 'DRAFT' ? 'Saved as draft' : 'Scheduled') : 'Saved')
     onSaved()
@@ -146,7 +152,7 @@ function ContentForm({ item, cities, onClose, onSaved }) {
             <textarea name="body" required maxLength={10000} rows={6} defaultValue={item.body ?? ''} className={`${inputCls} h-auto py-2`} />
           </Field>
         )}
-        {isNew ? (
+        {isNew && cities ? (
           <Field label="Audience">
             <select name="city_id" defaultValue="" className={inputCls}>
               <option value="">All cities</option>
