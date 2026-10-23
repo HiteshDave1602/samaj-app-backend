@@ -1,7 +1,8 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 
 // sessionStorage: the admin token dies with the tab instead of lingering on a shared machine.
-const KEY = 'samaj_sa_token'
+// One key per panel (/super-admin/, /city-admin/) so signing in to one doesn't clobber the other.
+const KEY = `samaj_token_${location.pathname.split('/')[1]}`
 export const getToken = () => sessionStorage.getItem(KEY)
 export const setToken = (t) => (t ? sessionStorage.setItem(KEY, t) : sessionStorage.removeItem(KEY))
 
@@ -38,11 +39,38 @@ export function qs(params) {
   return s ? `?${s}` : ''
 }
 
-/** GET `path` whenever it changes; reload() refetches. */
+/** Fetch a file through api() and save it; the server's filename wins. Returns the Response for its headers. */
+export async function download(path, filename, opts) {
+  const res = await api(path, { ...opts, raw: true })
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(await res.blob())
+  a.download = res.headers.get('Content-Disposition')?.match(/filename="(.+)"/)?.[1] ?? filename
+  a.click()
+  URL.revokeObjectURL(a.href)
+  return res
+}
+
+/** Object URL for a file behind the bearer token (an <img src> can't send it). '' if it fails to load. */
+export function useFileUrl(path) {
+  const [url, setUrl] = useState(null)
+  useEffect(() => {
+    let live = true
+    let made
+    api(path, { raw: true }).then((r) => r.blob()).then(
+      (b) => { made = URL.createObjectURL(b); if (live) setUrl(made); else URL.revokeObjectURL(made) },
+      () => live && setUrl(''),
+    )
+    return () => { live = false; if (made) URL.revokeObjectURL(made) }
+  }, [path])
+  return url
+}
+
+/** GET `path` whenever it changes (null: don't fetch); reload() refetches. */
 export function useLoad(path) {
   const [state, setState] = useState({ data: null, error: null, path: null })
   const [tick, setTick] = useState(0)
   useEffect(() => {
+    if (!path) return
     let live = true
     api(path).then(
       (data) => live && setState({ data, error: null, path }),
@@ -53,16 +81,16 @@ export function useLoad(path) {
   return { data: state.data, error: state.error, loading: state.path !== path, reload: () => setTick((t) => t + 1) }
 }
 
-/** Form submit with busy + error state. fn gets the form's fields as an object. */
+/** Form submit with busy + error state. fn gets the form's fields as an object, plus the FormData for getAll(). */
 export function useSubmit(fn) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
   async function onSubmit(e) {
     e.preventDefault()
-    const fields = Object.fromEntries(new FormData(e.currentTarget))
+    const fd = new FormData(e.currentTarget)
     setBusy(true)
     setError(null)
-    try { await fn(fields) } catch (x) { setError(x.message) } finally { setBusy(false) }
+    try { await fn(Object.fromEntries(fd), fd) } catch (x) { setError(x.message) } finally { setBusy(false) }
   }
   return { onSubmit, busy, error }
 }

@@ -1,6 +1,6 @@
 import { Fragment, useState } from 'react'
-import { api, fmtDateTime, qs, useLoad } from '../api'
-import { Button, ErrorText, Field, PageHeader, Pager, Table, Toolbar, inputCls } from '../ui'
+import { download, fmtDateTime, qs, useLoad } from '../../shared/api'
+import { Button, ErrorText, Field, PageHeader, Pager, Table, Toolbar, inputCls } from '../../shared/ui'
 
 const LIMIT = 50
 const EMPTY = { date_from: '', date_to: '', action: '', city_id: '' }
@@ -17,14 +17,7 @@ export default function AuditLog() {
 
   async function exportCsv() {
     setExportError(null)
-    try {
-      const res = await api(`/superadmin/audit-logs/export.csv${qs(query)}`, { raw: true })
-      const a = document.createElement('a')
-      a.href = URL.createObjectURL(await res.blob())
-      a.download = 'audit-log.csv'
-      a.click()
-      URL.revokeObjectURL(a.href)
-    } catch (e) { setExportError(e.message) }
+    try { await download(`/superadmin/audit-logs/export.csv${qs(query)}`, 'audit-log.csv') } catch (e) { setExportError(e.message) }
   }
 
   return (

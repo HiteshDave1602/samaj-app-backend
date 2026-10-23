@@ -52,8 +52,25 @@ export const Badge = ({ tone = 'neutral', children }) => (
 const STATUS_TONE = {
   ACTIVE: 'success', LIVE: 'success', SCHEDULED: 'info', DRAFT: 'neutral',
   SUSPENDED: 'warning', EXPIRED: 'neutral', CANCELLED: 'error', DEACTIVATED: 'error', INACTIVE: 'neutral',
+  PENDING: 'warning', PENDING_MODERATION: 'warning', APPROVED: 'success', REJECTED: 'error', ARCHIVED: 'neutral',
+  DRY_RUN_READY: 'accent', COMMITTED: 'success', APPLIED: 'success', SKIPPED: 'neutral',
+  NEW: 'success', UPDATE: 'info', CONFLICT: 'accent', ERROR: 'error', API: 'neutral', MANUAL: 'secondary',
 }
-export const StatusBadge = ({ status }) => <Badge tone={STATUS_TONE[status]}>{status[0] + status.slice(1).toLowerCase()}</Badge>
+export const StatusBadge = ({ status }) => (
+  <Badge tone={STATUS_TONE[status]}>{(status[0] + status.slice(1).toLowerCase()).replaceAll('_', ' ')}</Badge>
+)
+
+export function Stat({ label, value, href, tone, note }) {
+  return (
+    <a href={href} className="group">
+      <Card className="h-full p-5 transition-colors group-hover:border-primary">
+        <div className="text-xs font-semibold tracking-[.5px] text-on-surface-variant uppercase">{label}</div>
+        <div className={`mt-2 font-display text-[40px] leading-[48px] font-bold ${tone ?? 'text-secondary'}`}>{value ?? '–'}</div>
+        {note && <div className="mt-1 text-xs text-on-surface-variant">{note}</div>}
+      </Card>
+    </a>
+  )
+}
 
 export function PageHeader({ title, subtitle, children }) {
   return (
@@ -67,7 +84,15 @@ export function PageHeader({ title, subtitle, children }) {
   )
 }
 
-export const Card = ({ className = '', ...p }) => (
+/** One label/value pair inside a <dl className="grid sm:grid-cols-2">. */
+export const Detail = ({ label, wide, children }) => (
+  <div className={wide ? 'sm:col-span-2' : ''}>
+    <dt className="text-xs font-semibold text-on-surface-variant">{label}</dt>
+    <dd className="mt-0.5 whitespace-pre-line">{children}</dd>
+  </div>
+)
+
+export const Card =({ className = '', ...p }) => (
   <div className={`rounded-xl border border-outline-variant bg-surface ${className}`} {...p} />
 )
 

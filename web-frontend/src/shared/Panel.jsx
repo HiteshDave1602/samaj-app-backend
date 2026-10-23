@@ -2,21 +2,8 @@ import { useEffect, useState } from 'react'
 import { api, getToken, setOnExpired, setToken } from './api'
 import Login, { Lotus } from './Login'
 import { ToastProvider } from './ui'
-import Overview from './pages/Overview'
-import Cities from './pages/Cities'
-import CityAdmins from './pages/CityAdmins'
-import Content from './pages/Content'
-import AuditLog from './pages/AuditLog'
 
-const PAGES = [
-  { id: 'overview', label: 'Overview', icon: 'M3 12l9-8 9 8M5 10v10h14V10', el: Overview },
-  { id: 'cities', label: 'Cities', icon: 'M4 21V8l6-4v17M10 21V4l10 5v12M2 21h20M14 12h2M14 16h2', el: Cities },
-  { id: 'admins', label: 'City Admins', icon: 'M16 19a4 4 0 0 0-8 0M12 12a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM19 8v6M22 11h-6', el: CityAdmins },
-  { id: 'content', label: 'News & Ads', icon: 'M4 5h13v14H6a2 2 0 0 1-2-2V5ZM17 9h3v8a2 2 0 0 1-2 2M8 9h5M8 13h5', el: Content },
-  { id: 'audit', label: 'Audit Log', icon: 'M9 5h10M9 12h10M9 19h10M5 5h.01M5 12h.01M5 19h.01', el: AuditLog },
-]
-
-const pageFromHash = () => PAGES.find((p) => p.id === location.hash.slice(1)) ?? PAGES[0]
+const pageFromHash = (pages) => pages.find((p) => p.id === location.hash.slice(1)) ?? pages[0]
 
 function useTheme() {
   const [theme, setTheme] = useState(() => {
@@ -31,20 +18,24 @@ function useTheme() {
   return [theme, () => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))]
 }
 
-export default function SuperAdmin() {
+/** Sign-in gate + sidebar shell shared by both panels. `role` is the only role allowed in. */
+export default function Panel({ role, label, pages }) {
   const [me, setMe] = useState(null)
   const [checking, setChecking] = useState(() => Boolean(getToken()))
   const [notice, setNotice] = useState(null)
-  const [page, setPage] = useState(pageFromHash)
+  const [page, setPage] = useState(() => pageFromHash(pages))
   const [theme, toggleTheme] = useTheme()
 
   useEffect(() => {
     setOnExpired((msg) => { setMe(null); setNotice(msg) })
-    if (getToken()) api('/admin/auth/me').then((m) => m.role === 'SUPER_ADMIN' && setMe(m)).catch(() => {}).finally(() => setChecking(false))
-    const onHash = () => setPage(pageFromHash())
+    if (getToken()) api('/admin/auth/me').then((m) => m.role === role && setMe(m)).catch(() => {}).finally(() => setChecking(false))
+  }, [role])
+
+  useEffect(() => {
+    const onHash = () => setPage(pageFromHash(pages))
     addEventListener('hashchange', onHash)
     return () => removeEventListener('hashchange', onHash)
-  }, [])
+  }, [pages])
 
   async function logout() {
     await api('/admin/auth/logout', { method: 'POST' }).catch(() => {})
@@ -54,7 +45,7 @@ export default function SuperAdmin() {
   }
 
   if (checking) return null
-  if (!me) return <Login notice={notice} onLogin={(m) => { setNotice(null); setMe(m) }} />
+  if (!me) return <Login role={role} label={label} notice={notice} onLogin={(m) => { setNotice(null); setMe(m) }} />
 
   const Page = page.el
   return (
@@ -63,14 +54,14 @@ export default function SuperAdmin() {
         <aside className="sticky top-0 z-10 flex flex-col border-b border-outline-variant bg-surface md:h-svh md:border-r md:border-b-0">
           <div className="flex items-center gap-3 px-5 py-4 md:py-6">
             <Lotus className="h-9 w-9 shrink-0" />
-            <div>
+            <div className="min-w-0">
               <div className="font-display text-xl leading-6 font-bold text-secondary">Samaj</div>
-              <div className="text-[11px] font-semibold tracking-[.5px] text-heritage-text uppercase">Super Admin</div>
+              <div className="truncate text-[11px] font-semibold tracking-[.5px] text-heritage-text uppercase">{label}{me.city_name && ` · ${me.city_name}`}</div>
             </div>
             <button type="button" onClick={logout} className="ml-auto text-sm font-semibold text-primary md:hidden">Sign out</button>
           </div>
-          <nav className="flex gap-1 overflow-x-auto px-3 pb-3 md:flex-1 md:flex-col md:overflow-visible md:pb-0">
-            {PAGES.map((p) => {
+          <nav className="flex gap-1 overflow-x-auto px-3 pb-3 md:flex-1 md:flex-col md:overflow-y-auto md:pb-0">
+            {pages.map((p) => {
               const active = p.id === page.id
               return (
                 <a key={p.id} href={`#${p.id}`} aria-current={active ? 'page' : undefined}
@@ -93,7 +84,7 @@ export default function SuperAdmin() {
           </div>
         </aside>
         <main className="mx-auto w-full max-w-[1180px] px-4 py-6 md:px-8 md:py-8">
-          <Page />
+          <Page me={me} />
         </main>
       </div>
     </ToastProvider>
