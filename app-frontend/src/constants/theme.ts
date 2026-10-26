@@ -7,14 +7,19 @@ import '@/global.css';
 
 import { Platform } from 'react-native';
 
+import Palette from './palette';
+
+export { Palette };
+
 export const Colors = {
   light: {
-    text: '#000000',
-    background: '#ffffff',
-    backgroundElement: '#F0F0F3',
-    backgroundSelected: '#E0E1E6',
-    textSecondary: '#60646C',
+    text: Palette.ink,
+    background: Palette.cream,
+    backgroundElement: Palette.surface,
+    backgroundSelected: Palette.line,
+    textSecondary: Palette.subtle,
   },
+  // ponytail: design tokens are light-only; app.json pins userInterfaceStyle to light until a dark palette exists
   dark: {
     text: '#ffffff',
     background: '#000000',

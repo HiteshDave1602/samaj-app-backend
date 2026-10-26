@@ -5,8 +5,24 @@ import { Dimensions, StyleSheet, View } from 'react-native';
 import Animated, { Easing, Keyframe } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 
+import { Palette } from '@/constants/theme';
+
 const INITIAL_SCALE_FACTOR = Dimensions.get('screen').height / 90;
 const DURATION = 600;
+const SPLASH_DURATION = 3000;
+
+// hold the logo, zoom it in, and fade the overlay as it grows
+const splashLogoKeyframe = new Keyframe({
+  0: { transform: [{ scale: 1 }] },
+  40: { transform: [{ scale: 1 }] },
+  100: { transform: [{ scale: 3 }], easing: Easing.in(Easing.ease) },
+});
+
+const splashFadeKeyframe = new Keyframe({
+  0: { opacity: 1 },
+  75: { opacity: 1 },
+  100: { opacity: 0, easing: Easing.out(Easing.ease) },
+});
 
 export function AnimatedSplashOverlay() {
   const [animate, setAnimate] = useState(false);
@@ -14,37 +30,18 @@ export function AnimatedSplashOverlay() {
 
   if (!visible) return null;
 
-  const splashKeyframe = new Keyframe({
-    0: {
-      transform: [{ scale: 1 }],
-      opacity: 1,
-    },
-    20: {
-      opacity: 1,
-    },
-    70: {
-      opacity: 0,
-      easing: Easing.elastic(0.7),
-    },
-    100: {
-      opacity: 0,
-      transform: [{ scale: 1 }],
-      easing: Easing.elastic(0.7),
-    },
-  });
-
-  const image = <Image style={styles.image} source={require('@/assets/images/expo-logo.png')} />;
+  const image = <Image style={styles.splashLogo} source={require('@/assets/images/logo.png')} />;
 
   return animate ? (
     <Animated.View
-      entering={splashKeyframe.duration(DURATION).withCallback((finished) => {
+      entering={splashFadeKeyframe.duration(SPLASH_DURATION).withCallback((finished) => {
         'worklet';
         if (finished) {
           scheduleOnRN(setVisible, false);
         }
       })}
       style={styles.splashOverlay}>
-      {image}
+      <Animated.View entering={splashLogoKeyframe.duration(SPLASH_DURATION)}>{image}</Animated.View>
     </Animated.View>
   ) : (
     <View
@@ -138,9 +135,13 @@ const styles = StyleSheet.create({
     height: 128,
     position: 'absolute',
   },
+  splashLogo: {
+    width: 200,
+    height: 200,
+  },
   splashOverlay: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: '#208AEF',
+    backgroundColor: Palette.cream,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 1000,
