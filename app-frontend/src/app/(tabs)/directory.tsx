@@ -113,21 +113,21 @@ export default function DirectoryScreen() {
             <View className="rounded-3xl border border-line bg-white p-4 shadow-sm">
               <View className="flex-row gap-3">
                 <View>
-                  <Avatar name={m.name} size={64} tone={Palette.secondary} />
+                  <Avatar name={m.name} size={64} tone={Palette.primary} />
                   {/* everyone listed here is ACTIVE, i.e. admin-verified */}
                   <View className="absolute -bottom-0.5 -right-0.5 rounded-full bg-white p-0.5">
                     <SymbolView
                       name={{ ios: 'checkmark.seal.fill', android: 'verified', web: 'verified' }}
                       size={20}
-                      tintColor={Palette.secondary.DEFAULT}
+                      tintColor={Palette.primary.DEFAULT}
                     />
                   </View>
                 </View>
                 <View className="flex-1">
                   <View className="flex-row flex-wrap items-center gap-2">
                     <Text className="font-inter-semibold text-lg text-ink">{m.name}</Text>
-                    <View className="rounded-full bg-secondary-container px-2.5 py-0.5">
-                      <Text className="font-inter-medium text-xs text-secondary">{m.city}</Text>
+                    <View className="rounded-full bg-primary-container px-2.5 py-0.5">
+                      <Text className="font-inter-medium text-xs text-primary">{m.city}</Text>
                     </View>
                   </View>
                   <Text numberOfLines={1} className="mt-0.5 font-inter text-sm text-subtle">
@@ -158,7 +158,7 @@ export default function DirectoryScreen() {
                   <SymbolView
                     name={{ ios: saved ? 'bookmark.fill' : 'bookmark', android: 'bookmark', web: 'bookmark' }}
                     size={24}
-                    tintColor={saved ? Palette.secondary.DEFAULT : Palette.ink}
+                    tintColor={saved ? Palette.primary.DEFAULT : Palette.ink}
                   />
                 </Pressable>
               </View>
@@ -174,7 +174,7 @@ export default function DirectoryScreen() {
                       accessibilityRole="button"
                       accessibilityLabel={`Call ${m.name}`}
                       className="h-10 flex-row items-center gap-1.5 rounded-full bg-surface px-4 active:opacity-80">
-                      <SymbolView name={{ ios: 'phone', android: 'call', web: 'call' }} size={18} tintColor={Palette.secondary.DEFAULT} />
+                      <SymbolView name={{ ios: 'phone', android: 'call', web: 'call' }} size={18} tintColor={Palette.primary.DEFAULT} />
                       <Text className="font-inter-medium text-sm text-ink">Call</Text>
                     </Pressable>
                     <Pressable
@@ -182,7 +182,7 @@ export default function DirectoryScreen() {
                       accessibilityRole="button"
                       accessibilityLabel={`WhatsApp ${m.name}`}
                       className="h-10 flex-row items-center gap-1.5 rounded-full bg-surface px-4 active:opacity-80">
-                      <SymbolView name={{ ios: 'message', android: 'chat', web: 'chat' }} size={18} tintColor={Palette.secondary.DEFAULT} />
+                      <SymbolView name={{ ios: 'message', android: 'chat', web: 'chat' }} size={18} tintColor={Palette.primary.DEFAULT} />
                       <Text className="font-inter-medium text-sm text-ink">WhatsApp</Text>
                     </Pressable>
                   </>
@@ -191,12 +191,12 @@ export default function DirectoryScreen() {
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel={`View ${m.name}'s family`}
-                  className="ml-auto h-10 flex-row items-center gap-1 rounded-full bg-secondary-container pl-4 pr-3 active:opacity-80">
-                  <Text className="font-inter-semibold text-sm text-secondary">View Family</Text>
+                  className="ml-auto h-10 flex-row items-center gap-1 rounded-full bg-primary-container pl-4 pr-3 active:opacity-80">
+                  <Text className="font-inter-semibold text-sm text-primary">View Family</Text>
                   <SymbolView
                     name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }}
                     size={16}
-                    tintColor={Palette.secondary.DEFAULT}
+                    tintColor={Palette.primary.DEFAULT}
                   />
                 </Pressable>
               </View>

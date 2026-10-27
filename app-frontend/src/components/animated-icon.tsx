@@ -1,7 +1,7 @@
 import { Image } from 'expo-image';
 import * as SplashScreen from 'expo-splash-screen';
 import { useState } from 'react';
-import { Dimensions, StyleSheet, View } from 'react-native';
+import { Dimensions, StyleSheet, Text, View } from 'react-native';
 import Animated, { Easing, Keyframe } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 
@@ -31,6 +31,12 @@ export function AnimatedSplashOverlay() {
   if (!visible) return null;
 
   const image = <Image style={styles.splashLogo} source={require('@/assets/images/logo.png')} />;
+  const credits = (
+    <View style={styles.credits}>
+      <Text style={styles.creditsText}>Sponsored by Bhavin Shastri</Text>
+      <Text style={styles.creditsText}>Developed by Vrattiks</Text>
+    </View>
+  );
 
   return animate ? (
     <Animated.View
@@ -42,6 +48,7 @@ export function AnimatedSplashOverlay() {
       })}
       style={styles.splashOverlay}>
       <Animated.View entering={splashLogoKeyframe.duration(SPLASH_DURATION)}>{image}</Animated.View>
+      {credits}
     </Animated.View>
   ) : (
     <View
@@ -52,6 +59,7 @@ export function AnimatedSplashOverlay() {
       }}
       style={styles.splashOverlay}>
       {image}
+      {credits}
     </View>
   );
 }
@@ -145,5 +153,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 1000,
+  },
+  credits: {
+    position: 'absolute',
+    bottom: 48,
+    alignItems: 'center',
+    gap: 4,
+  },
+  creditsText: {
+    fontFamily: 'Inter_500Medium',
+    fontSize: 13,
+    color: Palette.muted,
   },
 });
