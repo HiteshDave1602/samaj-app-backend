@@ -18,13 +18,13 @@ router = APIRouter(prefix="/cityadmin/family-additions", tags=["City Admin: Fami
 
 @router.get("", response_model=FamilyAdditionPage)
 def list_requests(
-    status: Literal["PENDING", "APPROVED", "REJECTED"] | None = "PENDING",
+    status: Literal["PENDING", "APPROVED", "REJECTED", "DECIDED"] | None = "PENDING",
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     admin: AdminUser = Depends(require_city_admin),
     db: Session = Depends(get_db),
 ):
-    """Own city's requests, oldest first. Defaults to the PENDING queue; pass status= for others."""
+    """Own city's requests, oldest first. Defaults to the PENDING queue; DECIDED is the decision log, newest first."""
     return curd.list_requests(db, admin, limit, offset, status)
 
 

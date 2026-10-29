@@ -5,6 +5,7 @@ import { FlatList, Pressable, Text, useWindowDimensions, View } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Palette } from '@/constants/theme';
+import { useT } from '@/lib/i18n';
 
 type Slide = {
   icon: SymbolViewProps['name'];
@@ -40,10 +41,10 @@ const SLIDES: Slide[] = [
   },
 ];
 
-// ponytail: goes to /home until the login screen exists, then point this at /login
-const finish = () => router.replace('/home');
+const finish = () => router.replace('/login');
 
 export default function Onboarding() {
+  const t = useT();
   const { width } = useWindowDimensions();
   const list = useRef<FlatList<Slide>>(null);
   const [index, setIndex] = useState(0);
@@ -76,9 +77,9 @@ export default function Onboarding() {
                 <SymbolView name={item.icon} size={64} tintColor="#FFFFFF" />
               </View>
             </View>
-            <Text className="mt-12 text-center font-headline text-3xl text-brand">{item.title}</Text>
+            <Text className="mt-12 text-center font-headline text-3xl text-brand">{t(item.title)}</Text>
             <Text className="mt-3 text-center font-inter text-base leading-6 text-subtle">
-              {item.body}
+              {t(item.body)}
             </Text>
           </View>
         )}
@@ -99,7 +100,7 @@ export default function Onboarding() {
           accessibilityRole="button"
           className="items-center rounded-full bg-primary py-4 active:opacity-80">
           <Text className="font-inter-semibold text-base text-white">
-            {isLast ? 'Get started' : 'Next'}
+            {t(isLast ? 'Get started' : 'Next')}
           </Text>
         </Pressable>
         <Pressable
@@ -107,7 +108,7 @@ export default function Onboarding() {
           accessibilityRole="button"
           className={`items-center py-3 ${isLast ? 'opacity-0' : ''}`}
           disabled={isLast}>
-          <Text className="font-inter-medium text-base text-primary">Skip</Text>
+          <Text className="font-inter-medium text-base text-primary">{t('Skip')}</Text>
         </Pressable>
       </View>
     </SafeAreaView>

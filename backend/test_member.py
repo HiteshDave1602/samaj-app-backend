@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import delete, select, update
 
 from core import media, private_files, sms
+from core.config import settings
 from core.database import SessionLocal
 from core.security import fernet
 from main import app
@@ -19,6 +20,7 @@ c = TestClient(app)
 tag = secrets.token_hex(4)
 outbox: dict[str, str] = {}
 sms.send_sms = lambda mobile, text: outbox.__setitem__(mobile, text.split()[0])  # capture codes, send nothing
+settings.otp_bypass = False  # the wrong-code checks below need real verification
 
 
 def new_mobile() -> str:
@@ -90,6 +92,10 @@ try:
     }
     reg = lambda **over: c.post("/member/auth/register", json=profile | over)  # noqa: E731
 
+    # city picker: public, active cities only
+    ids = {x["city_id"] for x in c.get("/member/auth/cities").json()}
+    assert city_id in ids and closed_id not in ids, ids
+
     # FR-06/FR-07: mandatory fields, consent, current notice, valid city
     assert reg(full_name="  ").status_code == 422
     assert reg(consent=False).status_code == 422
@@ -107,6 +113,20 @@ try:
     assert me["full_name"] == "Asha Patel" and me["status"] == "PENDING" and me["mobile_last4"] == mobile[-4:], me
     assert me["address"] == "12 MG Road, Pune" and me["family_name"] == "Patel" and me["is_household_head"], me
     assert me["city_name"] == f"MemberCity-{tag}", me
+    assert me["mobile"] == e164 and me["photo_url"] is None, me
+    # names are auto-transliterated on write; a correction sticks until the English name changes
+    assert me["full_name_i18n"] == {"gu": "અશા પતેલ", "hi": "अशा पतेल"}, me["full_name_i18n"]
+    assert me["family_name_i18n"]["gu"] == "પતેલ" and me["city_name_i18n"]["hi"], me
+    me = c.put("/member/me", headers=me_h, json={"full_name_i18n": {"gu": "આશા પટેલ"}}).json()
+    assert me["full_name_i18n"] == {"gu": "આશા પટેલ", "hi": "अशा पतेल"}, me["full_name_i18n"]
+    assert c.put("/member/me", headers=me_h, json={"full_name_i18n": {"fr": "x"}}).status_code == 422
+
+    # profile photo: JPG/PNG <= 2 MB; a new one replaces the old file
+    photo = lambda data: c.put("/member/me/photo", headers=me_h, files={"file": ("p", data)})  # noqa: E731
+    assert photo(b"GIF89a" + bytes(20)).status_code == 400
+    first = photo(media.png(300, 300)).json()["photo_url"]
+    second = photo(media.png(400, 400)).json()["photo_url"]
+    assert first != second and c.get(second).status_code == 200 and c.get(first).status_code == 404, (first, second)
 
     # FR-05: same number can't register twice (ticket replay); send now says "registered"
     assert reg().status_code == 409
@@ -132,6 +152,10 @@ try:
     # ASM-10: preferences, gender or the same name keep ACTIVE; a new name goes back to review
     assert patch(hide_address=True, notify_news=False, gender="FEMALE", full_name="Asha Patel").json()["status"] \
         == "ACTIVE"
+    # app language is a preference: saved, validated, never sends the profile to review
+    assert me["language"] == "en" and patch(language="fr").status_code == 422 and patch(language=None).status_code == 422
+    r = patch(language="gu").json()
+    assert r["language"] == "gu" and r["status"] == "ACTIVE", r
     assert patch(full_name="Asha P. Shah").json()["status"] == "PENDING"
     # a rejected member resubmits by editing; a preference toggle alone doesn't resubmit
     set_member(status="REJECTED", rejection_reason="Blurry ID")

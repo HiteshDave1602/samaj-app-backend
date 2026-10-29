@@ -86,6 +86,7 @@ class ProfileCard(BaseModel):
     family_background: str
     location_city_id: UUID
     location_city_name: str
+    location_city_name_i18n: dict[str, str]
     managed_by: str
     cover_photo_url: str | None  # first approved photo
 

@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from uuid import UUID, uuid4
 
 from fastapi import HTTPException
@@ -6,19 +6,22 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from cityadmin.content.model import ContentItem, effective_status
-from cityadmin.content.schema import ContentCreate, ContentUpdate
+from cityadmin.content.schema import ContentCreate, ContentUpdate, NewsSubmit
 from core import media
 from superadmin.audit_log import curd as audit
 from superadmin.city.model import City
+from member.profile.model import Member
 from superadmin.city_admin.model import AdminUser
 
 FIELDS = ["title", "body", "media_key", "creative_format", "start_at", "end_at", "status"]
 FULLSCREEN = (1080, 1920)  # FR-45. ponytail: fixed; Layout Settings (FR-51) makes it editable.
+MEMBER_NEWS_DAYS = 30  # approved member news stays live this long. ponytail: fixed; the admin can edit end_at after.
 
 
 def to_out(item: ContentItem, status: str) -> dict:
     return {c.name: getattr(item, c.name) for c in ContentItem.__table__.columns} | {
         "status": status, "media_url": media.url(item.media_key),
+        "extra_media_urls": [media.url(k) for k in item.extra_media_keys or []],
     }
 
 
@@ -129,6 +132,9 @@ def create(db: Session, admin: AdminUser, actor: audit.Actor, data: ContentCreat
 
 def update(db: Session, admin: AdminUser, actor: audit.Actor, content_id: UUID, data: ContentUpdate) -> dict:
     item, status = _get_own(db, admin, content_id, lock=True)
+    if status in ("PENDING", "REJECTED"):
+        raise HTTPException(409, "Approve or reject member news first" if status == "PENDING"
+                            else "Rejected news can't be changed")
     if status in ("EXPIRED", "CANCELLED"):
         raise HTTPException(409, f"{status.capitalize()} content can't be changed")
     before = audit.snapshot(item, FIELDS)
@@ -144,3 +150,37 @@ def update(db: Session, admin: AdminUser, actor: audit.Actor, content_id: UUID, 
         audit.log(db, actor, action, "content_item", item.content_id, item.city_id, old, new)
     db.commit()
     return get(db, admin, content_id)
+
+
+def decide(db: Session, admin: AdminUser, actor: audit.Actor, content_id: UUID, status: str,
+           reason: str | None = None) -> dict:
+    """Member news: approving makes it live now for MEMBER_NEWS_DAYS; rejecting keeps it out of the feed."""
+    item, current = _get_own(db, admin, content_id, lock=True)  # lock: a double-click can't decide twice
+    if current != "PENDING":
+        raise HTTPException(409, f"This news is already {current}")
+    item.status = status
+    if status == "SCHEDULED":
+        item.start_at = datetime.now(timezone.utc)
+        item.end_at = item.start_at + timedelta(days=MEMBER_NEWS_DAYS)
+    after = {"status": status} | ({"rejection_reason": reason} if reason else {})
+    audit.log(db, actor, "CONTENT_APPROVE" if status == "SCHEDULED" else "CONTENT_REJECT", "content_item",
+              item.content_id, item.city_id, {"status": "PENDING"}, after)
+    db.commit()
+    # ponytail: the member isn't told the decision or reason yet; it comes with the notification outbox.
+    return get(db, admin, content_id)
+
+
+def submit(db: Session, member: Member, data: NewsSubmit) -> dict:
+    """A member's news for their own city, PENDING until a City Admin decides."""
+    now = datetime.now(timezone.utc)
+    item = ContentItem(content_type="NEWS", city_id=member.city_id, title=data.title, body=data.body,
+                       start_at=now, end_at=now + timedelta(days=MEMBER_NEWS_DAYS), status="PENDING",
+                       created_by_member_id=member.member_id)
+    _set_media(item, data.media_key)
+    for key in data.extra_media_keys:
+        if media.dimensions(key) is None:
+            raise HTTPException(400, "Unknown media_key; upload the image first")
+    item.extra_media_keys = data.extra_media_keys
+    db.add(item)
+    db.commit()
+    return {"content_id": item.content_id, "status": item.status}

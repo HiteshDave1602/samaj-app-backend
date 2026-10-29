@@ -6,6 +6,7 @@ import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Palette } from '@/constants/theme';
+import { useT } from '@/lib/i18n';
 
 // a tinted PNG, or a system symbol for tabs without a custom icon yet
 type TabIcon = { image: ImageSource } | { symbol: SymbolViewProps['name'] };
@@ -22,6 +23,7 @@ const TABS: { name: string; href: Href; label: string; icon: TabIcon }[] = [
 
 // One JS tab bar for every platform: native tabs can't draw the raised active bubble.
 export default function AppTabs() {
+  const t = useT();
   const { bottom } = useSafeAreaInsets();
 
   return (
@@ -31,9 +33,9 @@ export default function AppTabs() {
         <View
           style={{ marginBottom: bottom + 12, elevation: 8 }}
           className="mx-3 h-[68px] flex-row rounded-[28px] border border-line bg-white px-1 shadow-lg shadow-ink/10">
-          {TABS.map((t) => (
-            <TabTrigger key={t.name} name={t.name} href={t.href} asChild>
-              <TabButton label={t.label} icon={t.icon} />
+          {TABS.map((tab) => (
+            <TabTrigger key={tab.name} name={tab.name} href={tab.href} asChild>
+              <TabButton label={t(tab.label)} icon={tab.icon} />
             </TabTrigger>
           ))}
         </View>

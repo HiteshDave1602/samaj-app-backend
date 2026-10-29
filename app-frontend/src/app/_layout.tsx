@@ -7,17 +7,14 @@ import {
   Inter_600SemiBold,
   useFonts,
 } from '@expo-google-fonts/inter';
-import { ClerkProvider } from '@clerk/expo';
-import { tokenCache } from '@clerk/expo/token-cache';
 import { DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
+import { useEffect, useState } from 'react';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
+import { loadLang } from '@/lib/i18n';
 
 SplashScreen.preventAutoHideAsync();
-
-const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? '';
-if (!publishableKey) throw new Error('Set EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY in .env');
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -26,15 +23,17 @@ export default function RootLayout() {
     Inter_500Medium,
     Inter_600SemiBold,
   });
-  // native splash stays up until fonts are ready; the overlay hides it on mount
-  if (!fontsLoaded) return null;
+  const [langLoaded, setLangLoaded] = useState(false);
+  useEffect(() => {
+    loadLang().finally(() => setLangLoaded(true));
+  }, []);
+  // native splash stays up until fonts and the saved language are ready; the overlay hides it on mount
+  if (!fontsLoaded || !langLoaded) return null;
 
   return (
-    <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
-      <ThemeProvider value={DefaultTheme}>
-        <Stack screenOptions={{ headerShown: false }} />
-        <AnimatedSplashOverlay />
-      </ThemeProvider>
-    </ClerkProvider>
+    <ThemeProvider value={DefaultTheme}>
+      <Stack screenOptions={{ headerShown: false }} />
+      <AnimatedSplashOverlay />
+    </ThemeProvider>
   );
 }

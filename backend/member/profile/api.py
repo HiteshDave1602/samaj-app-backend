@@ -22,6 +22,12 @@ def update_me(data: MemberUpdate, member: Member = Depends(get_current_member), 
     return curd.update_me(db, member, data)
 
 
+@router.put("/me/photo", response_model=MemberOut)
+def upload_photo(file: UploadFile, member: Member = Depends(get_current_member), db: Session = Depends(get_db)):
+    """JPG or PNG up to 2 MB; replaces the current photo."""
+    return curd.upload_photo(db, member, file.file.read(curd.ID_MAX_BYTES + 1))
+
+
 @router.put("/me/id-document", response_model=MemberOut)
 def upload_id_document(file: UploadFile, member: Member = Depends(get_current_member),
                        db: Session = Depends(get_db)):

@@ -13,6 +13,8 @@ class Settings(BaseSettings):
     mobile_pepper: str
     # False: admin login is password-only (no TOTP step). ponytail: off until the SMS OTP system lands.
     admin_mfa: bool = True
+    # True: member OTP verify accepts any 6-digit code. ponytail: dev-only until the SMS gateway lands; never in prod.
+    otp_bypass: bool = False
     media_dir: str = "media"  # uploaded news/ad images
     private_dir: str = "private"  # ID documents, matrimony photos, import files; encrypted, never served directly
 

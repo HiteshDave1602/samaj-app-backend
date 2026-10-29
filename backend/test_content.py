@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
-from sqlalchemy import delete, update
+from sqlalchemy import delete, or_, update
 
 from auth.curd import hash_token
 from auth.model import AuthSession
@@ -214,10 +214,42 @@ try:
     actions = sorted(e["action"] for e in c.get("/superadmin/audit-logs", headers=sa_h,
                                                 params={"actor_id": ca_x_id, "limit": 200}).json()["items"])
     assert actions == ["CONTENT_CANCEL"] + ["CONTENT_CREATE"] * 10 + ["CONTENT_UPDATE"], actions
+
+    # member news: submitted PENDING, out of the feed until City Admin X approves
+    def m_upload(h=mx_h):
+        r = c.post("/member/news/media", headers=h, files={"file": ("img.png", media.png(800, 400), "image/png")})
+        if r.status_code == 201:
+            keys.append(r.json()["media_key"])
+        return r
+    assert m_upload(my_h).status_code == 403  # PENDING members can't post
+    banner, extra = m_upload().json()["media_key"], m_upload().json()["media_key"]
+    post = lambda **kw: c.post("/member/news", headers=mx_h,
+                               json={"title": "Member news", "body": "B", "media_key": banner} | kw)
+    assert post(extra_media_keys=["nope.png"]).status_code == 400
+    assert post(media_key="nope.png").status_code == 400
+    assert post(extra_media_keys=[extra] * 6).status_code == 422
+    r = post(extra_media_keys=[extra])
+    assert r.status_code == 201 and r.json()["status"] == "PENDING", r.text
+    mn = r.json()["content_id"]
+    assert "Member news" not in feed(mx_h)
+    assert [i["title"] for i in c.get(base, headers=x_h, params={"status": "PENDING"}).json()["items"]] == ["Member news"]
+    assert c.put(f"{base}/{mn}", headers=x_h, json={"status": "SCHEDULED"}).status_code == 409  # approve, not edit
+    assert c.post(f"{base}/{mn}/approve", headers=y_h).status_code == 403  # other city
+    r = c.post(f"{base}/{mn}/approve", headers=x_h)
+    assert r.status_code == 200 and r.json()["status"] == "LIVE" and r.json()["created_by_member_id"], r.text
+    assert c.post(f"{base}/{mn}/approve", headers=x_h).status_code == 409
+    item = next(i for i in c.get("/member/feed", headers=mx_h).json() if i["title"] == "Member news")
+    assert item["extra_media_urls"] == [f"/media/{extra}"], item
+    rn = post(title="Spam").json()["content_id"]
+    assert c.post(f"{base}/{rn}/reject", headers=x_h, json={"reason": ""}).status_code == 422
+    r = c.post(f"{base}/{rn}/reject", headers=x_h, json={"reason": "Off topic"})
+    assert r.status_code == 200 and r.json()["status"] == "REJECTED", r.text
+    assert "Spam" not in feed(mx_h)
     print("ok")
 finally:
     with SessionLocal() as db:  # auth_session rows go via ON DELETE CASCADE
-        db.execute(delete(ContentItem).where(ContentItem.created_by_admin_id.in_(admin_ids)))
+        db.execute(delete(ContentItem).where(or_(ContentItem.created_by_admin_id.in_(admin_ids),
+                                                 ContentItem.city_id.in_(city_ids))))
         db.execute(delete(Member).where(Member.city_id.in_(city_ids)))
         db.execute(delete(AdminUser).where(AdminUser.admin_id.in_(admin_ids)))
         db.execute(delete(City).where(City.city_id.in_(city_ids)))

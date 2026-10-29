@@ -17,6 +17,7 @@ class FamilyAdditionOut(BaseModel):
     requested_by_member_id: UUID
     requested_by_name: str | None
     reviewed_by_admin_id: UUID | None
+    reviewed_by_name: str | None
     reviewed_at: datetime | None
     created_at: datetime
 

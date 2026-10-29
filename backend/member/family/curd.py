@@ -27,9 +27,11 @@ def get_household(db: Session, member: Member) -> dict:
     return {
         "household_id": household.household_id,
         "family_name": household.family_name,
+        "family_name_i18n": household.family_name_i18n,
         "native_place": household.native_place,
-        "members": [{"member_id": m.member_id, "full_name": m.full_name, "is_household_head": m.is_household_head}
-                    for m in members],
+        "native_place_i18n": household.native_place_i18n,
+        "members": [{"member_id": m.member_id, "full_name": m.full_name, "full_name_i18n": m.full_name_i18n,
+                     "is_household_head": m.is_household_head} for m in members],
         "relatives": [_relative(fm) for fm in relatives],
     }
 

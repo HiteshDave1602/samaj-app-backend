@@ -24,6 +24,7 @@ class FamilyRequestIn(BaseModel):
 class RelativeOut(BaseModel):
     family_member_id: UUID
     full_name: str
+    full_name_i18n: dict[str, str]  # {"gu": ..., "hi": ...}
     relationship: str
     gender: str | None
     dob: date | None
@@ -36,12 +37,15 @@ class RelativeOut(BaseModel):
 class HouseholdMemberOut(BaseModel):
     member_id: UUID
     full_name: str | None
+    full_name_i18n: dict[str, str]
     is_household_head: bool
 
 
 class HouseholdOut(BaseModel):
     household_id: UUID
     family_name: str
+    family_name_i18n: dict[str, str]
     native_place: str | None
+    native_place_i18n: dict[str, str]
     members: list[HouseholdMemberOut]  # registered app members in the household
     relatives: list[RelativeOut]  # added by request; APPROVED ones form the family tree (FR-18)

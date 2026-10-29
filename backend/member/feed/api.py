@@ -27,6 +27,7 @@ class FeedItemOut(BaseModel):
     creative_format: str | None  # ads: BANNER inline, FULLSCREEN as an interstitial
     media_width: int | None
     media_height: int | None
+    extra_media_urls: list[str]  # member news photos
     start_at: datetime
 
 
@@ -47,5 +48,6 @@ def feed(member: Member = Depends(get_current_member), db: Session = Depends(get
         items.append(item)
         if ads and i % AD_EVERY == 0:
             items.append(ads[(i // AD_EVERY - 1) % len(ads)])  # rotate through live ads
-    return [{c.name: getattr(x, c.name) for c in ContentItem.__table__.columns} | {"media_url": media.url(x.media_key)}
+    return [{c.name: getattr(x, c.name) for c in ContentItem.__table__.columns}
+            | {"media_url": media.url(x.media_key), "extra_media_urls": [media.url(k) for k in x.extra_media_keys]}
             for x in items]
