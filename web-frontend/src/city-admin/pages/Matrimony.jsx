@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { api, fmtDateTime, qs, useFileUrl, useLoad, useToast } from '../../shared/api'
-import { Badge, Button, Detail, ErrorText, Field, Modal, PageHeader, Pager, StatusBadge, Table, Toolbar, inputCls } from '../../shared/ui'
+import { Badge, Button, Card, Detail, ErrorText, Field, Modal, PageHeader, Pager, StatusBadge, Table, Toolbar, inputCls } from '../../shared/ui'
 import Decide from '../Decide'
 
 const LIMIT = 50
+const LOG_LIMIT = 20
 const QUEUES = {
   moderate: { label: 'New profiles to moderate', params: { status: 'PENDING_MODERATION' } },
   photos: { label: 'Profiles with photos to check', params: { pending_photos: true } },
@@ -19,6 +20,8 @@ export default function Matrimony() {
   const [offset, setOffset] = useState(0)
   const [open, setOpen] = useState(null)
   const list = useLoad(`/cityadmin/matrimony/profiles${qs({ ...QUEUES[queue].params, limit: LIMIT, offset })}`)
+  const [logOffset, setLogOffset] = useState(0)
+  const log = useLoad(`/cityadmin/matrimony/decisions${qs({ limit: LOG_LIMIT, offset: logOffset })}`)
 
   return (
     <>
@@ -54,7 +57,39 @@ export default function Matrimony() {
         ))}
       </Table>
       {list.data && <Pager total={list.data.total} limit={LIMIT} offset={offset} onChange={setOffset} />}
-      {open && <Review id={open} onClose={() => { setOpen(null); list.reload() }} />}
+
+      <h2 className="mt-10 mb-3 font-display text-xl font-semibold text-secondary">Decision history</h2>
+      <Card>
+        {log.error ? <div className="p-4"><ErrorText>{log.error}</ErrorText></div>
+          : log.loading && !log.data ? <p className="p-4 text-sm text-on-surface-variant">Loading…</p>
+          : !log.data?.items.length ? <p className="p-4 text-sm text-on-surface-variant">No decisions yet.</p>
+          : (
+            <ol className="divide-y divide-outline-variant">
+              {log.data.items.map((d, i) => {
+                const approved = d.action.endsWith('APPROVE')
+                const name = d.full_name ?? 'a deleted photo'
+                return (
+                  <li key={i} className="flex flex-wrap items-baseline gap-x-4 gap-y-1 px-4 py-3 text-sm">
+                    <time className="w-40 shrink-0 text-xs text-on-surface-variant">{fmtDateTime(d.occurred_at)}</time>
+                    <StatusBadge status={approved ? 'APPROVED' : 'REJECTED'} />
+                    <div className="min-w-0 flex-1">
+                      <span className="font-semibold">{d.admin_name ?? 'City admin'}</span>
+                      {approved ? ' approved ' : ' rejected '}
+                      {d.action.startsWith('PHOTO') && d.full_name && 'a photo of '}
+                      {d.profile_id
+                        ? <button type="button" onClick={() => setOpen(d.profile_id)} className="font-semibold text-primary hover:underline">{name}</button>
+                        : <span className="font-semibold">{name}</span>}
+                      {!d.action.startsWith('PHOTO') && <span className="text-on-surface-variant">'s profile</span>}
+                      {d.reason && <div className="text-xs text-on-surface-variant">Reason: {d.reason}</div>}
+                    </div>
+                  </li>
+                )
+              })}
+            </ol>
+          )}
+      </Card>
+      {log.data && <Pager total={log.data.total} limit={LOG_LIMIT} offset={logOffset} onChange={setLogOffset} />}
+      {open && <Review id={open} onClose={() => { setOpen(null); list.reload(); log.reload() }} />}
     </>
   )
 }

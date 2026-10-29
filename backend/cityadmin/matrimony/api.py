@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from auth.deps import get_actor, require_city_admin
 from cityadmin.matrimony import curd
-from cityadmin.matrimony.schema import ProfileOut, ProfilePage
+from cityadmin.matrimony.schema import DecisionPage, ProfileOut, ProfilePage
 from cityadmin.member_approval.schema import RejectIn
 from core.database import get_db
 from superadmin.audit_log.curd import Actor
@@ -29,6 +29,17 @@ def list_profiles(
     """Own city's profiles, oldest change first. Queues: status=PENDING_MODERATION (new profiles) and
     pending_photos=true (any profile with photos to review)."""
     return curd.list_profiles(db, admin, limit, offset, status, pending_photos)
+
+
+@router.get("/decisions", response_model=DecisionPage)
+def list_decisions(
+    limit: int = Query(20, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    admin: AdminUser = Depends(require_city_admin),
+    db: Session = Depends(get_db),
+):
+    """Own city's approvals and rejections of profiles and photos, newest first."""
+    return curd.list_decisions(db, admin, limit, offset)
 
 
 @router.get("/profiles/{profile_id}", response_model=ProfileOut)

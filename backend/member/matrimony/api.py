@@ -54,7 +54,7 @@ def search(
     member: Member = Depends(get_active_member),
     db: Session = Depends(get_db),
 ):
-    """Approved profiles only, never your own; public summary only (FR-25-27).
+    """Approved profiles only, your own included; public summary only (FR-25-26).
     Repeat a parameter for "any of": ?education_level=GRADUATE&education_level=POSTGRADUATE."""
     if age_min is not None and age_max is not None and age_min > age_max:
         raise HTTPException(422, "age_min can't be more than age_max")

@@ -47,3 +47,17 @@ class ProfileOut(ProfileListItem):
     moderated_by_admin_id: UUID | None
     moderated_at: datetime | None
     photos: list[PhotoOut]
+
+
+class Decision(BaseModel):
+    occurred_at: datetime
+    action: str  # MATRIMONY_APPROVE | MATRIMONY_REJECT | PHOTO_APPROVE | PHOTO_REJECT
+    admin_name: str | None
+    profile_id: UUID | None  # None once the profile is gone
+    full_name: str | None
+    reason: str | None  # rejections only
+
+
+class DecisionPage(BaseModel):
+    total: int
+    items: list[Decision]
