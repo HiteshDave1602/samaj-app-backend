@@ -1,38 +1,72 @@
+import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import { useState } from 'react';
-import { FlatList, Linking, Pressable, Text, TextInput, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, FlatList, Linking, Pressable, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Avatar, Chips, ScreenHeader } from '@/components/ui/form';
-import { MEMBERS } from '@/constants/sample-data';
+import { Avatar, Chips, Field, Notice, ScreenHeader } from '@/components/ui/form';
 import { Palette } from '@/constants/theme';
+import { api } from '@/lib/api';
+import { label, loc, useT } from '@/lib/i18n';
 
-// ponytail: filters and search run on the client; move them to query params once the directory API pages results
-const APPROVED = MEMBERS.filter((m) => m.status === 'ACTIVE');
-const unique = (k: 'city' | 'gotra') => [...new Set(APPROVED.map((m) => m[k]))].sort();
-const CITIES = unique('city');
-const GOTRAS = unique('gotra');
-const GENDERS = ['Male', 'Female'] as const;
+// backend member/directory/schema.py DirectoryEntry
+type Entry = {
+  kind: 'MEMBER' | 'RELATIVE';
+  id: string;
+  full_name: string | null;
+  full_name_i18n: Record<string, string>;
+  relationship: string | null;
+  household_id: string | null;
+  family_name: string | null;
+  family_name_i18n: Record<string, string>;
+  native_place: string | null;
+  native_place_i18n: Record<string, string>;
+  city_name: string;
+  city_name_i18n: Record<string, string>;
+  phone: string | null;
+  phone_hidden: boolean;
+};
+type City = { city_id: string; name: string; name_i18n: Record<string, string> };
 
+// the backend needs 2+ characters for text filters; shorter input means "no filter"
+const text = (s: string) => (s.trim().length >= 2 ? s.trim() : undefined);
+
+// ponytail: first 50 results only; page with next_offset when directories get bigger
 export default function DirectoryScreen() {
+  const t = useT();
   const [query, setQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
+  const [cities, setCities] = useState<City[]>([]);
   const [city, setCity] = useState<string>();
-  const [gotra, setGotra] = useState<string>();
-  const [gender, setGender] = useState<(typeof GENDERS)[number]>();
+  const [family, setFamily] = useState('');
+  const [results, setResults] = useState<Entry[]>();
+  const [error, setError] = useState<string>();
   const [bookmarks, setBookmarks] = useState(new Set<string>());
-  const activeFilters = [city, gotra, gender].filter(Boolean).length;
-  // tapping the selected chip again clears it
-  const toggle = <T,>(set: (v: T | undefined) => void, cur: T | undefined) => (v: T) => set(v === cur ? undefined : v);
+  const activeFilters = [city, text(family)].filter(Boolean).length;
 
-  const q = query.trim().toLowerCase();
-  const results = APPROVED.filter(
-    (m) =>
-      (!q || [m.name, m.city, m.gotra, m.profession].some((f) => f.toLowerCase().includes(q))) &&
-      (!city || m.city === city) &&
-      (!gotra || m.gotra === gotra) &&
-      (!gender || m.gender === gender),
-  );
+  useEffect(() => {
+    api<City[]>('/member/auth/cities').then(setCities, () => {});
+  }, []);
+
+  const cityId = cities.find((c) => loc(c.name, c.name_i18n) === city)?.city_id;
+  const name = text(query);
+  const familyName = text(family);
+  useEffect(() => {
+    const params = new URLSearchParams({ limit: '50' });
+    if (name) params.set('name', name);
+    if (familyName) params.set('family_name', familyName);
+    if (cityId) params.set('city_id', cityId);
+    // wait for typing to pause before asking the server
+    const timer = setTimeout(
+      () =>
+        api<{ items: Entry[] }>(`/member/directory?${params}`).then(
+          (r) => (setResults(r.items), setError(undefined)),
+          (e) => setError(e.message),
+        ),
+      300,
+    );
+    return () => clearTimeout(timer);
+  }, [name, familyName, cityId]);
 
   return (
     <SafeAreaView edges={['top']} className="flex-1 bg-cream">
@@ -44,9 +78,9 @@ export default function DirectoryScreen() {
           <TextInput
             value={query}
             onChangeText={setQuery}
-            placeholder="Search name, city, gotra, profession"
+            placeholder={t('Search by name')}
             placeholderTextColor={Palette.muted}
-            accessibilityLabel="Search members"
+            accessibilityLabel={t('Search members')}
             returnKeyType="search"
             className="flex-1 font-inter text-base text-ink"
           />
@@ -54,7 +88,7 @@ export default function DirectoryScreen() {
         <Pressable
           onPress={() => setShowFilters(!showFilters)}
           accessibilityRole="button"
-          accessibilityLabel="Filters"
+          accessibilityLabel={t('Filters')}
           accessibilityState={{ expanded: showFilters }}
           className={`h-12 w-12 items-center justify-center rounded-full ${showFilters || activeFilters ? 'bg-primary' : 'border border-line bg-white'}`}>
           <SymbolView
@@ -72,19 +106,18 @@ export default function DirectoryScreen() {
 
       {showFilters && (
         <View className="mx-5 mt-3 gap-4 rounded-3xl border border-line bg-white p-4">
-          <Chips label="City" options={CITIES} value={city} onChange={toggle(setCity, city)} />
-          <Chips label="Gotra" options={GOTRAS} value={gotra} onChange={toggle(setGotra, gotra)} />
-          <Chips label="Gender" options={GENDERS} value={gender} onChange={toggle(setGender, gender)} />
+          {/* tapping the selected chip again clears it */}
+          <Chips label="City" options={cities.map((c) => loc(c.name, c.name_i18n)!)} value={city} onChange={(v) => setCity(v === city ? undefined : v)} />
+          <Field label="Family name" value={family} onChangeText={setFamily} placeholder="e.g. Patel" />
           {activeFilters > 0 && (
             <Pressable
               onPress={() => {
                 setCity(undefined);
-                setGotra(undefined);
-                setGender(undefined);
+                setFamily('');
               }}
               accessibilityRole="button"
               className="self-start">
-              <Text className="font-inter-semibold text-sm text-primary">Clear filters</Text>
+              <Text className="font-inter-semibold text-sm text-primary">{t('Clear filters')}</Text>
             </Pressable>
           )}
         </View>
@@ -96,19 +129,29 @@ export default function DirectoryScreen() {
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={{ padding: 20, gap: 12 }}
         ListHeaderComponent={
-          <Text className="font-inter text-sm text-muted">
-            {results.length} {results.length === 1 ? 'member' : 'members'}
-          </Text>
+          error ? (
+            <Notice title="Could not load the directory" body={error} tone={Palette.rejected} />
+          ) : results ? (
+            <Text className="font-inter text-sm text-muted">
+              {t(results.length === 1 ? '{n} person' : '{n} people', { n: results.length })}
+            </Text>
+          ) : (
+            <ActivityIndicator color={Palette.primary.DEFAULT} />
+          )
         }
         ListEmptyComponent={
-          <View className="items-center py-16">
-            <Text className="font-inter-semibold text-base text-ink">No members found</Text>
-            <Text className="mt-1 font-inter text-sm text-muted">Try another name or clear the filters.</Text>
-          </View>
+          results && (
+            <View className="items-center py-16">
+              <Text className="font-inter-semibold text-base text-ink">{t('No members found')}</Text>
+              <Text className="mt-1 font-inter text-sm text-muted">{t('Try another name or clear the filters.')}</Text>
+            </View>
+          )
         }
-        renderItem={({ item: m }) => {
+        renderItem={({ item }) => {
+          const m = { ...item, name: loc(item.full_name, item.full_name_i18n) ?? t('Member'), city_name: loc(item.city_name, item.city_name_i18n) };
           const saved = bookmarks.has(m.id);
-          const phone = m.phone.replace(/\D/g, '');
+          const phone = m.phone?.replace(/\D/g, '');
+          const family = [loc(m.family_name, m.family_name_i18n), loc(m.native_place, m.native_place_i18n)].filter(Boolean).join(' · ');
           return (
             <View className="rounded-3xl border border-line bg-white p-4 shadow-sm">
               <View className="flex-row gap-3">
@@ -127,20 +170,24 @@ export default function DirectoryScreen() {
                   <View className="flex-row flex-wrap items-center gap-2">
                     <Text className="font-inter-semibold text-lg text-ink">{m.name}</Text>
                     <View className="rounded-full bg-primary-container px-2.5 py-0.5">
-                      <Text className="font-inter-medium text-xs text-primary">{m.city}</Text>
+                      <Text className="font-inter-medium text-xs text-primary">{m.city_name}</Text>
                     </View>
                   </View>
-                  <Text numberOfLines={1} className="mt-0.5 font-inter text-sm text-subtle">
-                    {m.profession}
-                  </Text>
-                  <View className="mt-1.5 flex-row items-center gap-1.5">
-                    <SymbolView
-                      name={{ ios: 'person.2.fill', android: 'family_restroom', web: 'family_restroom' }}
-                      size={16}
-                      tintColor={Palette.subtle}
-                    />
-                    <Text className="font-inter text-xs text-subtle">Gotra: {m.gotra}</Text>
-                  </View>
+                  {m.relationship && (
+                    <Text numberOfLines={1} className="mt-0.5 font-inter text-sm text-subtle">
+                      {t('{relation} of the family head', { relation: label(m.relationship) })}
+                    </Text>
+                  )}
+                  {family !== '' && (
+                    <View className="mt-1.5 flex-row items-center gap-1.5">
+                      <SymbolView
+                        name={{ ios: 'person.2.fill', android: 'family_restroom', web: 'family_restroom' }}
+                        size={16}
+                        tintColor={Palette.subtle}
+                      />
+                      <Text className="font-inter text-xs text-subtle">{family}</Text>
+                    </View>
+                  )}
                 </View>
                 {/* ponytail: bookmarks live in screen state; persist once a saved-members API exists */}
                 <Pressable
@@ -151,7 +198,7 @@ export default function DirectoryScreen() {
                     setBookmarks(next);
                   }}
                   accessibilityRole="button"
-                  accessibilityLabel={saved ? `Remove ${m.name} from saved` : `Save ${m.name}`}
+                  accessibilityLabel={t(saved ? 'Remove {name} from saved' : 'Save {name}', { name: m.name })}
                   accessibilityState={{ selected: saved }}
                   hitSlop={8}
                   className="self-start">
@@ -166,16 +213,17 @@ export default function DirectoryScreen() {
               <View className="my-3 h-px bg-line" />
 
               <View className="flex-row items-center gap-2">
-                {/* members who chose hide_phone don't get call or WhatsApp buttons */}
-                {!m.hidePhone && (
+                {/* members who chose hide_phone, and relatives (no contact details), get no call or WhatsApp buttons */}
+                {m.phone_hidden && <Text className="font-inter text-sm text-muted">{t('Phone hidden')}</Text>}
+                {phone && (
                   <>
                     <Pressable
                       onPress={() => Linking.openURL(`tel:+${phone}`)}
                       accessibilityRole="button"
-                      accessibilityLabel={`Call ${m.name}`}
+                      accessibilityLabel={t('Call {name}', { name: m.name })}
                       className="h-10 flex-row items-center gap-1.5 rounded-full bg-surface px-4 active:opacity-80">
                       <SymbolView name={{ ios: 'phone', android: 'call', web: 'call' }} size={18} tintColor={Palette.primary.DEFAULT} />
-                      <Text className="font-inter-medium text-sm text-ink">Call</Text>
+                      <Text className="font-inter-medium text-sm text-ink">{t('Call')}</Text>
                     </Pressable>
                     <Pressable
                       onPress={() => Linking.openURL(`https://wa.me/${phone}`)}
@@ -187,18 +235,20 @@ export default function DirectoryScreen() {
                     </Pressable>
                   </>
                 )}
-                {/* ponytail: no member family screen yet; wire to a route once the family API is public */}
+                {m.household_id && (
                 <Pressable
+                  onPress={() => router.push({ pathname: '/directory/[id]', params: { id: m.household_id! } })}
                   accessibilityRole="button"
-                  accessibilityLabel={`View ${m.name}'s family`}
+                  accessibilityLabel={t("View {name}'s family", { name: m.name })}
                   className="ml-auto h-10 flex-row items-center gap-1 rounded-full bg-primary-container pl-4 pr-3 active:opacity-80">
-                  <Text className="font-inter-semibold text-sm text-primary">View Family</Text>
+                  <Text className="font-inter-semibold text-sm text-primary">{t('View Family')}</Text>
                   <SymbolView
                     name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }}
                     size={16}
                     tintColor={Palette.primary.DEFAULT}
                   />
                 </Pressable>
+                )}
               </View>
             </View>
           );

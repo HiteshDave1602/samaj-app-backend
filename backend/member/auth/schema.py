@@ -27,6 +27,7 @@ Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max
 Address = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)]
 Dob = Annotated[date, AfterValidator(dob_in_past)]
 Gender = Literal["MALE", "FEMALE", "OTHER"]
+Language = Literal["en", "gu", "hi"]  # the app's UI languages
 
 
 class OtpSendIn(BaseModel):
@@ -65,6 +66,7 @@ class RegisterIn(BaseModel):
     address: Address
     family_name: Name
     native_place: Name | None = None
+    language: Language = "en"
     consent: Literal[True]  # FR-07: the app enables Submit only once the box is ticked
     notice_version: str = Field(max_length=20)  # the consent notice the member was shown
 

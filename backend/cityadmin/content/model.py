@@ -1,28 +1,31 @@
 from sqlalchemy import (
-    CheckConstraint, Column, DateTime, FetchedValue, ForeignKey, Index, SmallInteger, String, Text, Uuid, case,
+    ARRAY, CheckConstraint, Column, DateTime, FetchedValue, ForeignKey, Index, SmallInteger, String, Text, Uuid, case,
     func, text,
 )
 
 from core.database import Base
 import superadmin.city.model  # noqa: F401  registers city and admin_user for the FKs
 import superadmin.city_admin.model  # noqa: F401
+import member.profile.model  # noqa: F401  registers member for created_by_member_id
 
 _now = text("now()")
 
 
 class ContentItem(Base):
-    """News item or ad campaign (SF-07). city_id NULL = every city (Super Admin only)."""
+    """News item or ad campaign (SF-07). city_id NULL = every city (Super Admin only).
+    Members submit news too: it waits as PENDING until their City Admin approves (SCHEDULED) or rejects it."""
     __tablename__ = "content_item"
     __table_args__ = (
         CheckConstraint("content_type IN ('NEWS','AD')", name="ck_content_item_content_type"),
         CheckConstraint("creative_format IN ('BANNER','FULLSCREEN')", name="ck_content_item_creative_format"),
-        CheckConstraint("status IN ('DRAFT','SCHEDULED','LIVE','EXPIRED','CANCELLED')", name="ck_content_item_status"),
+        CheckConstraint("status IN ('DRAFT','PENDING','SCHEDULED','LIVE','EXPIRED','CANCELLED','REJECTED')", name="ck_content_item_status"),
         CheckConstraint("end_at > start_at", name="ck_content_item_1"),
         CheckConstraint("content_type = 'NEWS' OR (creative_format IS NOT NULL AND media_key IS NOT NULL)",
                         name="ck_content_item_2"),
         CheckConstraint("creative_format IS DISTINCT FROM 'FULLSCREEN' OR (media_width = 1080 AND media_height = 1920)",
                         name="ck_content_item_3"),
         CheckConstraint("content_type = 'AD' OR body IS NOT NULL", name="ck_content_item_4"),
+        CheckConstraint("num_nonnulls(created_by_admin_id, created_by_member_id) = 1", name="ck_content_item_5"),
         Index("ix_content_item_feed", "status", "city_id", text("start_at DESC"),
               postgresql_where=text("status = 'LIVE'")),
         Index("ix_content_item_due", "start_at", postgresql_where=text("status = 'SCHEDULED'")),
@@ -40,10 +43,12 @@ class ContentItem(Base):
     creative_format = Column(String(10))  # BANNER | FULLSCREEN, ads only
     media_width = Column(SmallInteger)
     media_height = Column(SmallInteger)
+    extra_media_keys = Column(ARRAY(String(255)), nullable=False, server_default="{}")  # member news photos
     start_at = Column(DateTime(timezone=True), nullable=False)
     end_at = Column(DateTime(timezone=True), nullable=False)
     status = Column(String(20), nullable=False, server_default="DRAFT")
-    created_by_admin_id = Column(Uuid, ForeignKey("samaj.admin_user.admin_id", ondelete="RESTRICT"), nullable=False)
+    created_by_admin_id = Column(Uuid, ForeignKey("samaj.admin_user.admin_id", ondelete="RESTRICT"))
+    created_by_member_id = Column(Uuid, ForeignKey("samaj.member.member_id", ondelete="RESTRICT"))
     published_at = Column(DateTime(timezone=True))
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=_now)
     updated_at = Column(DateTime(timezone=True), nullable=False, server_default=_now, server_onupdate=FetchedValue())

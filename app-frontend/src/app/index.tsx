@@ -1,6 +1,14 @@
 import { Redirect } from 'expo-router';
+import { useEffect, useState } from 'react';
 
-// ponytail: always onboards; once auth lands, signed-in users should skip straight to /home
+import { restoreSession } from '@/lib/api';
+
+// A stored refresh token skips onboarding; null until we know (the splash overlay is still up).
 export default function Index() {
-  return <Redirect href="/onboarding" />;
+  const [signedIn, setSignedIn] = useState<boolean>();
+  useEffect(() => {
+    restoreSession().then((s) => setSignedIn(!!s));
+  }, []);
+  if (signedIn === undefined) return null;
+  return <Redirect href={signedIn ? '/home' : '/onboarding'} />;
 }

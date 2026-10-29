@@ -81,10 +81,16 @@ try:
                   json={"reason": "Already registered as a member"}).status_code == 200
     hh = c.get("/member/family", headers=head_h).json()
     assert hh["family_name"] == "Meera family", hh
-    assert hh["members"] == [{"member_id": head_id, "full_name": "Meera", "is_household_head": True}], hh
+    assert hh["members"] == [{"member_id": head_id, "full_name": "Meera", "full_name_i18n": {"gu": "મીરા", "hi": "मीरा"},
+                              "is_household_head": True}], hh
     rel = {r["full_name"]: (r["status"], r["rejection_reason"], r["relationship"]) for r in hh["relatives"]}
     assert rel == {"Rohan": ("APPROVED", None, "SON"),
                    "Priya": ("REJECTED", "Already registered as a member", "DAUGHTER")}, rel
+
+    # decision log: both decisions, newest first, with who decided
+    log = c.get("/cityadmin/family-additions?status=DECIDED", headers=ca_h).json()["items"]
+    assert [(i["full_name"], i["status"], i["reviewed_by_name"]) for i in log] == [
+        ("Priya", "REJECTED", "CA"), ("Rohan", "APPROVED", "CA")], log
 
     # a rejected relative can be requested again; an approved one can't
     assert add(full_name="Priya", relationship="DAUGHTER", gender="FEMALE").status_code == 201

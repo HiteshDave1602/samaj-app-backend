@@ -122,18 +122,19 @@ _cover = (select(MatrimonyPhoto.photo_id)
 
 
 def public_query():
-    return (select(MatrimonyProfile, Member.gender, Member.dob, City.name, _cover)
+    return (select(MatrimonyProfile, Member.gender, Member.dob, City.name, City.name_i18n, _cover)
             .join(Member, Member.member_id == MatrimonyProfile.member_id)
             .join(City, City.city_id == MatrimonyProfile.location_city_id)
             .where(*_searchable()))
 
 
-def card(p: MatrimonyProfile, gender: str | None, dob: date | None, city_name: str, cover: UUID | None) -> dict:
+def card(p: MatrimonyProfile, gender: str | None, dob: date | None, city_name: str, city_i18n: dict,
+         cover: UUID | None) -> dict:
     return {
         "profile_id": p.profile_id, "gender": gender, "age": age(dob), "education_level": p.education_level,
         "education_detail": p.education_detail, "occupation": p.occupation,
         "family_background": p.family_background, "location_city_id": p.location_city_id,
-        "location_city_name": city_name, "managed_by": p.managed_by, "about": p.about,
+        "location_city_name": city_name, "location_city_name_i18n": city_i18n, "managed_by": p.managed_by, "about": p.about,
         "cover_photo_url": cover and PHOTO_URL.format(cover),
     }
 

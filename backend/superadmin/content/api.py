@@ -35,7 +35,7 @@ def create_content(
 @router.get("", response_model=ContentPage)
 def list_content(
     content_type: Literal["NEWS", "AD"] | None = None,
-    status: Literal["DRAFT", "SCHEDULED", "LIVE", "EXPIRED", "CANCELLED"] | None = None,
+    status: Literal["DRAFT", "PENDING", "SCHEDULED", "LIVE", "EXPIRED", "CANCELLED", "REJECTED"] | None = None,
     city_id: UUID | None = None,
     all_cities: bool | None = None,  # true: only all-city items; false: only city items
     limit: int = Query(50, ge=1, le=200),

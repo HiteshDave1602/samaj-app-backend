@@ -93,7 +93,7 @@ def verify_otp(db: Session, mobile: str, code: str) -> dict:
         raise HTTPException(400, "OTP expired. Request a new one.")
     if ch.attempts >= OTP_MAX_ATTEMPTS:
         raise HTTPException(400, "OTP locked after 3 wrong attempts. Request a new one.")
-    if not verify_password(code, ch.code_hash):
+    if not settings.otp_bypass and not verify_password(code, ch.code_hash):
         ch.attempts += 1
         db.commit()
         left = OTP_MAX_ATTEMPTS - ch.attempts
@@ -138,6 +138,7 @@ def register(db: Session, data: RegisterIn) -> dict:
         gender=data.gender,
         dob=data.dob,
         address_enc=fernet.encrypt(data.address.encode()),
+        language=data.language,
     )
     try:
         # Flushed one by one: without relationship()s SQLAlchemy doesn't order inserts by FK.

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { api, fmtDateTime, qs, useLoad, useSubmit, useToast } from './api'
 import { Badge, Button, ErrorText, Field, FormActions, Modal, PageHeader, Pager, StatusBadge, Table, Toolbar, inputCls } from './ui'
+import Decide from '../city-admin/Decide'
 
 const LIMIT = 20
 
@@ -24,6 +25,14 @@ export default function Content({ me }) {
   const list = useLoad(`${base}${qs({ content_type: filters.content_type, status: filters.status, ...scope, limit: LIMIT, offset })}`)
   const cityName = Object.fromEntries(cities.data?.map((c) => [c.city_id, c.name]) ?? [])
   const set = (k) => (e) => { setFilters((f) => ({ ...f, [k]: e.target.value })); setOffset(0) }
+  const toast = useToast()
+
+  // member-submitted news (City Admin only): approving puts it live now
+  async function decide(c, action, body) {
+    await api(`${base}/${c.content_id}/${action}`, { method: 'POST', body })
+    toast(action === 'approve' ? `"${c.title}" is live` : 'Rejected')
+    list.reload()
+  }
 
   return (
     <>
@@ -41,7 +50,7 @@ export default function Content({ me }) {
         <Field label="Status">
           <select value={filters.status} onChange={set('status')} className={inputCls}>
             <option value="">Any</option>
-            {['LIVE', 'SCHEDULED', 'DRAFT', 'EXPIRED', 'CANCELLED'].map((s) => <option key={s} value={s}>{s[0] + s.slice(1).toLowerCase()}</option>)}
+            {['PENDING', 'LIVE', 'SCHEDULED', 'DRAFT', 'EXPIRED', 'CANCELLED', 'REJECTED'].map((s) => <option key={s} value={s}>{s[0] + s.slice(1).toLowerCase()}</option>)}
           </select>
         </Field>
         {!cityAdmin && (
@@ -64,8 +73,17 @@ export default function Content({ me }) {
                   <div className="mb-1 flex flex-wrap gap-1.5">
                     <Badge tone={c.content_type === 'AD' ? 'accent' : 'secondary'}>{c.content_type === 'AD' ? 'Ad' : 'News'}</Badge>
                     {c.creative_format && <Badge>{c.creative_format === 'FULLSCREEN' ? 'Full screen' : 'Banner'}</Badge>}
+                    {c.created_by_member_id && <Badge>From a member</Badge>}
                   </div>
                   <div className="font-semibold">{c.title}</div>
+                  {c.status === 'PENDING' && (
+                    <>
+                      <p className="mt-1 max-w-md text-xs whitespace-pre-line text-on-surface-variant">{c.body}</p>
+                      <div className="mt-2 flex gap-2">
+                        {c.extra_media_urls.map((u) => <a key={u} href={u} target="_blank" rel="noreferrer"><img src={u} alt="" className="h-12 w-12 rounded-lg border border-outline-variant object-cover" /></a>)}
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             </td>
@@ -73,7 +91,8 @@ export default function Content({ me }) {
             <td className="text-xs whitespace-nowrap text-on-surface-variant">{fmtDateTime(c.start_at)}<br />to {fmtDateTime(c.end_at)}</td>
             <td><StatusBadge status={c.status} /></td>
             <td className="text-right">
-              {!['EXPIRED', 'CANCELLED'].includes(c.status) && <Button variant="text" className="h-8 px-3" onClick={() => setEditing(c)}>Edit</Button>}
+              {c.status === 'PENDING' && cityAdmin && <Decide small onApprove={() => decide(c, 'approve')} onReject={(reason) => decide(c, 'reject', { reason })} />}
+              {!['EXPIRED', 'CANCELLED', 'PENDING', 'REJECTED'].includes(c.status) && <Button variant="text" className="h-8 px-3" onClick={() => setEditing(c)}>Edit</Button>}
             </td>
           </tr>
         ))}

@@ -3,36 +3,45 @@ from uuid import UUID
 
 from fastapi import HTTPException
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 
 from member.profile.model import FamilyMember, Household, Member
 from superadmin.audit_log import curd as audit
 from superadmin.city_admin.model import AdminUser
 
+Reviewer = aliased(AdminUser)
+
 
 def _query(admin: AdminUser):
     # FR-71: a family member belongs to the city of its household.
     return (
-        select(FamilyMember, Household.family_name, Member.full_name)
+        select(FamilyMember, Household.family_name, Member.full_name, Reviewer.full_name)
         .join(Household, Household.household_id == FamilyMember.household_id)
         .join(Member, Member.member_id == FamilyMember.requested_by_member_id)
+        .outerjoin(Reviewer, Reviewer.admin_id == FamilyMember.reviewed_by_admin_id)
         .where(Household.city_id == admin.city_id)
     )
 
 
-def _out(fm: FamilyMember, family_name: str, requested_by_name: str | None) -> dict:
+def _out(fm: FamilyMember, family_name: str, requested_by_name: str | None, reviewed_by_name: str | None) -> dict:
     return {c.name: getattr(fm, c.name) for c in FamilyMember.__table__.columns} | {
-        "family_name": family_name, "requested_by_name": requested_by_name,
+        "family_name": family_name, "requested_by_name": requested_by_name, "reviewed_by_name": reviewed_by_name,
     }
 
 
 def list_requests(db: Session, admin: AdminUser, limit: int, offset: int, status: str | None = None) -> dict:
+    """DECIDED = the decision log: APPROVED + REJECTED, newest decision first. Other statuses: oldest request first."""
     q = _query(admin)
-    if status:
-        q = q.where(FamilyMember.status == status)
+    if status == "DECIDED":
+        q = q.where(FamilyMember.status != "PENDING")
+        order = (FamilyMember.reviewed_at.desc(), FamilyMember.family_member_id)
+    else:
+        if status:
+            q = q.where(FamilyMember.status == status)
+        order = (FamilyMember.created_at, FamilyMember.family_member_id)
     total = db.scalar(select(func.count()).select_from(q.subquery()))
-    rows = db.execute(q.order_by(FamilyMember.created_at, FamilyMember.family_member_id).limit(limit).offset(offset))
-    return {"total": total, "items": [_out(*r) for r in rows]}  # oldest first, like the member queue
+    rows = db.execute(q.order_by(*order).limit(limit).offset(offset))
+    return {"total": total, "items": [_out(*r) for r in rows]}
 
 
 def _get_in_city(db: Session, admin: AdminUser, family_member_id: UUID, lock: bool = False) -> FamilyMember:

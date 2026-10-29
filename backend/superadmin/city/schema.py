@@ -24,6 +24,7 @@ class CityOut(BaseModel):
 
     city_id: UUID
     name: str
+    name_i18n: dict[str, str]  # {"gu": ..., "hi": ...}, auto-transliterated
     state: str
     is_active: bool
     created_at: datetime

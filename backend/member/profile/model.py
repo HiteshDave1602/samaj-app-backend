@@ -1,14 +1,19 @@
 from sqlalchemy import (
     Boolean, CheckConstraint, Column, Date, DateTime, FetchedValue, ForeignKey, Index, Integer, LargeBinary, String,
-    UniqueConstraint, Uuid, text,
+    UniqueConstraint, Uuid, event, inspect, text,
 )
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.orm import Session
 
 from core.database import Base
+from core.translit import localized
 import superadmin.city.model  # noqa: F401  registers city for the FKs
 import superadmin.city_admin.model  # noqa: F401  registers admin_user for reviewed_by_admin_id
+from superadmin.city.model import City
 
 _uuid = text("gen_random_uuid()")
 _now = text("now()")
+_i18n = text("'{}'::jsonb")  # names in the app's other languages: {"gu": ..., "hi": ...}
 
 
 class Household(Base):
@@ -22,7 +27,9 @@ class Household(Base):
     household_id = Column(Uuid, primary_key=True, server_default=_uuid)
     city_id = Column(Uuid, ForeignKey("samaj.city.city_id", ondelete="RESTRICT"), nullable=False)
     family_name = Column(String(120), nullable=False)
+    family_name_i18n = Column(JSONB, nullable=False, server_default=_i18n)
     native_place = Column(String(120))
+    native_place_i18n = Column(JSONB, nullable=False, server_default=_i18n)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=_now)
     updated_at = Column(DateTime(timezone=True), nullable=False, server_default=_now, server_onupdate=FetchedValue())
 
@@ -34,6 +41,7 @@ class Member(Base):
         CheckConstraint("gender IN ('MALE','FEMALE','OTHER')", name="ck_member_gender"),
         CheckConstraint("status IN ('PENDING','ACTIVE','REJECTED','ARCHIVED')", name="ck_member_status"),
         CheckConstraint("source IN ('APP','IMPORT')", name="ck_member_source"),
+        CheckConstraint("language IN ('en','gu','hi')", name="ck_member_language"),
         CheckConstraint("status <> 'REJECTED' OR rejection_reason IS NOT NULL", name="ck_member_1"),
         CheckConstraint("dob <= CURRENT_DATE", name="ck_member_2"),
         Index("ix_member_city_status", "city_id", "status", "created_at"),
@@ -53,9 +61,11 @@ class Member(Base):
     mobile_hash = Column(LargeBinary, nullable=False, unique=True)
     mobile_last4 = Column(String(4))
     full_name = Column(String(120))
+    full_name_i18n = Column(JSONB, nullable=False, server_default=_i18n)
     gender = Column(String(10))  # MALE | FEMALE | OTHER
     dob = Column(Date)
     address_enc = Column(LargeBinary)
+    photo_key = Column(String(64))  # core.media key
     status = Column(String(20), nullable=False, server_default="PENDING")
     rejection_reason = Column(String(500))
     reviewed_by_admin_id = Column(Uuid, ForeignKey("samaj.admin_user.admin_id", ondelete="SET NULL"))
@@ -63,6 +73,7 @@ class Member(Base):
     hide_phone = Column(Boolean, nullable=False, server_default=text("false"))
     hide_address = Column(Boolean, nullable=False, server_default=text("false"))
     notify_news = Column(Boolean, nullable=False, server_default=text("true"))
+    language = Column(String(2), nullable=False, server_default="en")  # app UI language; notifications use it too
     source = Column(String(10), nullable=False, server_default="APP")  # APP | IMPORT
     last_login_at = Column(DateTime(timezone=True))
     archive_notice_at = Column(DateTime(timezone=True))
@@ -135,6 +146,7 @@ class FamilyMember(Base):
     requested_by_member_id = Column(Uuid, ForeignKey("samaj.member.member_id", ondelete="RESTRICT"), nullable=False)
     linked_member_id = Column(Uuid, ForeignKey("samaj.member.member_id", ondelete="SET NULL"))
     full_name = Column(String(120), nullable=False)
+    full_name_i18n = Column(JSONB, nullable=False, server_default=_i18n)
     relationship = Column(String(30), nullable=False)
     gender = Column(String(10))
     dob = Column(Date)
@@ -143,3 +155,22 @@ class FamilyMember(Base):
     reviewed_by_admin_id = Column(Uuid, ForeignKey("samaj.admin_user.admin_id", ondelete="SET NULL"))
     reviewed_at = Column(DateTime(timezone=True))
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=_now)
+
+
+# Every write of a name or place refreshes its Gujarati/Hindi spelling, whichever code path made it (app, admin
+# panel, import). A write that sets the *_i18n column itself (a member's correction) is kept as given.
+I18N = {
+    Member: {"full_name": "full_name_i18n"},
+    FamilyMember: {"full_name": "full_name_i18n"},
+    Household: {"family_name": "family_name_i18n", "native_place": "native_place_i18n"},
+    City: {"name": "name_i18n"},
+}
+
+
+@event.listens_for(Session, "before_flush")
+def _transliterate(session, _ctx, _instances):
+    for obj in (*session.new, *session.dirty):
+        state = inspect(obj)
+        for src, dst in I18N.get(type(obj), {}).items():
+            if state.attrs[src].history.has_changes() and not state.attrs[dst].history.has_changes():
+                setattr(obj, dst, localized(getattr(obj, src)))

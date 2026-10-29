@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import AwareDatetime, BaseModel, StringConstraints, model_validator
+from pydantic import AwareDatetime, BaseModel, Field, StringConstraints, model_validator
 
 Title = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
 Body = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=10_000)]
@@ -43,6 +43,19 @@ class ContentUpdate(BaseModel):
     status: Literal["DRAFT", "SCHEDULED", "CANCELLED"] | None = None  # CANCELLED is final
 
 
+class NewsSubmit(BaseModel):
+    """Member news (POST /member/news); images from POST /member/news/media."""
+    title: Title
+    body: Body
+    media_key: str  # banner
+    extra_media_keys: list[str] = Field([], max_length=5)
+
+
+class NewsSubmitted(BaseModel):
+    content_id: UUID
+    status: str  # PENDING
+
+
 class ContentOut(BaseModel):
     content_id: UUID
     content_type: str
@@ -56,8 +69,10 @@ class ContentOut(BaseModel):
     media_height: int | None
     start_at: datetime
     end_at: datetime
-    status: str  # DRAFT | SCHEDULED | LIVE | EXPIRED | CANCELLED
-    created_by_admin_id: UUID
+    extra_media_urls: list[str]
+    status: str  # DRAFT | PENDING | SCHEDULED | LIVE | EXPIRED | CANCELLED | REJECTED
+    created_by_admin_id: UUID | None
+    created_by_member_id: UUID | None  # set on member-submitted news
     created_at: datetime
 
 
