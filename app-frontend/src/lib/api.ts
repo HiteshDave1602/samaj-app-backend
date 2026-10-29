@@ -1,3 +1,4 @@
+import { File } from 'expo-file-system';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
@@ -99,7 +100,8 @@ export async function api<T = any>(
       body: body === undefined ? undefined : form ? body : JSON.stringify(body),
       signal: abort.signal,
     });
-  } catch {
+  } catch (e) {
+    if (__DEV__) console.warn(path, e); // the real cause; the message below covers bad requests too
     throw new Error('Cannot reach the server. Check your connection.');
   } finally {
     clearTimeout(timer);
@@ -114,8 +116,9 @@ export type PickedFile = { uri: string; name: string; mimeType: string };
 /** Sends one file as the multipart field `file`, which is what every backend upload expects. */
 export async function upload<T = any>(path: string, method: string, file: PickedFile): Promise<T> {
   const body = new FormData();
-  // web pickers hand back blob: URIs; native FormData takes the {uri, name, type} shape instead
+  // web pickers hand back blob: URIs. Native: Expo's global fetch (expo/fetch) rejects RN's {uri, name, type}
+  // parts and needs something with bytes(), which expo-file-system's File has.
   if (Platform.OS === 'web') body.append('file', await (await fetch(file.uri)).blob(), file.name);
-  else body.append('file', { uri: file.uri, name: file.name, type: file.mimeType } as unknown as Blob);
+  else body.append('file', new File(file.uri) as unknown as Blob, file.name);
   return api<T>(path, { method, body });
 }

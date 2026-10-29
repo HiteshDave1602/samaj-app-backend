@@ -188,6 +188,15 @@ try:
     p = c.post(f"{M}/profile/submit", headers=b_h).json()
     assert (p["status"], p["moderation_reason"]) == ("PENDING_MODERATION", None), p
 
+    # decision history outlives status changes and deleted photos, newest first
+    log = c.get("/cityadmin/matrimony/decisions", headers=ca_h).json()
+    assert log["total"] == 3 and all(d["admin_name"] for d in log["items"]), log
+    assert [(d["action"], d["full_name"], d["profile_id"], d["reason"]) for d in log["items"]] == [
+        ("MATRIMONY_REJECT", "Bina", b_id, "About text has a phone number"),
+        ("MATRIMONY_APPROVE", "Asha", profile_id, None),
+        ("PHOTO_REJECT", None, None, "Sunglasses; face must be visible"),  # photo deleted by the member
+    ], log
+
     # SF-05 / FR-25: each filter combination returns exactly the expected profiles (Bina searching).
     # Scoped to this test's two cities, so other dev data can't leak in.
     visible = {k: v for k, v in seed.items() if k in ("S1", "S2", "S3")}
@@ -213,7 +222,7 @@ try:
     assert found(gender="MALE") == expect(gender="MALE") == {"S1", "S2"}
     assert found(age_min=24, age_max=30, education_level="GRADUATE", family_background="JOINT") == \
         expect(24, 30, edu={"GRADUATE"}, bg={"JOINT"})
-    assert found(a_h) == {"S1", "S2", "S3"}  # FR-27: never your own
+    assert found(a_h) == {"Asha", "S1", "S2", "S3"}  # your own approved profile shows too
     assert c.get(f"{M}/profiles", headers=b_h, params={"age_min": 30, "age_max": 25}).status_code == 422
     assert c.get(f"{M}/profiles", headers=b_h, params={"education_level": "PHD"}).status_code == 422
     assert c.get(f"{M}/profiles", headers=p_h).status_code == 403

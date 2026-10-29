@@ -2,14 +2,15 @@ from datetime import date, datetime, timezone
 from uuid import UUID
 
 from fastapi import HTTPException
-from sqlalchemy import exists, func, select, update
-from sqlalchemy.orm import Session
+from sqlalchemy import String, cast, exists, func, select, update
+from sqlalchemy.orm import Session, aliased
 
 from core import private_files
 from member.matrimony.model import MatrimonyPhoto, MatrimonyProfile
 from member.profile.curd import age
 from member.profile.model import Member
 from superadmin.audit_log import curd as audit
+from superadmin.audit_log.model import AuditLog
 from superadmin.city_admin.model import AdminUser
 
 PHOTO_URL = "/cityadmin/matrimony/photos/{}/file"
@@ -115,3 +116,29 @@ def decide_photo(db: Session, admin: AdminUser, actor: audit.Actor, photo_id: UU
               photo_id, admin.city_id, {"status": "PENDING"}, after)
     db.commit()
     return get_profile(db, admin, photo.profile_id)
+
+
+DECISIONS = ("MATRIMONY_APPROVE", "MATRIMONY_REJECT", "PHOTO_APPROVE", "PHOTO_REJECT")
+
+
+def list_decisions(db: Session, admin: AdminUser, limit: int, offset: int) -> dict:
+    """Decision history, newest first, read from the audit log: a profile's status moves on after a decision
+    (edits, archiving), but its audit entries don't. A photo the member later deleted keeps its entry, but without a name or profile."""
+    by_profile, photo_profile = aliased(MatrimonyProfile), aliased(MatrimonyProfile)
+    profile_id = func.coalesce(by_profile.profile_id, photo_profile.profile_id)
+    q = (select(AuditLog.occurred_at, AuditLog.action, AuditLog.after_state, AdminUser.full_name, profile_id,
+                Member.full_name)
+         .outerjoin(AdminUser, AdminUser.admin_id == AuditLog.actor_id)
+         .outerjoin(by_profile, (AuditLog.target_table == "matrimony_profile")
+                    & (cast(by_profile.profile_id, String) == AuditLog.target_id))
+         .outerjoin(MatrimonyPhoto, (AuditLog.target_table == "matrimony_photo")
+                    & (cast(MatrimonyPhoto.photo_id, String) == AuditLog.target_id))
+         .outerjoin(photo_profile, photo_profile.profile_id == MatrimonyPhoto.profile_id)
+         .outerjoin(Member, Member.member_id == func.coalesce(by_profile.member_id, photo_profile.member_id))
+         .where(AuditLog.city_id == admin.city_id, AuditLog.action.in_(DECISIONS)))
+    total = db.scalar(select(func.count()).select_from(q.subquery()))
+    rows = db.execute(q.order_by(AuditLog.occurred_at.desc(), AuditLog.audit_id.desc()).limit(limit).offset(offset))
+    return {"total": total, "items": [
+        {"occurred_at": at, "action": action, "admin_name": admin_name, "profile_id": pid, "full_name": name,
+         "reason": (after or {}).get("moderation_reason") or (after or {}).get("rejection_reason")}
+        for at, action, after, admin_name, pid, name in rows]}
