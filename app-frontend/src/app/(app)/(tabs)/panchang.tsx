@@ -67,7 +67,8 @@ export default function PanchangScreen() {
             </View>
           </View>
         ) : (
-          <Notice title="Not available" body={result.error!} tone={Palette.info} />
+          // ponytail: one message for every failure while Panchang data isn't loaded yet; show result.error once it is
+          <Notice title="Coming soon" body="Daily Panchang will be available here soon." tone={Palette.info} />
         )}
       </View>
     </SafeAreaView>

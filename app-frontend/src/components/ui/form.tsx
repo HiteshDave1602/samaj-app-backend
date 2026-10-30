@@ -1,4 +1,5 @@
 import * as DocumentPicker from 'expo-document-picker';
+import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import { SymbolView, type SymbolViewProps } from 'expo-symbols';
@@ -6,7 +7,7 @@ import { useState, type ReactNode } from 'react';
 import { ActivityIndicator, Pressable, Text, TextInput, View, type TextInputProps } from 'react-native';
 
 import { Palette } from '@/constants/theme';
-import type { PickedFile } from '@/lib/api';
+import { mediaUrl, type PickedFile } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 
 type Tone = { DEFAULT: string; container: string };
@@ -189,7 +190,10 @@ export function Notice({ title, body, tone = Palette.pending }: { title: string;
   );
 }
 
-export function Avatar({ name, size = 56, tone = Palette.primary }: { name: string; size?: number; tone?: Tone }) {
+/** photo: an API media path (e.g. photo_url); falls back to initials when absent. */
+export function Avatar({ name, size = 56, tone = Palette.primary, photo }: { name: string; size?: number; tone?: Tone; photo?: string | null }) {
+  const uri = mediaUrl(photo ?? null);
+  if (uri) return <Image source={{ uri }} style={{ width: size, height: size, borderRadius: size / 2 }} accessibilityLabel={name} />;
   return (
     <View
       className="items-center justify-center rounded-full"

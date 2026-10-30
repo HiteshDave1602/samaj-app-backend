@@ -262,7 +262,8 @@ const T: Record<string, [string, string]> = {
   'Go to today': ['આજ પર જાઓ', 'आज पर जाएँ'],
   Tithi: ['તિથિ', 'तिथि'],
   Yoga: ['યોગ', 'योग'],
-  'Not available': ['ઉપલબ્ધ નથી', 'उपलब्ध नहीं'],
+  'Coming soon': ['ટૂંક સમયમાં આવી રહ્યું છે', 'जल्द आ रहा है'],
+  'Daily Panchang will be available here soon.': ['દૈનિક પંચાંગ ટૂંક સમયમાં અહીં ઉપલબ્ધ થશે.', 'दैनिक पंचांग जल्द ही यहाँ उपलब्ध होगा।'],
 
   // profile & edit profile
   Age: ['ઉંમર', 'आयु'],

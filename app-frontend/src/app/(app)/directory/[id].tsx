@@ -19,6 +19,7 @@ type Person = {
   phone: string | null;
   phone_hidden: boolean;
   address: string | null;
+  photo_url: string | null;
 };
 type I18n = Record<string, string>;
 type Household = {
@@ -54,7 +55,7 @@ export default function HouseholdScreen() {
         {h?.people.map(({ full_name, full_name_i18n, ...p }) => ({ ...p, full_name: loc(full_name, full_name_i18n) })).map((p) => (
           <View key={p.id} className="rounded-3xl border border-line bg-white p-4">
             <View className="flex-row items-center gap-3">
-              <Avatar name={p.full_name ?? '?'} size={48} tone={p.is_household_head ? Palette.primary : Palette.brand} />
+              <Avatar name={p.full_name ?? '?'} size={48} tone={p.is_household_head ? Palette.primary : Palette.brand} photo={p.photo_url} />
               <View className="flex-1">
                 <Text className="font-inter-semibold text-base text-ink">{p.full_name ?? t('Member')}</Text>
                 <Text className="font-inter text-sm text-subtle">

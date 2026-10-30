@@ -1,4 +1,3 @@
-import { Image } from 'expo-image';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
@@ -6,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Avatar, Button, Notice, ScreenHeader } from '@/components/ui/form';
 import { Palette } from '@/constants/theme';
-import { api, logout, mediaUrl } from '@/lib/api';
+import { api, logout } from '@/lib/api';
 import { useHousehold } from '@/lib/family';
 import { label, loc, useT } from '@/lib/i18n';
 
@@ -52,7 +51,6 @@ export default function ProfileScreen() {
     ...household.relatives.map((r) => ({ id: r.family_member_id, name: loc(r.full_name, r.full_name_i18n)!, role: label(r.relationship), status: r.status })),
   ];
 
-  const photo = me && mediaUrl(me.photo_url);
   const name = me && (loc(me.full_name, me.full_name_i18n) ?? t('Member'));
   const details = me
     ? [
@@ -73,11 +71,7 @@ export default function ProfileScreen() {
         <View className="items-center rounded-3xl border border-line bg-white p-5">
           {me ? (
             <>
-              {photo ? (
-                <Image source={{ uri: photo }} style={{ width: 88, height: 88, borderRadius: 44 }} />
-              ) : (
-                <Avatar name={name!} size={88} />
-              )}
+              <Avatar name={name!} size={88} photo={me.photo_url} />
               <Text className="mt-3 font-headline text-2xl text-brand">{name}</Text>
               <View className="mt-2">
                 <Button title="Edit profile" small variant="outlined" onPress={() => router.push('/edit-profile')} />

@@ -95,6 +95,7 @@ try:
     assert items[f"{fam} Amit"]["phone"].startswith("+919") and not items[f"{fam} Amit"]["phone_hidden"]
     son = items[f"{fam} Son"]
     assert son["kind"] == "RELATIVE" and son["relationship"] == "SON" and son["phone"] is None, son
+    assert son["photo_url"] is None and "photo_url" in rj, (son, rj)
     assert not {"dob", "mobile_enc", "about", "biodata"} & set(rj), rj
     own = {i["full_name"]: i for i in get(raj_h, name=fam).json()["items"]}[f"{fam} Raj"]
     assert own["phone"] and not own["phone_hidden"], own

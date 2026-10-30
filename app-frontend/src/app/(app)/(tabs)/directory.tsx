@@ -25,6 +25,7 @@ type Entry = {
   city_name_i18n: Record<string, string>;
   phone: string | null;
   phone_hidden: boolean;
+  photo_url: string | null;
 };
 type City = { city_id: string; name: string; name_i18n: Record<string, string> };
 
@@ -156,7 +157,7 @@ export default function DirectoryScreen() {
             <View className="rounded-3xl border border-line bg-white p-4 shadow-sm">
               <View className="flex-row gap-3">
                 <View>
-                  <Avatar name={m.name} size={64} tone={Palette.primary} />
+                  <Avatar name={m.name} size={64} tone={Palette.primary} photo={m.photo_url} />
                   {/* everyone listed here is ACTIVE, i.e. admin-verified */}
                   <View className="absolute -bottom-0.5 -right-0.5 rounded-full bg-white p-0.5">
                     <SymbolView
@@ -213,27 +214,17 @@ export default function DirectoryScreen() {
               <View className="my-3 h-px bg-line" />
 
               <View className="flex-row items-center gap-2">
-                {/* members who chose hide_phone, and relatives (no contact details), get no call or WhatsApp buttons */}
+                {/* members who chose hide_phone, and relatives (no contact details), get no call button */}
                 {m.phone_hidden && <Text className="font-inter text-sm text-muted">{t('Phone hidden')}</Text>}
                 {phone && (
-                  <>
-                    <Pressable
-                      onPress={() => Linking.openURL(`tel:+${phone}`)}
-                      accessibilityRole="button"
-                      accessibilityLabel={t('Call {name}', { name: m.name })}
-                      className="h-10 flex-row items-center gap-1.5 rounded-full bg-surface px-4 active:opacity-80">
-                      <SymbolView name={{ ios: 'phone', android: 'call', web: 'call' }} size={18} tintColor={Palette.primary.DEFAULT} />
-                      <Text className="font-inter-medium text-sm text-ink">{t('Call')}</Text>
-                    </Pressable>
-                    <Pressable
-                      onPress={() => Linking.openURL(`https://wa.me/${phone}`)}
-                      accessibilityRole="button"
-                      accessibilityLabel={`WhatsApp ${m.name}`}
-                      className="h-10 flex-row items-center gap-1.5 rounded-full bg-surface px-4 active:opacity-80">
-                      <SymbolView name={{ ios: 'message', android: 'chat', web: 'chat' }} size={18} tintColor={Palette.primary.DEFAULT} />
-                      <Text className="font-inter-medium text-sm text-ink">WhatsApp</Text>
-                    </Pressable>
-                  </>
+                  <Pressable
+                    onPress={() => Linking.openURL(`tel:+${phone}`)}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('Call {name}', { name: m.name })}
+                    className="h-10 flex-row items-center gap-1.5 rounded-full bg-surface px-4 active:opacity-80">
+                    <SymbolView name={{ ios: 'phone', android: 'call', web: 'call' }} size={18} tintColor={Palette.primary.DEFAULT} />
+                    <Text className="font-inter-medium text-sm text-ink">{t('Call')}</Text>
+                  </Pressable>
                 )}
                 {m.household_id && (
                 <Pressable
