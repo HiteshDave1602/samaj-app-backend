@@ -23,6 +23,7 @@ class DirectoryEntry(BaseModel):
     address: str | None
     phone_hidden: bool  # FR-68: the member chose to hide it; the app shows "Hidden"
     address_hidden: bool
+    photo_url: str | None  # MEMBER's profile photo; RELATIVE has none
 
 
 class DirectoryPage(BaseModel):

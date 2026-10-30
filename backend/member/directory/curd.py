@@ -4,6 +4,7 @@ from fastapi import HTTPException
 from sqlalchemy import exists, false, literal, null, select, union_all
 from sqlalchemy.orm import Session
 
+from core import media
 from core.security import fernet
 from member.profile.model import FamilyMember, Household, Member
 from superadmin.city.model import City
@@ -23,7 +24,7 @@ def _members(name: str | None, city_id: UUID | None, family_name: str | None):
                 Household.family_name, Household.family_name_i18n, Household.native_place, Household.native_place_i18n,
                 City.name.label("city_name"), City.name_i18n.label("city_name_i18n"), Member.mobile_enc,
                 Member.address_enc,
-                Member.hide_phone, Member.hide_address)
+                Member.hide_phone, Member.hide_address, Member.photo_key)
          .join(City, City.city_id == Member.city_id)
          .outerjoin(Household, Household.household_id == Member.household_id)
          .where(*_listed))
@@ -44,7 +45,7 @@ def _relatives(name: str | None, city_id: UUID | None, family_name: str | None):
                 Household.family_name, Household.family_name_i18n, Household.native_place, Household.native_place_i18n,
                 City.name.label("city_name"), City.name_i18n.label("city_name_i18n"), null().label("mobile_enc"),
                 null().label("address_enc"),
-                false().label("hide_phone"), false().label("hide_address"))
+                false().label("hide_phone"), false().label("hide_address"), null().label("photo_key"))
          .join(Household, Household.household_id == FamilyMember.household_id)
          .join(City, City.city_id == Household.city_id)
          .where(FamilyMember.status == "APPROVED", FamilyMember.linked_member_id.is_(None),
@@ -72,6 +73,7 @@ def _entry(row, viewer: Member) -> dict:
         "phone": fernet.decrypt(row.mobile_enc).decode() if show_phone else None,
         "address": fernet.decrypt(row.address_enc).decode() if show_address else None,
         "phone_hidden": row.hide_phone and not own, "address_hidden": row.hide_address and not own,
+        "photo_url": media.url(row.photo_key),
     }
 
 
