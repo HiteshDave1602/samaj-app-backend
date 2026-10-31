@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button, Chips, Field, Notice, ScreenHeader } from '@/components/ui/form';
@@ -102,7 +102,7 @@ export default function BiodataScreen() {
   return (
     <SafeAreaView className="flex-1 bg-cream">
       <ScreenHeader title="My biodata" back />
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} className="flex-1">
+      <KeyboardAvoidingView behavior="padding" className="flex-1">
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 20, paddingTop: 4, gap: 18 }}>
           <Notice title="Private" body="Only members whose biodata request you accept can see this." tone={Palette.info} />
           {FIELDS.map(({ key, title, options, multiline, numeric, hint }) =>

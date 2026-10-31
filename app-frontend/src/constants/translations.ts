@@ -59,6 +59,8 @@ const T: Record<string, [string, string]> = {
   'New to the samaj app?': ['સમાજ એપમાં નવા છો?', 'समाज ऐप में नए हैं?'],
   'Not a valid date': ['માન્ય તારીખ નથી', 'मान्य तिथि नहीं है'],
   'Pick a date': ['તારીખ પસંદ કરો', 'तिथि चुनें'],
+  'Sponsored by {name}': ['પ્રાયોજક: {name}', 'प्रायोजक: {name}'],
+  'Developed by {name}': ['વિકસિત કરનાર: {name}', 'विकसितकर्ता: {name}'],
   Done: ['થઈ ગયું', 'हो गया'],
   'Mobile number': ['મોબાઇલ નંબર', 'मोबाइल नंबर'],
   'Indian numbers need no +91': ['ભારતીય નંબર માટે +91 જરૂરી નથી', 'भारतीय नंबर के लिए +91 ज़रूरी नहीं'],

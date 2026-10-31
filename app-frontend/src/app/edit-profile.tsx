@@ -1,7 +1,7 @@
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, Switch, Text, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, ScrollView, Switch, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button, Chips, DateField, Field, Notice, ScreenHeader, UploadBox } from '@/components/ui/form';
@@ -138,7 +138,7 @@ export default function EditProfile() {
   return (
     <SafeAreaView className="flex-1 bg-cream">
       <ScreenHeader title="Edit profile" back />
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} className="flex-1">
+      <KeyboardAvoidingView behavior="padding" className="flex-1">
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 20, paddingTop: 4, gap: 18 }}>
           {me.status === 'ACTIVE' && (
             <Notice title="Heads up" body="Changing your name or date of birth sends your profile back to your city admin for review." />

@@ -1,10 +1,11 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Button, Chips, DateField, Field, Notice, ScreenHeader } from '@/components/ui/form';
+import { BrandHeader, Credits } from '@/components/brand';
+import { Button, Chips, DateField, Field, Notice } from '@/components/ui/form';
 import { Palette } from '@/constants/theme';
 import { api, isoDate, parseDmy, saveSession, type Session } from '@/lib/api';
 import { getLang, useLoc, useT } from '@/lib/i18n';
@@ -110,82 +111,86 @@ export default function Register() {
 
   return (
     <SafeAreaView className="flex-1 bg-cream">
-      <ScreenHeader title="Join your samaj" back />
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} className="flex-1">
-        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 20, paddingTop: 4, gap: 18 }}>
-          {!params.ticket && (
-            <Field
-              label="Mobile number"
-              value={mobile}
-              onChangeText={(v) => (setMobile(v), setCodeSent(false), setTaken(false))}
-              placeholder="98765 43210"
-              keyboardType="phone-pad"
-              autoComplete="tel"
-              hint="Indian numbers need no +91"
-            />
-          )}
-          <Field label="Full name" value={form.name} onChangeText={set('name')} placeholder="As on your ID" autoComplete="name" />
-          <Chips label="Gender" options={Object.keys(GENDERS) as GenderLabel[]} value={gender} onChange={setGender} />
-          <DateField label="Date of birth" value={form.dob} onChange={set('dob')} />
-          <Chips
-            label="City"
-            options={cities.map((c) => c.city_id)}
-            display={(id) => {
-              const c = cities.find((x) => x.city_id === id)!;
-              return place(c.name, c.name_i18n)!;
-            }}
-            value={cityId}
-            onChange={setCityId}
-          />
-          <Field label="Family name" value={form.family} onChangeText={set('family')} placeholder="e.g. Patel" />
-          <Field label="Native place (optional)" value={form.native} onChangeText={set('native')} placeholder="e.g. Visnagar" />
-          <Field label="Address" value={form.address} onChangeText={set('address')} placeholder="House, street, area" multiline maxLength={500} />
-
-          <Pressable
-            onPress={() => setConsent(!consent)}
-            accessibilityRole="checkbox"
-            accessibilityState={{ checked: consent }}
-            className="flex-row gap-3 rounded-2xl border border-line bg-white p-4">
-            <SymbolView
-              name={{
-                ios: consent ? 'checkmark.square.fill' : 'square',
-                android: consent ? 'check_box' : 'check_box_outline_blank',
-                web: consent ? 'check_box' : 'check_box_outline_blank',
+      <KeyboardAvoidingView behavior="padding" className="flex-1">
+        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ flexGrow: 1 }}>
+          <BrandHeader size="compact" back />
+          <Text className="text-center font-headline text-2xl text-brand">{t('Join your samaj')}</Text>
+          <View className="flex-1 gap-[18px] px-5 pb-4 pt-3">
+            {!params.ticket && (
+              <Field
+                label="Mobile number"
+                value={mobile}
+                onChangeText={(v) => (setMobile(v), setCodeSent(false), setTaken(false))}
+                placeholder="98765 43210"
+                keyboardType="phone-pad"
+                autoComplete="tel"
+                hint="Indian numbers need no +91"
+              />
+            )}
+            <Field label="Full name" value={form.name} onChangeText={set('name')} placeholder="As on your ID" autoComplete="name" />
+            <Chips label="Gender" options={Object.keys(GENDERS) as GenderLabel[]} value={gender} onChange={setGender} />
+            <DateField label="Date of birth" value={form.dob} onChange={set('dob')} />
+            <Chips
+              label="City"
+              options={cities.map((c) => c.city_id)}
+              display={(id) => {
+                const c = cities.find((x) => x.city_id === id)!;
+                return place(c.name, c.name_i18n)!;
               }}
-              size={24}
-              tintColor={consent ? Palette.primary.DEFAULT : Palette.muted}
+              value={cityId}
+              onChange={setCityId}
             />
-            <Text className="flex-1 font-inter text-sm leading-5 text-subtle">{t(NOTICE)}</Text>
-          </Pressable>
+            <Field label="Family name" value={form.family} onChangeText={set('family')} placeholder="e.g. Patel" />
+            <Field label="Native place (optional)" value={form.native} onChangeText={set('native')} placeholder="e.g. Visnagar" />
+            <Field label="Address" value={form.address} onChangeText={set('address')} placeholder="House, street, area" multiline maxLength={500} />
 
-          {taken && (
-            <>
-              <Notice title="Already registered" body="This number already has an account. Please log in." tone={Palette.info} />
-              <Button title="Log in instead" variant="outlined" onPress={() => router.replace('/login')} />
-            </>
-          )}
-          {codeSent && (
-            <Field
-              label={t('Code sent to {mobile}', { mobile: mobile.trim() })}
-              value={code}
-              onChangeText={(v) => setCode(v.replace(/\D/g, ''))}
-              placeholder="6-digit code"
-              keyboardType="number-pad"
-              textContentType="oneTimeCode"
-              autoComplete="sms-otp"
-              maxLength={6}
-              hint="Enter it to verify your number and submit"
-              autoFocus
+            <Pressable
+              onPress={() => setConsent(!consent)}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: consent }}
+              className="flex-row gap-3 rounded-2xl border border-line bg-white p-4">
+              <SymbolView
+                name={{
+                  ios: consent ? 'checkmark.square.fill' : 'square',
+                  android: consent ? 'check_box' : 'check_box_outline_blank',
+                  web: consent ? 'check_box' : 'check_box_outline_blank',
+                }}
+                size={24}
+                tintColor={consent ? Palette.primary.DEFAULT : Palette.muted}
+              />
+              <Text className="flex-1 font-inter text-sm leading-5 text-subtle">{t(NOTICE)}</Text>
+            </Pressable>
+
+            {taken && (
+              <>
+                <Notice title="Already registered" body="This number already has an account. Please log in." tone={Palette.info} />
+                <Button title="Log in instead" variant="outlined" onPress={() => router.replace('/login')} />
+              </>
+            )}
+            {codeSent && (
+              <Field
+                label={t('Code sent to {mobile}', { mobile: mobile.trim() })}
+                value={code}
+                onChangeText={(v) => setCode(v.replace(/\D/g, ''))}
+                placeholder="6-digit code"
+                keyboardType="number-pad"
+                textContentType="oneTimeCode"
+                autoComplete="sms-otp"
+                maxLength={6}
+                hint="Enter it to verify your number and submit"
+                autoFocus
+              />
+            )}
+            {error && <Notice title="Could not register" body={error} tone={Palette.rejected} />}
+            {!ready && <Text className="font-inter text-sm text-subtle">{t('Still needed: {fields}', { fields: missing.map((m) => t(m)).join(', ') })}</Text>}
+            <Button
+              title={busy ? 'Submitting…' : codeSent ? 'Verify and submit' : 'Submit for approval'}
+              disabled={busy || !ready || taken || (codeSent && code.length !== 6)}
+              onPress={submit}
             />
-          )}
-          {error && <Notice title="Could not register" body={error} tone={Palette.rejected} />}
-          {!ready && <Text className="font-inter text-sm text-subtle">{t('Still needed: {fields}', { fields: missing.map((m) => t(m)).join(', ') })}</Text>}
-          <Button
-            title={busy ? 'Submitting…' : codeSent ? 'Verify and submit' : 'Submit for approval'}
-            disabled={busy || !ready || taken || (codeSent && code.length !== 6)}
-            onPress={submit}
-          />
-          <View className="h-4" />
+            <View className="h-4" />
+            <Credits />
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
