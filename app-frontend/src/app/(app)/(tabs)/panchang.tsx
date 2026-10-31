@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Notice, ScreenHeader } from '@/components/ui/form';
 import { Palette } from '@/constants/theme';
 import { api } from '@/lib/api';
-import { locale, useT } from '@/lib/i18n';
+import { locale, tWords, useT } from '@/lib/i18n';
 
 // backend member/panchang/api.py PanchangOut
 type Panchang = { panchang_date: string; tithi: string; nakshatra: string; yoga: string };
@@ -54,15 +54,15 @@ export default function PanchangScreen() {
         ) : result.p ? (
           <View className="rounded-3xl bg-accent-container p-5">
             <Text className="font-inter-semibold text-xs uppercase tracking-wider text-subtle">{t('Tithi')}</Text>
-            <Text className="mt-1 font-headline text-4xl text-ink">{result.p.tithi}</Text>
+            <Text className="mt-1 font-headline text-4xl text-ink">{tWords(t, result.p.tithi)}</Text>
             <View className="mt-4 flex-row">
               <View className="w-1/2">
                 <Text className="font-inter text-xs text-muted">{t('Nakshatra')}</Text>
-                <Text className="font-inter-semibold text-base text-ink">{result.p.nakshatra}</Text>
+                <Text className="font-inter-semibold text-base text-ink">{tWords(t, result.p.nakshatra, 'nakshatra')}</Text>
               </View>
               <View className="w-1/2">
                 <Text className="font-inter text-xs text-muted">{t('Yoga')}</Text>
-                <Text className="font-inter-semibold text-base text-ink">{result.p.yoga}</Text>
+                <Text className="font-inter-semibold text-base text-ink">{tWords(t, result.p.yoga, 'yoga')}</Text>
               </View>
             </View>
           </View>

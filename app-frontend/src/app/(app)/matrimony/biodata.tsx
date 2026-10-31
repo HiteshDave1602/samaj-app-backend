@@ -6,9 +6,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, Chips, Field, Notice, ScreenHeader } from '@/components/ui/form';
 import { Palette } from '@/constants/theme';
 import { api } from '@/lib/api';
-import { label, useT } from '@/lib/i18n';
+import { label, tWords, useT } from '@/lib/i18n';
 
 // backend member/matrimony/schema.py BiodataIn, in display order. `options` fields are enums.
+// typed as English words from a known list: shown translated
+const WORDS = new Set(['rashi', 'nakshatra', 'gotra']);
 const FIELDS: { key: string; title: string; options?: string[]; multiline?: boolean; numeric?: boolean; hint?: string }[] = [
   { key: 'height_cm', title: 'Height (cm)', numeric: true },
   { key: 'diet', title: 'Diet', options: ['VEG', 'NON_VEG', 'EGGETARIAN', 'JAIN', 'VEGAN'] },
@@ -87,7 +89,7 @@ export default function BiodataScreen() {
               <View key={key} className={`py-2.5 ${i ? 'border-t border-line' : ''}`}>
                 <Text className="font-inter text-xs text-muted">{t(title)}</Text>
                 <Text className="font-inter-semibold text-sm text-ink">
-                  {options ? label(String(data[key])) : String(data[key])}
+                  {options ? label(String(data[key])) : WORDS.has(key) ? tWords(t, String(data[key]), key === 'nakshatra' ? 'nakshatra' : undefined) : String(data[key])}
                 </Text>
               </View>
             ))}

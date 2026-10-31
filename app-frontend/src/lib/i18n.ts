@@ -23,6 +23,18 @@ export const locale = () => `${lang}-IN`;
 /** Names and places from the API come with *_i18n spellings ({gu, hi}); this picks the current one, else the original. */
 export const loc = (en: string | null, i18n?: Record<string, string> | null) => i18n?.[lang] || en;
 
+/** Panchang, rashi and gotra text is English words ('Kartika Shukla Navami'), each looked up on its own. kind picks
+ * the meaning of a word shared between lists: Shravana the month vs the nakshatra. Pass the t from useT(). */
+export function tWords(tr: typeof t, s: string, kind?: 'nakshatra' | 'yoga') {
+  return s
+    .split(' ')
+    .map((w) => {
+      const own = kind && tr(`${w} (${kind})`);
+      return own && own !== `${w} (${kind})` ? own : tr(w);
+    })
+    .join(' ');
+}
+
 /** Backend enums are UPPER_SNAKE; 'SON_IN_LAW' -> 'Son in law', then translated. */
 export const label = (v: string) => t(v.charAt(0) + v.slice(1).toLowerCase().replace(/_/g, ' '));
 
@@ -46,8 +58,17 @@ export function syncLang() {
 
 const subscribe = (f: () => void) => (listeners.add(f), () => listeners.delete(f));
 
+// One t per language: the React Compiler caches text by t's identity, so it must change when the language does.
+const T_BY_LANG = Object.fromEntries(
+  (Object.keys(DICTS) as Lang[]).map((l) => [l, (en: string, vars?: Record<string, string | number>) => t(en, vars)]),
+) as Record<Lang, typeof t>;
+
+/** The current language, re-rendering on change (getLang() alone is cached by the React Compiler). */
+export function useLang() {
+  return useSyncExternalStore(subscribe, getLang, getLang);
+}
+
 /** Every component that shows text calls this, so it re-renders when the language changes. */
 export function useT() {
-  useSyncExternalStore(subscribe, getLang, getLang);
-  return t;
+  return T_BY_LANG[useLang()];
 }
