@@ -4,12 +4,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ScreenHeader } from '@/components/ui/form';
 import { Palette } from '@/constants/theme';
-import { getLang, LANGUAGES, setLang, useT, type Lang } from '@/lib/i18n';
+import { LANGUAGES, setLang, useLang, useT, type Lang } from '@/lib/i18n';
 
 // Outside the (app) gate, so pending members can switch language too.
 export default function Settings() {
   const t = useT();
-  const current = getLang();
+  const current = useLang();
   return (
     <SafeAreaView className="flex-1 bg-cream">
       <ScreenHeader title="Settings" back />

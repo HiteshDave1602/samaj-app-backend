@@ -115,10 +115,10 @@ try:
     assert me["city_name"] == f"MemberCity-{tag}", me
     assert me["mobile"] == e164 and me["photo_url"] is None, me
     # names are auto-transliterated on write; a correction sticks until the English name changes
-    assert me["full_name_i18n"] == {"gu": "અશા પતેલ", "hi": "अशा पतेल"}, me["full_name_i18n"]
-    assert me["family_name_i18n"]["gu"] == "પતેલ" and me["city_name_i18n"]["hi"], me
-    me = c.put("/member/me", headers=me_h, json={"full_name_i18n": {"gu": "આશા પટેલ"}}).json()
-    assert me["full_name_i18n"] == {"gu": "આશા પટેલ", "hi": "अशा पतेल"}, me["full_name_i18n"]
+    assert me["full_name_i18n"] == {"gu": "આશા પટેલ", "hi": "आशा पटेल"}, me["full_name_i18n"]
+    assert me["family_name_i18n"]["gu"] == "પટેલ" and me["city_name_i18n"]["hi"], me
+    me = c.put("/member/me", headers=me_h, json={"full_name_i18n": {"gu": "આશાબેન પટેલ"}}).json()
+    assert me["full_name_i18n"] == {"gu": "આશાબેન પટેલ", "hi": "आशा पटेल"}, me["full_name_i18n"]
     assert c.put("/member/me", headers=me_h, json={"full_name_i18n": {"fr": "x"}}).status_code == 422
 
     # profile photo: JPG/PNG <= 2 MB; a new one replaces the old file

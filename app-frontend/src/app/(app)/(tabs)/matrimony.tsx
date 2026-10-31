@@ -8,7 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, Chips, initials, Notice, ScreenHeader } from '@/components/ui/form';
 import { Palette } from '@/constants/theme';
 import { api, authedImage } from '@/lib/api';
-import { label, loc, useT } from '@/lib/i18n';
+import { label, loc, tWords, useT } from '@/lib/i18n';
 import { Cover, education, height, summary, title, useReceivedRequests, type BiodataRequest, type ProfileCard } from '@/lib/matrimony';
 
 const MY_STATUS: Record<string, string> = {
@@ -225,8 +225,8 @@ export default function MatrimonyScreen() {
                     {(
                       [
                         ['Education', education(p)],
-                        ['Profession', p.occupation],
-                        ['Gotra / Kula', p.gotra],
+                        ['Profession', p.occupation && t(p.occupation)],
+                        ['Gotra / Kula', p.gotra && tWords(t, p.gotra)],
                         ['Native origin', loc(p.native_place, p.native_place_i18n)],
                       ] as const
                     ).map(([k, v]) => (

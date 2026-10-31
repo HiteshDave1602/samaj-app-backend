@@ -8,7 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, Notice, ScreenHeader } from '@/components/ui/form';
 import { Palette } from '@/constants/theme';
 import { api, authedImage } from '@/lib/api';
-import { label, loc, useT } from '@/lib/i18n';
+import { label, loc, tWords, useT } from '@/lib/i18n';
 import { Cover, education, height, summary, title, type ProfileCard } from '@/lib/matrimony';
 
 // backend member/matrimony/schema.py PublicProfileOut
@@ -70,12 +70,12 @@ export default function MatrimonyProfile() {
 
   const details = [
     ['Education', education(p)],
-    ['Occupation', p.occupation],
+    ['Occupation', p.occupation && t(p.occupation)],
     ['Height', p.height_cm ? height(p.height_cm) : null],
-    ['Gotra / Kula', p.gotra],
+    ['Gotra / Kula', p.gotra && tWords(t, p.gotra)],
     ['Native origin', loc(p.native_place, p.native_place_i18n)],
     ['Family', label(p.family_background)],
-    ['City', p.location_city_name],
+    ['City', loc(p.location_city_name, p.location_city_name_i18n)],
     ['Managed by', label(p.managed_by)],
   ].filter(([, v]) => v);
   const req = p.biodata_request;

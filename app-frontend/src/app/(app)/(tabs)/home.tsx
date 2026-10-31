@@ -8,7 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Palette } from '@/constants/theme';
 import { api } from '@/lib/api';
 import { Cover, formatDate, useFeed } from '@/lib/feed';
-import { useT } from '@/lib/i18n';
+import { tWords, useT } from '@/lib/i18n';
 import { Cover as ProfileCover, title, useReceivedRequests } from '@/lib/matrimony';
 
 type Icon = SymbolViewProps['name'];
@@ -174,9 +174,9 @@ export default function HomeScreen() {
             </Text>
             {typeof panchang === 'object' ? (
               <>
-                <Text className="mt-2 font-headline text-4xl text-ink">{panchang.tithi}</Text>
+                <Text className="mt-2 font-headline text-4xl text-ink">{tWords(t, panchang.tithi)}</Text>
                 <Text className="font-inter text-sm text-subtle">
-                  {t('{nakshatra} Nakshatra · {yoga} Yoga', { nakshatra: panchang.nakshatra, yoga: panchang.yoga })}
+                  {t('{nakshatra} Nakshatra · {yoga} Yoga', { nakshatra: tWords(t, panchang.nakshatra, 'nakshatra'), yoga: tWords(t, panchang.yoga, 'yoga') })}
                 </Text>
               </>
             ) : (

@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, Chips, Field, Notice, ScreenHeader, UploadBox } from '@/components/ui/form';
 import { Palette } from '@/constants/theme';
 import { api, dmyDate, isoDate, mediaUrl, restoreSession, upload } from '@/lib/api';
-import { getLang, LANGUAGES, useT } from '@/lib/i18n';
+import { LANGUAGES, useLang, useT } from '@/lib/i18n';
 
 // backend member/profile/schema.py MemberOut (the editable part) and MemberUpdate
 type Me = {
@@ -38,7 +38,8 @@ export default function EditProfile() {
   const [me, setMe] = useState<Me>();
   const [form, setForm] = useState({ name: '', dob: '', address: '', family: '', native: '', nameLoc: '', familyLoc: '', nativeLoc: '' });
   // English has no spellings to correct; gu/hi edit the auto-transliterated ones
-  const lang = getLang() === 'en' ? undefined : (getLang() as 'gu' | 'hi');
+  const current = useLang();
+  const lang = current === 'en' ? undefined : current;
   const [gender, setGender] = useState<GenderLabel>();
   const [flags, setFlags] = useState({ hide_phone: false, hide_address: false, notify_news: true });
   const [busy, setBusy] = useState(false);
