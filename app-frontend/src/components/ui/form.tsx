@@ -94,11 +94,13 @@ export function Chips<T extends string>({
   options,
   value,
   onChange,
+  display,
 }: {
   label: string;
   options: readonly T[];
   value?: T;
   onChange: (v: T) => void;
+  display?: (v: T) => string; // text for an option; default t(option)
 }) {
   const t = useT();
   return (
@@ -112,7 +114,7 @@ export function Chips<T extends string>({
             accessibilityRole="radio"
             accessibilityState={{ selected: o === value }}
             className={`rounded-full border px-4 py-2 ${o === value ? 'border-primary bg-primary-container' : 'border-line bg-white'}`}>
-            <Text className={`font-inter-medium text-sm ${o === value ? 'text-primary' : 'text-subtle'}`}>{t(o)}</Text>
+            <Text className={`font-inter-medium text-sm ${o === value ? 'text-primary' : 'text-subtle'}`}>{display ? display(o) : t(o)}</Text>
           </Pressable>
         ))}
       </View>

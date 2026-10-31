@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, Chips, Field, Notice, ScreenHeader } from '@/components/ui/form';
 import { Palette } from '@/constants/theme';
 import { api, isoDate, saveSession, type Session } from '@/lib/api';
-import { getLang, loc, useT } from '@/lib/i18n';
+import { getLang, useLoc, useT } from '@/lib/i18n';
 
 // Must match NOTICE_VERSION in backend/member/auth/curd.py; bump both when the text below changes.
 // ponytail: placeholder wording, swap in the approved consent notice from the PRD
@@ -22,11 +22,12 @@ type City = { city_id: string; name: string; name_i18n: Record<string, string>; 
 
 export default function Register() {
   const t = useT();
+  const place = useLoc();
   const { ticket } = useLocalSearchParams<{ ticket: string }>();
   const [cities, setCities] = useState<City[]>([]);
   const [form, setForm] = useState({ name: '', dob: '', family: '', native: '', address: '' });
   const [gender, setGender] = useState<GenderLabel>();
-  const [cityName, setCityName] = useState<string>();
+  const [cityId, setCityId] = useState<string>(); // by id: the name changes with the language
   const [consent, setConsent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
@@ -37,7 +38,7 @@ export default function Register() {
   }, []);
 
   // ponytail: city chips suit a handful of cities; switch to a searchable list once there are dozens
-  const city = cities.find((c) => loc(c.name, c.name_i18n) === cityName);
+  const city = cities.find((c) => c.city_id === cityId);
   const missing = [
     !form.name.trim() && 'full name',
     !gender && 'gender',
@@ -93,7 +94,16 @@ export default function Register() {
             keyboardType="numbers-and-punctuation"
             maxLength={10}
           />
-          <Chips label="City" options={cities.map((c) => loc(c.name, c.name_i18n)!)} value={cityName} onChange={setCityName} />
+          <Chips
+            label="City"
+            options={cities.map((c) => c.city_id)}
+            display={(id) => {
+              const c = cities.find((x) => x.city_id === id)!;
+              return place(c.name, c.name_i18n)!;
+            }}
+            value={cityId}
+            onChange={setCityId}
+          />
           <Field label="Family name" value={form.family} onChangeText={set('family')} placeholder="e.g. Patel" />
           <Field label="Native place (optional)" value={form.native} onChangeText={set('native')} placeholder="e.g. Visnagar" />
           <Field label="Address" value={form.address} onChangeText={set('address')} placeholder="House, street, area" multiline maxLength={500} />

@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Avatar, Chips, Field, Notice, ScreenHeader } from '@/components/ui/form';
 import { Palette } from '@/constants/theme';
 import { api } from '@/lib/api';
-import { label, loc, useT } from '@/lib/i18n';
+import { label, useLoc, useT } from '@/lib/i18n';
 
 // backend member/directory/schema.py DirectoryEntry
 type Entry = {
@@ -35,21 +35,21 @@ const text = (s: string) => (s.trim().length >= 2 ? s.trim() : undefined);
 // ponytail: first 50 results only; page with next_offset when directories get bigger
 export default function DirectoryScreen() {
   const t = useT();
+  const place = useLoc();
   const [query, setQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [cities, setCities] = useState<City[]>([]);
-  const [city, setCity] = useState<string>();
+  const [cityId, setCityId] = useState<string>(); // by id: the name changes with the language
   const [family, setFamily] = useState('');
   const [results, setResults] = useState<Entry[]>();
   const [error, setError] = useState<string>();
   const [bookmarks, setBookmarks] = useState(new Set<string>());
-  const activeFilters = [city, text(family)].filter(Boolean).length;
+  const activeFilters = [cityId, text(family)].filter(Boolean).length;
 
   useEffect(() => {
     api<City[]>('/member/auth/cities').then(setCities, () => {});
   }, []);
 
-  const cityId = cities.find((c) => loc(c.name, c.name_i18n) === city)?.city_id;
   const name = text(query);
   const familyName = text(family);
   useEffect(() => {
@@ -108,12 +108,21 @@ export default function DirectoryScreen() {
       {showFilters && (
         <View className="mx-5 mt-3 gap-4 rounded-3xl border border-line bg-white p-4">
           {/* tapping the selected chip again clears it */}
-          <Chips label="City" options={cities.map((c) => loc(c.name, c.name_i18n)!)} value={city} onChange={(v) => setCity(v === city ? undefined : v)} />
+          <Chips
+            label="City"
+            options={cities.map((c) => c.city_id)}
+            display={(id) => {
+              const c = cities.find((x) => x.city_id === id)!;
+              return place(c.name, c.name_i18n)!;
+            }}
+            value={cityId}
+            onChange={(v) => setCityId(v === cityId ? undefined : v)}
+          />
           <Field label="Family name" value={family} onChangeText={setFamily} placeholder="e.g. Patel" />
           {activeFilters > 0 && (
             <Pressable
               onPress={() => {
-                setCity(undefined);
+                setCityId(undefined);
                 setFamily('');
               }}
               accessibilityRole="button"
@@ -149,10 +158,10 @@ export default function DirectoryScreen() {
           )
         }
         renderItem={({ item }) => {
-          const m = { ...item, name: loc(item.full_name, item.full_name_i18n) ?? t('Member'), city_name: loc(item.city_name, item.city_name_i18n) };
+          const m = { ...item, name: place(item.full_name, item.full_name_i18n) ?? t('Member'), city_name: place(item.city_name, item.city_name_i18n) };
           const saved = bookmarks.has(m.id);
           const phone = m.phone?.replace(/\D/g, '');
-          const family = [loc(m.family_name, m.family_name_i18n), loc(m.native_place, m.native_place_i18n)].filter(Boolean).join(' · ');
+          const family = [place(m.family_name, m.family_name_i18n), place(m.native_place, m.native_place_i18n)].filter(Boolean).join(' · ');
           const openFamily = () => router.push({ pathname: '/directory/[id]', params: { id: m.household_id! } });
           return (
             // the whole card opens the family, same as View Family; disabled when there's no household
