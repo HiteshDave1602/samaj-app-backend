@@ -8,8 +8,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, Notice, ScreenHeader } from '@/components/ui/form';
 import { Palette } from '@/constants/theme';
 import { api, authedImage } from '@/lib/api';
-import { label, useT } from '@/lib/i18n';
-import { Cover, education, summary, title, type ProfileCard } from '@/lib/matrimony';
+import { label, loc, useT } from '@/lib/i18n';
+import { Cover, education, height, summary, title, type ProfileCard } from '@/lib/matrimony';
 
 // backend member/matrimony/schema.py PublicProfileOut
 type Profile = ProfileCard & {
@@ -71,6 +71,9 @@ export default function MatrimonyProfile() {
   const details = [
     ['Education', education(p)],
     ['Occupation', p.occupation],
+    ['Height', p.height_cm ? height(p.height_cm) : null],
+    ['Gotra / Kula', p.gotra],
+    ['Native origin', loc(p.native_place, p.native_place_i18n)],
     ['Family', label(p.family_background)],
     ['City', p.location_city_name],
     ['Managed by', label(p.managed_by)],

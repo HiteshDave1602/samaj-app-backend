@@ -24,6 +24,8 @@ type MyProfile = {
   education_level: string;
   education_detail: string | null;
   occupation: string | null;
+  gotra: string | null;
+  height_cm: number | null;
   family_background: string;
   about: string | null;
   status: 'DRAFT' | 'PENDING_MODERATION' | 'APPROVED' | 'REJECTED' | 'ARCHIVED';
@@ -44,7 +46,7 @@ const STATUS: Record<MyProfile['status'], { title: string; body: string; tone: t
 export default function MyMatrimonyProfile() {
   const t = useT();
   const [profile, setProfile] = useState<MyProfile | null>(); // null: none yet
-  const [form, setForm] = useState({ educationDetail: '', occupation: '', about: '' });
+  const [form, setForm] = useState({ educationDetail: '', occupation: '', gotra: '', height: '', about: '' });
   const [managedBy, setManagedBy] = useState<keyof typeof MANAGED_BY>('Self');
   const [education, setEducation] = useState<keyof typeof EDUCATION>();
   const [background, setBackground] = useState<keyof typeof BACKGROUND>();
@@ -54,7 +56,7 @@ export default function MyMatrimonyProfile() {
 
   const fill = useCallback((p: MyProfile) => {
     setProfile(p);
-    setForm({ educationDetail: p.education_detail ?? '', occupation: p.occupation ?? '', about: p.about ?? '' });
+    setForm({ educationDetail: p.education_detail ?? '', occupation: p.occupation ?? '', gotra: p.gotra ?? '', height: p.height_cm?.toString() ?? '', about: p.about ?? '' });
     setManagedBy(key(MANAGED_BY, p.managed_by) ?? 'Self');
     setEducation(key(EDUCATION, p.education_level));
     setBackground(key(BACKGROUND, p.family_background));
@@ -85,6 +87,8 @@ export default function MyMatrimonyProfile() {
     family_background: background && BACKGROUND[background],
     education_detail: form.educationDetail.trim() || null,
     occupation: form.occupation.trim() || null,
+    gotra: form.gotra.trim() || null,
+    height_cm: form.height.trim() ? Number(form.height) : null,
     about: form.about.trim() || null,
   };
   const save = () =>
@@ -118,6 +122,8 @@ export default function MyMatrimonyProfile() {
         <Chips label="Education" options={Object.keys(EDUCATION) as (keyof typeof EDUCATION)[]} value={education} onChange={setEducation} />
         <Field label="Degree / course" value={form.educationDetail} onChangeText={set('educationDetail')} placeholder="e.g. B.Tech, Computer Engineering" maxLength={120} />
         <Field label="Occupation" value={form.occupation} onChangeText={set('occupation')} placeholder="e.g. Software Engineer" maxLength={80} />
+        <Field label="Gotra / Kula" value={form.gotra} onChangeText={set('gotra')} placeholder="e.g. Bharadwaja" maxLength={60} />
+        <Field label="Height (cm)" value={form.height} onChangeText={set('height')} placeholder="e.g. 168" keyboardType="number-pad" maxLength={3} />
         <Chips
           label="Family background"
           options={Object.keys(BACKGROUND) as (keyof typeof BACKGROUND)[]}
