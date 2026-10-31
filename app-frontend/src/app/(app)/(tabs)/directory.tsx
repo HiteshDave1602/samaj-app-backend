@@ -153,8 +153,15 @@ export default function DirectoryScreen() {
           const saved = bookmarks.has(m.id);
           const phone = m.phone?.replace(/\D/g, '');
           const family = [loc(m.family_name, m.family_name_i18n), loc(m.native_place, m.native_place_i18n)].filter(Boolean).join(' · ');
+          const openFamily = () => router.push({ pathname: '/directory/[id]', params: { id: m.household_id! } });
           return (
-            <View className="rounded-3xl border border-line bg-white p-4 shadow-sm">
+            // the whole card opens the family, same as View Family; disabled when there's no household
+            <Pressable
+              onPress={openFamily}
+              disabled={!m.household_id}
+              accessibilityRole="button"
+              accessibilityLabel={m.household_id ? t("View {name}'s family", { name: m.name }) : m.name}
+              className="rounded-3xl border border-line bg-white p-4 shadow-sm active:opacity-90">
               <View className="flex-row gap-3">
                 <View>
                   <Avatar name={m.name} size={64} tone={Palette.primary} photo={m.photo_url} />
@@ -228,7 +235,7 @@ export default function DirectoryScreen() {
                 )}
                 {m.household_id && (
                 <Pressable
-                  onPress={() => router.push({ pathname: '/directory/[id]', params: { id: m.household_id! } })}
+                  onPress={openFamily}
                   accessibilityRole="button"
                   accessibilityLabel={t("View {name}'s family", { name: m.name })}
                   className="ml-auto h-10 flex-row items-center gap-1 rounded-full bg-primary-container pl-4 pr-3 active:opacity-80">
@@ -241,7 +248,7 @@ export default function DirectoryScreen() {
                 </Pressable>
                 )}
               </View>
-            </View>
+            </Pressable>
           );
         }}
       />

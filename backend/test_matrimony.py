@@ -222,7 +222,7 @@ try:
     assert found(gender="MALE") == expect(gender="MALE") == {"S1", "S2"}
     assert found(age_min=24, age_max=30, education_level="GRADUATE", family_background="JOINT") == \
         expect(24, 30, edu={"GRADUATE"}, bg={"JOINT"})
-    assert found(a_h) == {"Asha", "S1", "S2", "S3"}  # your own approved profile shows too
+    assert found(a_h) == {"S1", "S2", "S3"}  # FR-27: your own approved profile never shows
     assert c.get(f"{M}/profiles", headers=b_h, params={"age_min": 30, "age_max": 25}).status_code == 422
     assert c.get(f"{M}/profiles", headers=b_h, params={"education_level": "PHD"}).status_code == 422
     assert c.get(f"{M}/profiles", headers=p_h).status_code == 403
@@ -240,7 +240,7 @@ try:
     # FR-26: public summary only, by contract
     card = c.get(f"{M}/profiles", headers=b_h, params={"city_id": str(city2_id)}).json()["items"][0]
     assert set(card) == set(ProfileCard.model_fields), card
-    assert not set(card) & set(BiodataIn.model_fields) and "full_name" not in card
+    assert set(card) & set(BiodataIn.model_fields) == {"gotra", "height_cm"} and card["full_name"], card  # public by request
 
     # public detail: approved photos only; hidden profiles are 404
     s1 = c.get(f"{M}/profiles/{seed['S1'][0]}", headers=b_h).json()

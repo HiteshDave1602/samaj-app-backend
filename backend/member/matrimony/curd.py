@@ -12,7 +12,7 @@ from core.security import fernet
 from member.matrimony.model import Biodata, MatrimonyPhoto, MatrimonyProfile
 from member.matrimony.schema import BiodataIn, ProfileCreate, ProfileUpdate
 from member.profile.curd import age
-from member.profile.model import Member
+from member.profile.model import Household, Member
 from superadmin.city.model import City
 
 PHOTO_MAX_BYTES = 2 * 1024 * 1024  # FR-24
@@ -122,17 +122,20 @@ _cover = (select(MatrimonyPhoto.photo_id)
 
 
 def public_query():
-    return (select(MatrimonyProfile, Member.gender, Member.dob, City.name, City.name_i18n, _cover)
+    return (select(MatrimonyProfile, Member.full_name, Member.full_name_i18n, Member.gender, Member.dob,
+                   Household.native_place, Household.native_place_i18n, City.name, City.name_i18n, _cover)
             .join(Member, Member.member_id == MatrimonyProfile.member_id)
+            .outerjoin(Household, Household.household_id == Member.household_id)
             .join(City, City.city_id == MatrimonyProfile.location_city_id)
             .where(*_searchable()))
 
 
-def card(p: MatrimonyProfile, gender: str | None, dob: date | None, city_name: str, city_i18n: dict,
-         cover: UUID | None) -> dict:
+def card(p: MatrimonyProfile, name: str | None, name_i18n: dict, gender: str | None, dob: date | None,
+         native: str | None, native_i18n: dict | None, city_name: str, city_i18n: dict, cover: UUID | None) -> dict:
     return {
-        "profile_id": p.profile_id, "gender": gender, "age": age(dob), "education_level": p.education_level,
-        "education_detail": p.education_detail, "occupation": p.occupation,
+        "profile_id": p.profile_id, "full_name": name, "full_name_i18n": name_i18n, "gender": gender, "age": age(dob), "education_level": p.education_level,
+        "education_detail": p.education_detail, "occupation": p.occupation, "gotra": p.gotra, "height_cm": p.height_cm,
+        "native_place": native, "native_place_i18n": native_i18n or {},
         "family_background": p.family_background, "location_city_id": p.location_city_id,
         "location_city_name": city_name, "location_city_name_i18n": city_i18n, "managed_by": p.managed_by, "about": p.about,
         "cover_photo_url": cover and PHOTO_URL.format(cover),
@@ -153,7 +156,7 @@ def search(db: Session, member: Member, *, age_min: int | None, age_max: int | N
     """FR-25: every filter optional, combinable; several values within one filter mean "any of".
     ponytail: live query instead of the DDD's 4-hourly matrimony_search_mv (FR-28 is met with no lag).
     Add the view if search over ~50k profiles drifts past NFR-04's 2 s."""
-    q = public_query()  # own approved profile included too (overrides FR-27 by request)
+    q = public_query().where(MatrimonyProfile.member_id != member.member_id)  # FR-27: never your own
     if age_min is not None:
         q = q.where(Member.dob <= _years_ago(age_min))
     if age_max is not None:

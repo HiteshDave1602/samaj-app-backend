@@ -23,6 +23,8 @@ class ProfileCreate(BaseModel):
     education_level: EducationLevel
     education_detail: _text(120) | None = None
     occupation: _text(80) | None = None
+    gotra: _text(60) | None = None
+    height_cm: int | None = Field(None, ge=100, le=250)
     family_background: FamilyBackground
     about: _text(500) | None = None  # public, so the City Admin reviews it with the photos
 
@@ -34,6 +36,8 @@ class ProfileUpdate(BaseModel):
     education_level: EducationLevel | None = None
     education_detail: _text(120) | None = None
     occupation: _text(80) | None = None
+    gotra: _text(60) | None = None
+    height_cm: int | None = Field(None, ge=100, le=250)
     family_background: FamilyBackground | None = None
     about: _text(500) | None = None
 
@@ -64,6 +68,8 @@ class MyProfileOut(BaseModel):
     education_level: str
     education_detail: str | None
     occupation: str | None
+    gotra: str | None
+    height_cm: int | None
     family_background: str
     about: str | None
     status: str  # DRAFT | PENDING_MODERATION | APPROVED | REJECTED | ARCHIVED
@@ -74,20 +80,27 @@ class MyProfileOut(BaseModel):
     updated_at: datetime
 
 
-# Search results (FR-26): public summary only. No name, biodata or contact fields -- by contract, nothing
-# beyond what the DDD's matrimony_search_mv carries.
+# Search results (FR-26): public summary only. No biodata or contact fields. The name is shown by request
+# (beyond the DDD's matrimony_search_mv, which carries none).
 class ProfileCard(BaseModel):
     profile_id: UUID
+    full_name: str | None
+    full_name_i18n: dict[str, str]
     gender: str | None
     age: int | None
     education_level: str
     education_detail: str | None
     occupation: str | None
+    gotra: str | None
+    height_cm: int | None
+    native_place: str | None  # from the member's household
+    native_place_i18n: dict[str, str]
     family_background: str
     location_city_id: UUID
     location_city_name: str
     location_city_name_i18n: dict[str, str]
     managed_by: str
+    about: str | None
     cover_photo_url: str | None  # first approved photo
 
 

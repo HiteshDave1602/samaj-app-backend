@@ -34,6 +34,8 @@ class MatrimonyProfile(Base):
     education_level = Column(String(20), nullable=False)
     education_detail = Column(String(120))
     occupation = Column(String(80))
+    gotra = Column(String(60))  # gotra and height are public, unlike the biodata's copies
+    height_cm = Column(SmallInteger, CheckConstraint("height_cm BETWEEN 100 AND 250", name="ck_matrimony_profile_height"))
     family_background = Column(String(20), nullable=False)
     about = Column(String(500))
     status = Column(String(20), nullable=False, server_default="DRAFT")
