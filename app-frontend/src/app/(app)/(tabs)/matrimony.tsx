@@ -5,11 +5,11 @@ import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Button, Chips, initials, Notice, ScreenHeader } from '@/components/ui/form';
+import { Button, Chips, Notice, ScreenHeader } from '@/components/ui/form';
 import { Palette } from '@/constants/theme';
-import { api, authedImage } from '@/lib/api';
-import { label, loc, tWords, useT } from '@/lib/i18n';
-import { Cover, education, height, summary, title, useReceivedRequests, type BiodataRequest, type ProfileCard } from '@/lib/matrimony';
+import { api } from '@/lib/api';
+import { label, tWords, useLoc, useT } from '@/lib/i18n';
+import { Cover, education, height, photo, summary, title, useReceivedRequests, type BiodataRequest, type ProfileCard } from '@/lib/matrimony';
 
 const MY_STATUS: Record<string, string> = {
   DRAFT: 'Draft: add a photo and submit it for review.',
@@ -26,21 +26,20 @@ type City = { city_id: string; name: string; name_i18n: Record<string, string> }
 // ponytail: first 20 profiles; add next_after paging when there are more
 export default function MatrimonyScreen() {
   const t = useT();
+  const place = useLoc();
   const [profiles, setProfiles] = useState<ProfileCard[]>();
   const [mine, setMine] = useState<{ status: string } | null>(); // null: no profile yet
   const [exchanges, setExchanges] = useState<BiodataRequest[]>([]);
   const [error, setError] = useState<string>();
   const { requests, reload } = useReceivedRequests();
   const [cities, setCities] = useState<City[]>([]);
-  const [city, setCity] = useState<string>();
+  const [cityId, setCityId] = useState<string>(); // by id: the name changes with the language
   const [ageBand, setAgeBand] = useState<string>();
-  const [bookmarks, setBookmarks] = useState(new Set<string>());
 
   useEffect(() => {
     api<City[]>('/member/auth/cities').then(setCities, () => {});
   }, []);
 
-  const cityId = cities.find((c) => loc(c.name, c.name_i18n) === city)?.city_id;
   useEffect(() => {
     const params = new URLSearchParams();
     const [min, max] = ageBand ? AGES[ageBand] : [];
@@ -151,11 +150,20 @@ export default function MatrimonyScreen() {
           {/* tapping the selected chip again clears it */}
           <View className="gap-4 rounded-3xl border border-line bg-white p-4">
             <Chips label="Age" options={Object.keys(AGES)} value={ageBand} onChange={(v) => setAgeBand(v === ageBand ? undefined : v)} />
-            <Chips label="City" options={cities.map((c) => loc(c.name, c.name_i18n)!)} value={city} onChange={(v) => setCity(v === city ? undefined : v)} />
+            <Chips
+              label="City"
+              options={cities.map((c) => c.city_id)}
+              display={(id) => {
+                const c = cities.find((x) => x.city_id === id)!;
+                return place(c.name, c.name_i18n)!;
+              }}
+              value={cityId}
+              onChange={(v) => setCityId(v === cityId ? undefined : v)}
+            />
           </View>
           {!profiles && !error && <ActivityIndicator color={Palette.secondary.DEFAULT} />}
           {profiles?.length === 0 &&
-            (ageBand || city ? (
+            (ageBand || cityId ? (
               <Notice title="No matching profiles" body="Try another age or city, or clear the filters." tone={Palette.info} />
             ) : (
               <Notice title="No profiles yet" body="Approved profiles will show up here." tone={Palette.info} />
@@ -163,7 +171,6 @@ export default function MatrimonyScreen() {
           {/* the server never lists your own profile (FR-27) */}
           {profiles?.map((p) => {
             const req = requestFor.get(p.profile_id);
-            const saved = bookmarks.has(p.profile_id);
             const open = () => router.push({ pathname: '/matrimony/[id]', params: { id: p.profile_id } });
             return (
               <Pressable
@@ -172,35 +179,7 @@ export default function MatrimonyScreen() {
                 accessibilityRole="button"
                 className="overflow-hidden rounded-3xl border border-line bg-white shadow-sm active:opacity-90">
                 <View style={{ height: 320 }} className="bg-secondary-container">
-                  {p.cover_photo_url ? (
-                    <Image source={authedImage(p.cover_photo_url)} style={{ width: '100%', height: '100%' }} contentFit="cover" />
-                  ) : (
-                    <View className="flex-1 items-center justify-center">
-                      <Text className="font-headline text-6xl text-secondary">{initials(title(p))}</Text>
-                    </View>
-                  )}
-                  <View className="absolute left-3 top-3 flex-row items-center gap-1.5 rounded-full bg-white/90 px-3 py-1.5">
-                    <SymbolView name={{ ios: 'checkmark.seal.fill', android: 'verified', web: 'verified' }} size={18} tintColor={Palette.secondary.DEFAULT} />
-                    <Text className="font-inter-semibold text-xs text-ink">{t('Verified')}</Text>
-                  </View>
-                  {/* ponytail: shortlist lives in screen state, like directory bookmarks; persist once an API exists */}
-                  <Pressable
-                    onPress={() => {
-                      const next = new Set(bookmarks);
-                      if (saved) next.delete(p.profile_id);
-                      else next.add(p.profile_id);
-                      setBookmarks(next);
-                    }}
-                    accessibilityRole="button"
-                    accessibilityLabel={t(saved ? 'Remove {name} from saved' : 'Save {name}', { name: title(p) })}
-                    accessibilityState={{ selected: saved }}
-                    className="absolute right-3 top-3 h-11 w-11 items-center justify-center rounded-full bg-white">
-                    <SymbolView
-                      name={{ ios: saved ? 'heart.fill' : 'heart', android: saved ? 'favorite' : 'favorite_border', web: 'favorite' }}
-                      size={22}
-                      tintColor={Palette.secondary.DEFAULT}
-                    />
-                  </Pressable>
+                  <Image source={photo(p)} style={{ width: '100%', height: '100%' }} contentFit="cover" />
                   <View className="absolute inset-x-0 bottom-0 gap-1 bg-black/45 px-4 py-3">
                     <Text className="font-headline text-2xl text-white">
                       {title(p)}
@@ -215,7 +194,7 @@ export default function MatrimonyScreen() {
                       )}
                       <View className="flex-row items-center gap-1">
                         <SymbolView name={{ ios: 'mappin.and.ellipse', android: 'location_on', web: 'location_on' }} size={16} tintColor="#FFFFFF" />
-                        <Text className="font-inter text-sm text-white">{loc(p.location_city_name, p.location_city_name_i18n)}</Text>
+                        <Text className="font-inter text-sm text-white">{place(p.location_city_name, p.location_city_name_i18n)}</Text>
                       </View>
                     </View>
                   </View>
@@ -227,7 +206,7 @@ export default function MatrimonyScreen() {
                         ['Education', education(p)],
                         ['Profession', p.occupation && t(p.occupation)],
                         ['Gotra / Kula', p.gotra && tWords(t, p.gotra)],
-                        ['Native origin', loc(p.native_place, p.native_place_i18n)],
+                        ['Native origin', place(p.native_place, p.native_place_i18n)],
                       ] as const
                     ).map(([k, v]) => (
                       <View key={k} className="w-1/2 py-1.5 pr-2">

@@ -1,13 +1,14 @@
+import DateTimePicker from '@react-native-community/datetimepicker';
 import * as DocumentPicker from 'expo-document-picker';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import { SymbolView, type SymbolViewProps } from 'expo-symbols';
 import { useState, type ReactNode } from 'react';
-import { ActivityIndicator, Pressable, Text, TextInput, View, type TextInputProps } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, Text, TextInput, View, type TextInputProps } from 'react-native';
 
 import { Palette } from '@/constants/theme';
-import { mediaUrl, type PickedFile } from '@/lib/api';
+import { mediaUrl, parseDmy, toDmy, type PickedFile } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 
 type Tone = { DEFAULT: string; container: string };
@@ -89,16 +90,78 @@ export function Field({ label, hint, multiline, placeholder, ...props }: TextInp
   );
 }
 
+/** '0507' -> '05/07': slashes go in as digits are typed. */
+const slashDate = (v: string) => v.replace(/\D/g, '').slice(0, 8).replace(/^(\d{2})(\d)/, '$1/$2').replace(/^(\d{2}\/\d{2})(\d)/, '$1/$2');
+/** A day over 31 or a month over 12 is wrong before the year is even typed. */
+const badSoFar = (v: string) => {
+  const [d, m] = v.split('/');
+  return (d?.length === 2 && (+d < 1 || +d > 31)) || (m?.length === 2 && (+m < 1 || +m > 12));
+};
+
+/** Birth date as DD/MM/YYYY: typed, or picked from the phone's calendar. Impossible dates say so at once. */
+export function DateField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  const t = useT();
+  const [open, setOpen] = useState(false);
+  const [left, setLeft] = useState(false); // focus left the box: a half-typed date is wrong too
+  const invalid = !!value && (value.length === 10 || left ? !parseDmy(value) : badSoFar(value));
+  return (
+    <View>
+      <Text className="mb-1.5 font-inter-medium text-sm text-ink">{t(label)}</Text>
+      <View className={`h-12 flex-row items-center rounded-2xl border bg-white pl-4 ${invalid ? 'border-rejected' : 'border-line'}`}>
+        <TextInput
+          value={value}
+          onChangeText={(v) => (onChange(slashDate(v)), setLeft(false))}
+          onBlur={() => setLeft(true)}
+          placeholder="DD/MM/YYYY"
+          placeholderTextColor={Palette.muted}
+          keyboardType="number-pad"
+          maxLength={10}
+          className="h-full flex-1 font-inter text-base text-ink"
+        />
+        {/* the native calendar has no web build; the web preview types the date */}
+        {Platform.OS !== 'web' && (
+          <Pressable
+            onPress={() => setOpen(!open)}
+            accessibilityRole="button"
+            accessibilityLabel={t('Pick a date')}
+            className="h-full w-12 items-center justify-center active:opacity-60">
+            <SymbolView name={{ ios: 'calendar', android: 'calendar_month', web: 'calendar_month' }} size={22} tintColor={Palette.primary.DEFAULT} />
+          </Pressable>
+        )}
+      </View>
+      {invalid && <Text className="mt-1 font-inter text-xs text-rejected">{t('Not a valid date')}</Text>}
+      {open && (
+        <View>
+          <DateTimePicker
+            value={parseDmy(value) ?? new Date(1995, 0, 1)}
+            mode="date"
+            display={Platform.OS === 'ios' ? 'inline' : 'default'}
+            minimumDate={new Date(1900, 0, 1)}
+            maximumDate={new Date()}
+            onChange={(e, d) => {
+              if (Platform.OS !== 'ios') setOpen(false); // Android's dialog closes itself; iOS stays open until Done
+              if (e.type === 'set' && d) onChange(toDmy(d));
+            }}
+          />
+          {Platform.OS === 'ios' && <Button title="Done" variant="tonal" small onPress={() => setOpen(false)} />}
+        </View>
+      )}
+    </View>
+  );
+}
+
 export function Chips<T extends string>({
   label,
   options,
   value,
   onChange,
+  display,
 }: {
   label: string;
   options: readonly T[];
   value?: T;
   onChange: (v: T) => void;
+  display?: (v: T) => string; // text for an option; default t(option)
 }) {
   const t = useT();
   return (
@@ -112,7 +175,7 @@ export function Chips<T extends string>({
             accessibilityRole="radio"
             accessibilityState={{ selected: o === value }}
             className={`rounded-full border px-4 py-2 ${o === value ? 'border-primary bg-primary-container' : 'border-line bg-white'}`}>
-            <Text className={`font-inter-medium text-sm ${o === value ? 'text-primary' : 'text-subtle'}`}>{t(o)}</Text>
+            <Text className={`font-inter-medium text-sm ${o === value ? 'text-primary' : 'text-subtle'}`}>{display ? display(o) : t(o)}</Text>
           </Pressable>
         ))}
       </View>

@@ -10,7 +10,8 @@ import { syncLang, useT } from '@/lib/i18n';
 
 type VerifyOut = { registered: boolean; session?: Session; registration_ticket?: string };
 
-// SF-01: one screen for login and sign-up. The server says which after the OTP: a session or a registration ticket.
+// SF-01: the number is checked first, so an unknown number gets "register first" instead of a code. Registering opens
+// the form straight away with the number filled in; register.tsx asks for the code at submit.
 export default function Login() {
   const t = useT();
   const [mobile, setMobile] = useState('');
@@ -18,10 +19,12 @@ export default function Login() {
   const [sent, setSent] = useState(false); // false: asking for the number, true: asking for the code
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
+  const [unknown, setUnknown] = useState(false); // no account for this number
 
   async function run(step: () => Promise<void>) {
     setBusy(true);
     setError(undefined);
+    setUnknown(false);
     try {
       await step();
     } catch (e) {
@@ -33,10 +36,16 @@ export default function Login() {
 
   const sendCode = () =>
     run(async () => {
-      await api('/member/auth/otp/send', { method: 'POST', body: { mobile } });
+      try {
+        await api('/member/auth/otp/send', { method: 'POST', body: { mobile, intent: 'login' } });
+      } catch (e) {
+        if ((e as { status?: number }).status === 404) return setUnknown(true);
+        throw e;
+      }
       setCode('');
       setSent(true);
     });
+  const register = () => router.push({ pathname: '/register', params: { mobile: mobile.trim() } });
 
   const verify = () =>
     run(async () => {
@@ -56,7 +65,7 @@ export default function Login() {
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ flexGrow: 1, padding: 24, gap: 18 }}>
           <View className="mb-4 mt-12">
             <Text className="font-headline text-3xl text-brand">{t('Welcome')}</Text>
-            <Text className="mt-2 font-inter text-base leading-6 text-subtle">{t('Log in or join with your mobile number.')}</Text>
+            <Text className="mt-2 font-inter text-base leading-6 text-subtle">{t('Log in with your mobile number.')}</Text>
           </View>
 
           {sent ? (
@@ -86,7 +95,7 @@ export default function Login() {
                 key="mobile"
                 label="Mobile number"
                 value={mobile}
-                onChangeText={setMobile}
+                onChangeText={(v) => (setMobile(v), setUnknown(false))}
                 placeholder="98765 43210"
                 keyboardType="phone-pad"
                 textContentType="telephoneNumber"
@@ -95,11 +104,18 @@ export default function Login() {
                 autoFocus
               />
               {error && <Notice title="Could not send the code" body={error} tone={Palette.rejected} />}
-              <Button
-                title={busy ? 'Please wait…' : 'Send code'}
-                disabled={busy || mobile.trim().length < 10}
-                onPress={sendCode}
-              />
+              {unknown ? (
+                <>
+                  <Notice title="No account found" body="This number is not registered yet. Please register first." tone={Palette.info} />
+                  <Button title="Register now" onPress={register} />
+                </>
+              ) : (
+                <Button title={busy ? 'Please wait…' : 'Send code'} disabled={busy || mobile.trim().length < 10} onPress={sendCode} />
+              )}
+              <View className="mt-2 flex-row items-center justify-center gap-1">
+                <Text className="font-inter text-sm text-subtle">{t('New to the samaj app?')}</Text>
+                <Button title="Register" variant="outlined" small onPress={register} />
+              </View>
             </>
           )}
         </ScrollView>

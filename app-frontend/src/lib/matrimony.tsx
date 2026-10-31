@@ -2,8 +2,6 @@ import { Image } from 'expo-image';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 
-import { Avatar } from '@/components/ui/form';
-import { Palette } from '@/constants/theme';
 import { api, authedImage } from '@/lib/api';
 import { label, loc, t } from '@/lib/i18n';
 
@@ -49,12 +47,16 @@ export const height = (cm: number) => {
 export const title = (p: ProfileCard) =>
   loc(p.full_name, p.full_name_i18n) ?? (p.gender ? t('{gender} profile', { gender: label(p.gender) }) : t('Profile'));
 
+// shown until a profile has an approved photo
+const DUMMY = {
+  female: require('@/assets/images/matrimony/profile-female.png'),
+  male: require('@/assets/images/matrimony/profile-male.png'),
+};
+export const photo = (p: ProfileCard) =>
+  p.cover_photo_url ? authedImage(p.cover_photo_url) : p.gender === 'FEMALE' ? DUMMY.female : DUMMY.male;
+
 export function Cover({ p, size }: { p: ProfileCard; size: number }) {
-  return p.cover_photo_url ? (
-    <Image source={authedImage(p.cover_photo_url)} style={{ width: size, height: size, borderRadius: size / 2 }} />
-  ) : (
-    <Avatar name={title(p)} size={size} tone={Palette.secondary} />
-  );
+  return <Image source={photo(p)} style={{ width: size, height: size, borderRadius: size / 2 }} />;
 }
 
 /** Requests others sent to my profile, still awaiting my answer. Refetches on focus. */

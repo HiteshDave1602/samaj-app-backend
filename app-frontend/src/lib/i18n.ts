@@ -68,6 +68,16 @@ export function useLang() {
   return useSyncExternalStore(subscribe, getLang, getLang);
 }
 
+// Same for loc(): one per language, so lists of places built in a component follow a language change.
+const LOC_BY_LANG = Object.fromEntries(
+  (Object.keys(DICTS) as Lang[]).map((l) => [l, (en: string | null, i18n?: Record<string, string> | null) => i18n?.[l] || en]),
+) as Record<Lang, typeof loc>;
+
+/** loc() for components: re-renders on a language change, where loc() alone can stay cached by the React Compiler. */
+export function useLoc() {
+  return LOC_BY_LANG[useLang()];
+}
+
 /** Every component that shows text calls this, so it re-renders when the language changes. */
 export function useT() {
   return T_BY_LANG[useLang()];

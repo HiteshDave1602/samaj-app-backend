@@ -4,9 +4,9 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, Switch, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Button, Chips, Field, Notice, ScreenHeader, UploadBox } from '@/components/ui/form';
+import { Button, Chips, DateField, Field, Notice, ScreenHeader, UploadBox } from '@/components/ui/form';
 import { Palette } from '@/constants/theme';
-import { api, dmyDate, isoDate, mediaUrl, restoreSession, upload } from '@/lib/api';
+import { api, dmyDate, isoDate, mediaUrl, parseDmy, restoreSession, upload } from '@/lib/api';
 import { LANGUAGES, useLang, useT } from '@/lib/i18n';
 
 // backend member/profile/schema.py MemberOut (the editable part) and MemberUpdate
@@ -79,6 +79,7 @@ export default function EditProfile() {
 
   async function save() {
     if (!me) return;
+    if (form.dob && !parseDmy(form.dob)) return setError(t('Not a valid date'));
     setBusy(true);
     setError(undefined);
     setSaved(undefined);
@@ -170,14 +171,7 @@ export default function EditProfile() {
             />
           )}
           <Chips label="Gender" options={Object.keys(GENDERS) as GenderLabel[]} value={gender} onChange={setGender} />
-          <Field
-            label="Date of birth"
-            value={form.dob}
-            onChangeText={set('dob')}
-            placeholder="DD/MM/YYYY"
-            keyboardType="numbers-and-punctuation"
-            maxLength={10}
-          />
+          <DateField label="Date of birth" value={form.dob} onChange={set('dob')} />
           <Field label="Address" value={form.address} onChangeText={set('address')} multiline maxLength={500} />
           {me.is_household_head && (
             <>
