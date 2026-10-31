@@ -56,16 +56,21 @@ def _member_by_mobile(db: Session, mh: bytes) -> Member | None:
     return db.scalar(select(Member).where(Member.mobile_hash == mh))
 
 
-def send_otp(db: Session, mobile: str, ip: str | None) -> dict:
+def send_otp(db: Session, mobile: str, ip: str | None, intent: str | None = None) -> dict:
     mh = mobile_hash(mobile)
     now = _now()
+    # The response already said registered or not; failing early just skips the SMS for the wrong screen.
+    registered = _member_by_mobile(db, mh) is not None
+    if intent == "login" and not registered:
+        raise HTTPException(404, "No account found for this number. Please register first.")
+    if intent == "register" and registered:
+        raise HTTPException(409, "This number is already registered. Please log in.")
     # ponytail: two simultaneous sends can both pass this count; fine for a cost limit of 5/hour.
     sent = db.scalar(select(func.count()).where(
         OtpChallenge.mobile_hash == mh, OtpChallenge.created_at > now - timedelta(hours=1)))
     if sent >= OTP_SENDS_PER_HOUR:
         raise HTTPException(429, "Too many OTP requests for this number. Try again in an hour.")
 
-    registered = _member_by_mobile(db, mh) is not None
     code = f"{secrets.randbelow(10**6):06d}"
     db.add(OtpChallenge(
         mobile_hash=mh,

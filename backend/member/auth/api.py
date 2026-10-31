@@ -15,7 +15,7 @@ router = APIRouter(prefix="/member/auth", tags=["Member Auth"])
 
 @router.post("/otp/send", response_model=OtpSendOut)
 def send_otp(data: OtpSendIn, request: Request, db: Session = Depends(get_db)):
-    return curd.send_otp(db, data.mobile, client_ip(request))
+    return curd.send_otp(db, data.mobile, client_ip(request), data.intent)
 
 
 @router.post("/otp/verify", response_model=OtpVerifyOut, response_model_exclude_none=True)

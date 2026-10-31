@@ -132,6 +132,17 @@ try:
     assert reg().status_code == 409
     assert send(mobile).json()["registered"] is True
 
+    # the login screen gets "register first" for an unknown number, with no SMS; register gets "log in" for a known one
+    outbox.clear()
+    stranger = new_mobile()
+    r = c.post("/member/auth/otp/send", json={"mobile": stranger, "intent": "login"})
+    assert r.status_code == 404 and "register" in r.json()["detail"] and not outbox, r.text
+    r = c.post("/member/auth/otp/send", json={"mobile": mobile, "intent": "register"})
+    assert r.status_code == 409 and not outbox, r.text
+    assert c.post("/member/auth/otp/send", json={"mobile": mobile, "intent": "login"}).json()["registered"] is True
+    assert c.post("/member/auth/otp/send", json={"mobile": stranger, "intent": "register"}).json()["registered"] is False
+    assert c.post("/member/auth/otp/send", json={"mobile": mobile, "intent": "x"}).status_code == 422
+
     # FR-97: edit own profile
     patch = lambda **body: c.put("/member/me", headers=me_h, json=body)  # noqa: E731
     assert patch(full_name=None).status_code == 422 and patch(dob="2999-01-01").status_code == 422

@@ -32,6 +32,8 @@ Language = Literal["en", "gu", "hi"]  # the app's UI languages
 
 class OtpSendIn(BaseModel):
     mobile: Mobile
+    # login: 404 for an unknown number, without sending a code; register: 409 for a known one. None: either.
+    intent: Literal["login", "register"] | None = None
 
 
 class OtpSendOut(BaseModel):
