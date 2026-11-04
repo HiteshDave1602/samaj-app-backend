@@ -72,7 +72,7 @@ export function Credits() {
   };
   return (
     <View className="mt-auto border-t border-line pb-2 pt-4">
-      {line('Sponsored by {name}', 'Bhavin Shastri', SPONSOR_URL)}
+      {/* {line('Sponsored by {name}', 'Bhavin Shastri', SPONSOR_URL)} */}
       {line('Developed by {name}', 'Vrattiks Intelligence LLP', DEVELOPER_URL)}
     </View>
   );

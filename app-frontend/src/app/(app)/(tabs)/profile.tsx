@@ -6,7 +6,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Avatar, Button, Notice, ScreenHeader } from '@/components/ui/form';
 import { Palette } from '@/constants/theme';
 import { api, logout } from '@/lib/api';
-import { useHousehold } from '@/lib/family';
 import { label, loc, useT } from '@/lib/i18n';
 
 // subset of backend member/profile/schema.py MemberOut that this screen shows
@@ -42,14 +41,6 @@ export default function ProfileScreen() {
       api<Me>('/member/me').then(setMe, (e) => setError(e.message));
     }, []),
   );
-  const { household, error: familyError } = useHousehold();
-  // other app members in the household, then relatives added by request
-  const family = household && [
-    ...household.members
-      .filter((m) => m.member_id !== me?.member_id)
-      .map((m) => ({ id: m.member_id, name: loc(m.full_name, m.full_name_i18n) ?? t('Member'), role: t(m.is_household_head ? 'Head of family' : 'Member'), status: 'APPROVED' })),
-    ...household.relatives.map((r) => ({ id: r.family_member_id, name: loc(r.full_name, r.full_name_i18n)!, role: label(r.relationship), status: r.status })),
-  ];
 
   const name = me && (loc(me.full_name, me.full_name_i18n) ?? t('Member'));
   const details = me
@@ -88,34 +79,6 @@ export default function ProfileScreen() {
           ) : (
             !error && <ActivityIndicator color={Palette.primary.DEFAULT} />
           )}
-        </View>
-
-        <View className="gap-3">
-          <Text className="font-headline text-xl text-brand">{t('Family members')}</Text>
-          {familyError && <Notice title="Could not load your family" body={familyError} tone={Palette.rejected} />}
-          {!family && !familyError && <ActivityIndicator color={Palette.primary.DEFAULT} />}
-          {family?.length === 0 && (
-            <Notice title="No family members yet" body="Add your relatives; your city admin approves each one." tone={Palette.info} />
-          )}
-          {family?.map((f) => (
-            <View key={f.id} className="flex-row items-center gap-3 rounded-2xl border border-line bg-white p-3">
-              <Avatar name={f.name} size={44} tone={Palette.brand} />
-              <View className="flex-1">
-                <Text className="font-inter-semibold text-base text-ink">{f.name}</Text>
-                <Text className="font-inter text-sm text-subtle">{f.role}</Text>
-              </View>
-              {f.status === 'PENDING' && (
-                <Text className="rounded-full bg-pending-container px-2.5 py-1 font-inter-semibold text-[11px] text-pending">
-                  {t('Pending review')}
-                </Text>
-              )}
-              {f.status === 'REJECTED' && (
-                <Text className="rounded-full bg-rejected-container px-2.5 py-1 font-inter-semibold text-[11px] text-rejected">
-                  {t('Not approved')}
-                </Text>
-              )}
-            </View>
-          ))}
         </View>
 
         <View className="flex-row gap-3">

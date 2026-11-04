@@ -145,6 +145,8 @@ def update(db: Session, admin: AdminUser, actor: audit.Actor, content_id: UUID, 
         _set_media(item, data.media_key)
     _check(item)
     old, new = audit.changes(before, item)
+    if "title" in new or "body" in new:
+        item.title_i18n, item.body_i18n = {}, {}  # the member feed translates the new text
     if new:
         action = "CONTENT_CANCEL" if new.get("status") == "CANCELLED" else "CONTENT_UPDATE"
         audit.log(db, actor, action, "content_item", item.content_id, item.city_id, old, new)

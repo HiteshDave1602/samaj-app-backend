@@ -11,7 +11,9 @@ export type FeedItem = {
   content_id: string;
   content_type: 'NEWS' | 'AD';
   title: string;
+  title_i18n: Record<string, string>;
   body: string | null;
+  body_i18n: Record<string, string>;
   media_url: string | null;
   creative_format: 'BANNER' | 'FULLSCREEN' | null;
   media_width: number | null;

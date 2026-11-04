@@ -33,7 +33,7 @@ export function AnimatedSplashOverlay() {
   const image = <Image style={styles.splashLogo} source={require('@/assets/images/logo.png')} />;
   const credits = (
     <View style={styles.credits}>
-      <Text style={styles.creditsText}>Sponsored by Bhavin Shastri</Text>
+      {/* <Text style={styles.creditsText}>Sponsored by Bhavin Shastri</Text> */}
       <Text style={styles.creditsText}>Developed by Vrattiks</Text>
     </View>
   );

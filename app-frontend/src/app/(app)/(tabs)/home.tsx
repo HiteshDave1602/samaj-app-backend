@@ -8,7 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Palette } from '@/constants/theme';
 import { api } from '@/lib/api';
 import { Cover, formatDate, useFeed } from '@/lib/feed';
-import { tWords, useT } from '@/lib/i18n';
+import { tWords, useLoc, useT } from '@/lib/i18n';
 import { Cover as ProfileCover, title, useReceivedRequests } from '@/lib/matrimony';
 
 type Icon = SymbolViewProps['name'];
@@ -68,6 +68,7 @@ function SectionTitle({ title, action, onAction }: { title: string; action?: str
 // ponytail: the bell doesn't navigate yet; wire it when notifications land
 export default function HomeScreen() {
   const t = useT();
+  const loc = useLoc();
   const { width } = useWindowDimensions();
   const cardWidth = width - 40;
   const [slide, setSlide] = useState(0);
@@ -129,7 +130,7 @@ export default function HomeScreen() {
                 <Text className="mb-auto self-start rounded-full bg-accent px-3 py-1 font-inter-semibold text-xs text-ink">
                   {t('Latest news')}
                 </Text>
-                <Text numberOfLines={2} className="font-headline text-2xl text-white">{item.title}</Text>
+                <Text numberOfLines={2} className="font-headline text-2xl text-white">{loc(item.title, item.title_i18n)}</Text>
                 <Text className="font-inter text-sm text-white/80">{formatDate(item.start_at)}</Text>
               </Cover>
             </Pressable>

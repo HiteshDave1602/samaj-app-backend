@@ -8,11 +8,12 @@ import { Notice, ScreenHeader } from '@/components/ui/form';
 import { Palette } from '@/constants/theme';
 import { mediaUrl } from '@/lib/api';
 import { Cover, formatDate, useFeed } from '@/lib/feed';
-import { useT } from '@/lib/i18n';
+import { useLoc, useT } from '@/lib/i18n';
 
 // ponytail: FULLSCREEN ads render inline like banners; make them interstitials when ad layout (FR-51) lands
 export default function NewsScreen() {
   const t = useT();
+  const loc = useLoc();
   const { items, error } = useFeed();
 
   return (
@@ -41,10 +42,10 @@ export default function NewsScreen() {
                   source={{ uri: mediaUrl(n.media_url)! }}
                   contentFit="cover"
                   style={{ width: '100%', aspectRatio: (n.media_width ?? 16) / (n.media_height ?? 9) }}
-                  accessibilityLabel={n.title}
+                  accessibilityLabel={loc(n.title, n.title_i18n) ?? undefined}
                 />
               )}
-              <Text className="px-4 py-2 font-inter text-xs text-muted">{t('Sponsored')} · {n.title}</Text>
+              <Text className="px-4 py-2 font-inter text-xs text-muted">{t('Sponsored')} · {loc(n.title, n.title_i18n)}</Text>
             </View>
           ) : (
             <Pressable
@@ -53,12 +54,12 @@ export default function NewsScreen() {
               accessibilityRole="button"
               className="overflow-hidden rounded-3xl border border-line bg-white active:opacity-90">
               <Cover item={n} className="h-36 justify-end p-4">
-                <Text className="font-headline text-2xl text-white">{n.title}</Text>
+                <Text className="font-headline text-2xl text-white">{loc(n.title, n.title_i18n)}</Text>
               </Cover>
               <View className="p-4">
                 {n.body && (
                   <Text numberOfLines={2} className="font-inter text-sm leading-5 text-subtle">
-                    {n.body}
+                    {loc(n.body, n.body_i18n)}
                   </Text>
                 )}
                 <View className="mt-3 flex-row items-center justify-between">
