@@ -4,14 +4,15 @@ import { View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button, Notice, StatusView } from '@/components/ui/form';
-import { Palette } from '@/constants/theme';
 import { api, logout, restoreSession } from '@/lib/api';
 import { useT } from '@/lib/i18n';
+import { usePalette } from '@/lib/theme';
 
 type Me = { status: 'PENDING' | 'ACTIVE' | 'REJECTED' | 'ARCHIVED'; rejection_reason: string | null };
 
 // Members land here until a City Admin approves them; "Check again" refreshes the session to pick up the new status.
 export default function Pending() {
+  const palette = usePalette();
   useT();
   const [me, setMe] = useState<Me>();
   const [error, setError] = useState<string>();
@@ -39,7 +40,7 @@ export default function Pending() {
             ? { ios: 'xmark.circle.fill', android: 'cancel', web: 'cancel' }
             : { ios: 'person.badge.clock.fill', android: 'pending', web: 'pending' }
         }
-        tone={rejected ? Palette.rejected : Palette.pending}
+        tone={rejected ? palette.rejected : palette.pending}
         title={rejected ? 'Membership not approved' : 'Awaiting approval'}
         body={
           rejected
@@ -50,7 +51,7 @@ export default function Pending() {
         onAction={check}
       />
       <View className="gap-3 px-6 pb-6">
-        {error && <Notice title="Could not check your status" body={error} tone={Palette.rejected} />}
+        {error && <Notice title="Could not check your status" body={error} tone={palette.rejected} />}
         {/* a rejected member's edit resubmits the profile; either status can upload the ID document */}
         <Button
           title={rejected ? 'Fix details & resubmit' : 'Edit details / upload ID'}

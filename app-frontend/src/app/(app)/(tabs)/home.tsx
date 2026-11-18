@@ -5,24 +5,24 @@ import { useEffect, useState } from 'react';
 import { FlatList, Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Palette } from '@/constants/theme';
 import { api } from '@/lib/api';
 import { Cover, formatDate, useFeed } from '@/lib/feed';
-import { tWords, useT } from '@/lib/i18n';
+import { tWords, useLoc, useT } from '@/lib/i18n';
 import { Cover as ProfileCover, title, useReceivedRequests } from '@/lib/matrimony';
+import { usePalette } from '@/lib/theme';
 
 type Icon = SymbolViewProps['name'];
 
 // backend member/panchang/api.py PanchangOut
 type Panchang = { panchang_date: string; tithi: string; nakshatra: string; yoga: string };
 
-const MODULES: { title: string; sub: string; tag: string; icon: Icon; color: typeof Palette.primary; href: Href }[] = [
+const MODULES: { title: string; sub: string; tag: string; icon: Icon; color: 'primary' | 'secondary' | 'brand' | 'accent'; href: Href }[] = [
   {
     title: 'Member Directory',
     sub: 'Search families & bloodline',
     tag: 'Members',
     icon: { ios: 'person.3.fill', android: 'groups', web: 'groups' },
-    color: Palette.primary,
+    color: 'primary',
     href: '/directory',
   },
   {
@@ -30,7 +30,7 @@ const MODULES: { title: string; sub: string; tag: string; icon: Icon; color: typ
     sub: 'Admin-verified profiles',
     tag: 'Verified',
     icon: { ios: 'heart.fill', android: 'favorite', web: 'favorite' },
-    color: Palette.secondary,
+    color: 'secondary',
     href: '/matrimony',
   },
   {
@@ -38,7 +38,7 @@ const MODULES: { title: string; sub: string; tag: string; icon: Icon; color: typ
     sub: 'Photos, sammelan updates',
     tag: 'New',
     icon: { ios: 'newspaper.fill', android: 'newspaper', web: 'newspaper' },
-    color: Palette.brand,
+    color: 'brand',
     href: '/news',
   },
   {
@@ -46,7 +46,7 @@ const MODULES: { title: string; sub: string; tag: string; icon: Icon; color: typ
     sub: 'Tithi, nakshatra & yoga',
     tag: 'Daily',
     icon: { ios: 'sun.max.fill', android: 'wb_sunny', web: 'wb_sunny' },
-    color: Palette.accent,
+    color: 'accent',
     href: '/panchang',
   },
 ];
@@ -67,7 +67,9 @@ function SectionTitle({ title, action, onAction }: { title: string; action?: str
 
 // ponytail: the bell doesn't navigate yet; wire it when notifications land
 export default function HomeScreen() {
+  const palette = usePalette();
   const t = useT();
+  const loc = useLoc();
   const { width } = useWindowDimensions();
   const cardWidth = width - 40;
   const [slide, setSlide] = useState(0);
@@ -90,7 +92,7 @@ export default function HomeScreen() {
           <SymbolView
             name={{ ios: 'bell', android: 'notifications', web: 'notifications' }}
             size={24}
-            tintColor={Palette.ink}
+            tintColor={palette.ink}
           />
         </Pressable>
         <Pressable
@@ -101,7 +103,7 @@ export default function HomeScreen() {
           <SymbolView
             name={{ ios: 'gearshape', android: 'settings', web: 'settings' }}
             size={24}
-            tintColor={Palette.ink}
+            tintColor={palette.ink}
           />
         </Pressable>
       </View>
@@ -126,10 +128,10 @@ export default function HomeScreen() {
               style={{ width: cardWidth }}
               className="active:opacity-90">
               <Cover item={item} className="h-44 justify-end rounded-3xl p-5">
-                <Text className="mb-auto self-start rounded-full bg-accent px-3 py-1 font-inter-semibold text-xs text-ink">
+                <Text className="mb-auto self-start rounded-full bg-accent px-3 py-1 font-inter-semibold text-xs text-on-accent">
                   {t('Latest news')}
                 </Text>
-                <Text numberOfLines={2} className="font-headline text-2xl text-white">{item.title}</Text>
+                <Text numberOfLines={2} className="font-headline text-2xl text-white">{loc(item.title, item.title_i18n)}</Text>
                 <Text className="font-inter text-sm text-white/80">{formatDate(item.start_at)}</Text>
               </Cover>
             </Pressable>
@@ -194,16 +196,16 @@ export default function HomeScreen() {
                 onPress={() => router.push(m.href)}
                 accessibilityRole="button"
                 style={{ width: (width - 52) / 2 }}
-                className="rounded-3xl border border-line bg-white p-4 active:opacity-80">
+                className="rounded-3xl border border-line bg-card p-4 active:opacity-80">
                 <View className="flex-row items-start justify-between">
                   <View
                     className="h-11 w-11 items-center justify-center rounded-2xl"
-                    style={{ backgroundColor: m.color.container }}>
-                    <SymbolView name={m.icon} size={22} tintColor={m.color.DEFAULT} />
+                    style={{ backgroundColor: palette[m.color].container }}>
+                    <SymbolView name={m.icon} size={22} tintColor={palette[m.color].DEFAULT} />
                   </View>
                   <Text
                     className="rounded-full px-2 py-0.5 font-inter-semibold text-[10px]"
-                    style={{ backgroundColor: m.color.container, color: m.color.DEFAULT }}>
+                    style={{ backgroundColor: palette[m.color].container, color: palette[m.color].DEFAULT }}>
                     {t(m.tag)}
                   </Text>
                 </View>

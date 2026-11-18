@@ -2,7 +2,7 @@ import { Image } from 'expo-image';
 import { useEffect, useState, type ReactNode } from 'react';
 import { View } from 'react-native';
 
-import { Palette } from '@/constants/theme';
+import { Palettes } from '@/constants/theme';
 import { api, mediaUrl } from '@/lib/api';
 import { locale } from '@/lib/i18n';
 
@@ -11,7 +11,9 @@ export type FeedItem = {
   content_id: string;
   content_type: 'NEWS' | 'AD';
   title: string;
+  title_i18n: Record<string, string>;
   body: string | null;
+  body_i18n: Record<string, string>;
   media_url: string | null;
   creative_format: 'BANNER' | 'FULLSCREEN' | null;
   media_width: number | null;
@@ -36,7 +38,8 @@ export function useFeed() {
 export const formatDate = (iso: string) =>
   new Date(iso).toLocaleDateString(locale(), { day: 'numeric', month: 'short', year: 'numeric' });
 
-const TINTS = [Palette.secondary, Palette.brand, Palette.primary];
+// brand fills under white text: the same in both themes
+const TINTS = [Palettes.light.secondary, Palettes.light.brand, Palettes.light.primary];
 
 /** News header: the item's photo darkened for legible text, or a brand colour picked from its id. */
 export function Cover({ item, className, children }: { item: FeedItem; className: string; children: ReactNode }) {

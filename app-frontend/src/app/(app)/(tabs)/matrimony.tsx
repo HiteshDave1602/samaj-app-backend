@@ -6,10 +6,10 @@ import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button, Chips, Notice, ScreenHeader } from '@/components/ui/form';
-import { Palette } from '@/constants/theme';
 import { api } from '@/lib/api';
 import { label, tWords, useLoc, useT } from '@/lib/i18n';
 import { Cover, education, height, photo, summary, title, useReceivedRequests, type BiodataRequest, type ProfileCard } from '@/lib/matrimony';
+import { usePalette } from '@/lib/theme';
 
 const MY_STATUS: Record<string, string> = {
   DRAFT: 'Draft: add a photo and submit it for review.',
@@ -25,6 +25,7 @@ type City = { city_id: string; name: string; name_i18n: Record<string, string> }
 
 // ponytail: first 20 profiles; add next_after paging when there are more
 export default function MatrimonyScreen() {
+  const palette = usePalette();
   const t = useT();
   const place = useLoc();
   const [profiles, setProfiles] = useState<ProfileCard[]>();
@@ -77,15 +78,15 @@ export default function MatrimonyScreen() {
       <ScreenHeader title="Matrimony" />
       <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40, gap: 24 }}>
         <View className="rounded-3xl bg-secondary p-5">
-          <Text className="font-headline text-2xl text-white">{t(mine ? 'Your profile' : 'Find your match')}</Text>
-          <Text className="mt-1 font-inter text-sm text-white/80">
+          <Text className="font-headline text-2xl text-on-secondary">{t(mine ? 'Your profile' : 'Find your match')}</Text>
+          <Text className="mt-1 font-inter text-sm text-on-secondary/80">
             {t(mine ? MY_STATUS[mine.status] : 'Create a matrimonial profile. Your city admin verifies it before others can see it.')}
           </Text>
           <View className="mt-4 self-start">
             <Pressable
               onPress={() => router.push('/matrimony/create')}
               accessibilityRole="button"
-              className="rounded-full bg-white px-5 py-2.5 active:opacity-80">
+              className="rounded-full bg-on-secondary px-5 py-2.5 active:opacity-80">
               <Text className="font-inter-semibold text-sm text-secondary">
                 {t(mine ? 'Manage my profile' : 'Create matrimonial profile')}
               </Text>
@@ -101,7 +102,7 @@ export default function MatrimonyScreen() {
                 key={r.request_id}
                 onPress={() => router.push({ pathname: '/matrimony/[id]', params: { id: r.counterpart_profile_id } })}
                 accessibilityRole="button"
-                className="flex-row items-center gap-3 rounded-3xl border border-line bg-white p-4 active:opacity-80">
+                className="flex-row items-center gap-3 rounded-3xl border border-line bg-card p-4 active:opacity-80">
                 {r.counterpart && <Cover p={r.counterpart} size={44} />}
                 <View className="flex-1">
                   <Text className="font-inter-semibold text-base text-ink">
@@ -117,13 +118,13 @@ export default function MatrimonyScreen() {
           </View>
         )}
 
-        {error && <Notice title="Something went wrong" body={error} tone={Palette.rejected} />}
+        {error && <Notice title="Something went wrong" body={error} tone={palette.rejected} />}
 
         {requests.length > 0 && (
           <View className="gap-3">
             <Text className="font-headline text-xl text-brand">{t('Biodata requests')}</Text>
             {requests.map((r) => (
-              <View key={r.request_id} className="rounded-3xl border border-line bg-white p-4">
+              <View key={r.request_id} className="rounded-3xl border border-line bg-card p-4">
                 <View className="flex-row items-center gap-3">
                   {r.counterpart && <Cover p={r.counterpart} size={44} />}
                   <Text className="flex-1 font-inter text-sm text-subtle">
@@ -148,7 +149,7 @@ export default function MatrimonyScreen() {
         <View className="gap-3">
           <Text className="font-headline text-xl text-brand">{t('Verified profiles')}</Text>
           {/* tapping the selected chip again clears it */}
-          <View className="gap-4 rounded-3xl border border-line bg-white p-4">
+          <View className="gap-4 rounded-3xl border border-line bg-card p-4">
             <Chips label="Age" options={Object.keys(AGES)} value={ageBand} onChange={(v) => setAgeBand(v === ageBand ? undefined : v)} />
             <Chips
               label="City"
@@ -161,12 +162,12 @@ export default function MatrimonyScreen() {
               onChange={(v) => setCityId(v === cityId ? undefined : v)}
             />
           </View>
-          {!profiles && !error && <ActivityIndicator color={Palette.secondary.DEFAULT} />}
+          {!profiles && !error && <ActivityIndicator color={palette.secondary.DEFAULT} />}
           {profiles?.length === 0 &&
             (ageBand || cityId ? (
-              <Notice title="No matching profiles" body="Try another age or city, or clear the filters." tone={Palette.info} />
+              <Notice title="No matching profiles" body="Try another age or city, or clear the filters." tone={palette.info} />
             ) : (
-              <Notice title="No profiles yet" body="Approved profiles will show up here." tone={Palette.info} />
+              <Notice title="No profiles yet" body="Approved profiles will show up here." tone={palette.info} />
             ))}
           {/* the server never lists your own profile (FR-27) */}
           {profiles?.map((p) => {
@@ -177,7 +178,7 @@ export default function MatrimonyScreen() {
                 key={p.profile_id}
                 onPress={open}
                 accessibilityRole="button"
-                className="overflow-hidden rounded-3xl border border-line bg-white shadow-sm active:opacity-90">
+                className="overflow-hidden rounded-3xl border border-line bg-card shadow-sm active:opacity-90">
                 <View style={{ height: 320 }} className="bg-secondary-container">
                   <Image source={photo(p)} style={{ width: '100%', height: '100%' }} contentFit="cover" />
                   <View className="absolute inset-x-0 bottom-0 gap-1 bg-black/45 px-4 py-3">

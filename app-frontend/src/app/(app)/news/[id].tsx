@@ -6,10 +6,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ScreenHeader } from '@/components/ui/form';
 import { mediaUrl } from '@/lib/api';
 import { cachedItem, Cover, formatDate } from '@/lib/feed';
-import { useT } from '@/lib/i18n';
+import { useLoc } from '@/lib/i18n';
 
 export default function NewsDetail() {
-  useT();
+  const loc = useLoc();
   const { id } = useLocalSearchParams<{ id: string }>();
   const n = cachedItem(id);
   // opened without the feed loaded first (deep link, reload): the list is one tap away
@@ -20,10 +20,10 @@ export default function NewsDetail() {
       <ScreenHeader title="News" back />
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
         <Cover item={n} className="mx-5 h-52 justify-end rounded-3xl p-5">
-          <Text className="font-headline text-3xl text-white">{n.title}</Text>
+          <Text className="font-headline text-3xl text-white">{loc(n.title, n.title_i18n)}</Text>
         </Cover>
         <Text className="px-5 py-4 font-inter text-xs text-muted">{formatDate(n.start_at)}</Text>
-        {n.body && <Text className="px-5 font-inter text-base leading-7 text-ink">{n.body}</Text>}
+        {n.body && <Text className="px-5 font-inter text-base leading-7 text-ink">{loc(n.body, n.body_i18n)}</Text>}
         {n.extra_media_urls.map((u) => (
           <Image
             key={u}

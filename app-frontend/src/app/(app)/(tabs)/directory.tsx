@@ -5,9 +5,10 @@ import { ActivityIndicator, FlatList, Linking, Pressable, Text, TextInput, View 
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Avatar, Chips, Field, Notice, ScreenHeader } from '@/components/ui/form';
-import { Palette } from '@/constants/theme';
+import { MicButton } from '@/components/ui/mic-button';
 import { api } from '@/lib/api';
 import { label, useLoc, useT } from '@/lib/i18n';
+import { usePalette } from '@/lib/theme';
 
 // backend member/directory/schema.py DirectoryEntry
 type Entry = {
@@ -34,6 +35,7 @@ const text = (s: string) => (s.trim().length >= 2 ? s.trim() : undefined);
 
 // ponytail: first 50 results only; page with next_offset when directories get bigger
 export default function DirectoryScreen() {
+  const palette = usePalette();
   const t = useT();
   const place = useLoc();
   const [query, setQuery] = useState('');
@@ -74,39 +76,40 @@ export default function DirectoryScreen() {
       <ScreenHeader title="Directory" />
 
       <View className="flex-row gap-2 px-5">
-        <View className="h-12 flex-1 flex-row items-center gap-2 rounded-full border border-line bg-white px-4">
-          <SymbolView name={{ ios: 'magnifyingglass', android: 'search', web: 'search' }} size={20} tintColor={Palette.muted} />
+        <View className="h-12 flex-1 flex-row items-center gap-2 rounded-full border border-line bg-card px-4">
+          <SymbolView name={{ ios: 'magnifyingglass', android: 'search', web: 'search' }} size={20} tintColor={palette.muted} />
           <TextInput
             value={query}
             onChangeText={setQuery}
             placeholder={t('Search by name')}
-            placeholderTextColor={Palette.muted}
+            placeholderTextColor={palette.muted}
             accessibilityLabel={t('Search members')}
             returnKeyType="search"
             className="flex-1 font-inter text-base text-ink"
           />
+          <MicButton onText={setQuery} />
         </View>
         <Pressable
           onPress={() => setShowFilters(!showFilters)}
           accessibilityRole="button"
           accessibilityLabel={t('Filters')}
           accessibilityState={{ expanded: showFilters }}
-          className={`h-12 w-12 items-center justify-center rounded-full ${showFilters || activeFilters ? 'bg-primary' : 'border border-line bg-white'}`}>
+          className={`h-12 w-12 items-center justify-center rounded-full ${showFilters || activeFilters ? 'bg-primary' : 'border border-line bg-card'}`}>
           <SymbolView
             name={{ ios: 'line.3.horizontal.decrease', android: 'tune', web: 'tune' }}
             size={20}
-            tintColor={showFilters || activeFilters ? '#FFFFFF' : Palette.ink}
+            tintColor={showFilters || activeFilters ? palette['on-primary'] : palette.ink}
           />
           {activeFilters > 0 && (
             <View className="absolute -right-0.5 -top-0.5 h-5 w-5 items-center justify-center rounded-full border-2 border-cream bg-accent">
-              <Text className="font-inter-semibold text-[10px] text-ink">{activeFilters}</Text>
+              <Text className="font-inter-semibold text-[10px] text-on-accent">{activeFilters}</Text>
             </View>
           )}
         </Pressable>
       </View>
 
       {showFilters && (
-        <View className="mx-5 mt-3 gap-4 rounded-3xl border border-line bg-white p-4">
+        <View className="mx-5 mt-3 gap-4 rounded-3xl border border-line bg-card p-4">
           {/* tapping the selected chip again clears it */}
           <Chips
             label="City"
@@ -140,13 +143,13 @@ export default function DirectoryScreen() {
         contentContainerStyle={{ padding: 20, gap: 12 }}
         ListHeaderComponent={
           error ? (
-            <Notice title="Could not load the directory" body={error} tone={Palette.rejected} />
+            <Notice title="Could not load the directory" body={error} tone={palette.rejected} />
           ) : results ? (
             <Text className="font-inter text-sm text-muted">
               {t(results.length === 1 ? '{n} person' : '{n} people', { n: results.length })}
             </Text>
           ) : (
-            <ActivityIndicator color={Palette.primary.DEFAULT} />
+            <ActivityIndicator color={palette.primary.DEFAULT} />
           )
         }
         ListEmptyComponent={
@@ -170,16 +173,16 @@ export default function DirectoryScreen() {
               disabled={!m.household_id}
               accessibilityRole="button"
               accessibilityLabel={m.household_id ? t("View {name}'s family", { name: m.name }) : m.name}
-              className="rounded-3xl border border-line bg-white p-4 shadow-sm active:opacity-90">
+              className="rounded-3xl border border-line bg-card p-4 shadow-sm active:opacity-90">
               <View className="flex-row gap-3">
                 <View>
-                  <Avatar name={m.name} size={64} tone={Palette.primary} photo={m.photo_url} />
+                  <Avatar name={m.name} size={64} tone={palette.primary} photo={m.photo_url} />
                   {/* everyone listed here is ACTIVE, i.e. admin-verified */}
-                  <View className="absolute -bottom-0.5 -right-0.5 rounded-full bg-white p-0.5">
+                  <View className="absolute -bottom-0.5 -right-0.5 rounded-full bg-card p-0.5">
                     <SymbolView
                       name={{ ios: 'checkmark.seal.fill', android: 'verified', web: 'verified' }}
                       size={20}
-                      tintColor={Palette.primary.DEFAULT}
+                      tintColor={palette.primary.DEFAULT}
                     />
                   </View>
                 </View>
@@ -200,7 +203,7 @@ export default function DirectoryScreen() {
                       <SymbolView
                         name={{ ios: 'person.2.fill', android: 'family_restroom', web: 'family_restroom' }}
                         size={16}
-                        tintColor={Palette.subtle}
+                        tintColor={palette.subtle}
                       />
                       <Text className="font-inter text-xs text-subtle">{family}</Text>
                     </View>
@@ -222,7 +225,7 @@ export default function DirectoryScreen() {
                   <SymbolView
                     name={{ ios: saved ? 'bookmark.fill' : 'bookmark', android: 'bookmark', web: 'bookmark' }}
                     size={24}
-                    tintColor={saved ? Palette.primary.DEFAULT : Palette.ink}
+                    tintColor={saved ? palette.primary.DEFAULT : palette.ink}
                   />
                 </Pressable>
               </View>
@@ -238,7 +241,7 @@ export default function DirectoryScreen() {
                     accessibilityRole="button"
                     accessibilityLabel={t('Call {name}', { name: m.name })}
                     className="h-10 flex-row items-center gap-1.5 rounded-full bg-surface px-4 active:opacity-80">
-                    <SymbolView name={{ ios: 'phone', android: 'call', web: 'call' }} size={18} tintColor={Palette.primary.DEFAULT} />
+                    <SymbolView name={{ ios: 'phone', android: 'call', web: 'call' }} size={18} tintColor={palette.primary.DEFAULT} />
                     <Text className="font-inter-medium text-sm text-ink">{t('Call')}</Text>
                   </Pressable>
                 )}
@@ -252,7 +255,7 @@ export default function DirectoryScreen() {
                   <SymbolView
                     name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }}
                     size={16}
-                    tintColor={Palette.primary.DEFAULT}
+                    tintColor={palette.primary.DEFAULT}
                   />
                 </Pressable>
                 )}

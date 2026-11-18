@@ -7,9 +7,9 @@ import { SymbolView, type SymbolViewProps } from 'expo-symbols';
 import { useState, type ReactNode } from 'react';
 import { ActivityIndicator, Platform, Pressable, Text, TextInput, View, type TextInputProps } from 'react-native';
 
-import { Palette } from '@/constants/theme';
 import { mediaUrl, parseDmy, toDmy, type PickedFile } from '@/lib/api';
 import { useT } from '@/lib/i18n';
+import { usePalette } from '@/lib/theme';
 
 type Tone = { DEFAULT: string; container: string };
 
@@ -18,6 +18,7 @@ export const initials = (name: string) =>
 
 // Components below translate their own text props (lib/i18n.ts), so screens pass plain English.
 export function ScreenHeader({ title, back, right }: { title: string; back?: boolean; right?: ReactNode }) {
+  const palette = usePalette();
   const t = useT();
   return (
     <View className="flex-row items-center gap-2 px-5 py-3">
@@ -30,7 +31,7 @@ export function ScreenHeader({ title, back, right }: { title: string; back?: boo
           <SymbolView
             name={{ ios: 'chevron.left', android: 'arrow_back', web: 'arrow_back' }}
             size={22}
-            tintColor={Palette.ink}
+            tintColor={palette.ink}
           />
         </Pressable>
       )}
@@ -59,7 +60,7 @@ export function Button({
     outlined: 'border border-muted',
     tonal: 'bg-primary-container',
   }[variant];
-  const text = variant === 'primary' ? 'text-white' : 'text-primary';
+  const text = variant === 'primary' ? 'text-on-primary' : 'text-primary';
   return (
     <Pressable
       onPress={onPress}
@@ -73,6 +74,7 @@ export function Button({
 }
 
 export function Field({ label, hint, multiline, placeholder, ...props }: TextInputProps & { label: string; hint?: string }) {
+  const palette = usePalette();
   const t = useT();
   return (
     <View>
@@ -81,9 +83,9 @@ export function Field({ label, hint, multiline, placeholder, ...props }: TextInp
         {...props}
         placeholder={placeholder && t(placeholder)}
         multiline={multiline}
-        placeholderTextColor={Palette.muted}
+        placeholderTextColor={palette.muted}
         textAlignVertical={multiline ? 'top' : 'center'}
-        className={`rounded-2xl border border-line bg-white px-4 font-inter text-base text-ink ${multiline ? 'min-h-32 py-3' : 'h-12'}`}
+        className={`rounded-2xl border border-line bg-card px-4 font-inter text-base text-ink ${multiline ? 'min-h-32 py-3' : 'h-12'}`}
       />
       {hint && <Text className="mt-1 font-inter text-xs text-muted">{t(hint)}</Text>}
     </View>
@@ -100,6 +102,7 @@ const badSoFar = (v: string) => {
 
 /** Birth date as DD/MM/YYYY: typed, or picked from the phone's calendar. Impossible dates say so at once. */
 export function DateField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  const palette = usePalette();
   const t = useT();
   const [open, setOpen] = useState(false);
   const [left, setLeft] = useState(false); // focus left the box: a half-typed date is wrong too
@@ -107,13 +110,13 @@ export function DateField({ label, value, onChange }: { label: string; value: st
   return (
     <View>
       <Text className="mb-1.5 font-inter-medium text-sm text-ink">{t(label)}</Text>
-      <View className={`h-12 flex-row items-center rounded-2xl border bg-white pl-4 ${invalid ? 'border-rejected' : 'border-line'}`}>
+      <View className={`h-12 flex-row items-center rounded-2xl border bg-card pl-4 ${invalid ? 'border-rejected' : 'border-line'}`}>
         <TextInput
           value={value}
           onChangeText={(v) => (onChange(slashDate(v)), setLeft(false))}
           onBlur={() => setLeft(true)}
           placeholder="DD/MM/YYYY"
-          placeholderTextColor={Palette.muted}
+          placeholderTextColor={palette.muted}
           keyboardType="number-pad"
           maxLength={10}
           className="h-full flex-1 font-inter text-base text-ink"
@@ -125,7 +128,7 @@ export function DateField({ label, value, onChange }: { label: string; value: st
             accessibilityRole="button"
             accessibilityLabel={t('Pick a date')}
             className="h-full w-12 items-center justify-center active:opacity-60">
-            <SymbolView name={{ ios: 'calendar', android: 'calendar_month', web: 'calendar_month' }} size={22} tintColor={Palette.primary.DEFAULT} />
+            <SymbolView name={{ ios: 'calendar', android: 'calendar_month', web: 'calendar_month' }} size={22} tintColor={palette.primary.DEFAULT} />
           </Pressable>
         )}
       </View>
@@ -174,7 +177,7 @@ export function Chips<T extends string>({
             onPress={() => onChange(o)}
             accessibilityRole="radio"
             accessibilityState={{ selected: o === value }}
-            className={`rounded-full border px-4 py-2 ${o === value ? 'border-primary bg-primary-container' : 'border-line bg-white'}`}>
+            className={`rounded-full border px-4 py-2 ${o === value ? 'border-primary bg-primary-container' : 'border-line bg-card'}`}>
             <Text className={`font-inter-medium text-sm ${o === value ? 'text-primary' : 'text-subtle'}`}>{display ? display(o) : t(o)}</Text>
           </Pressable>
         ))}
@@ -197,6 +200,7 @@ export function UploadBox({
   pdf?: boolean;
   onPick: (file: PickedFile) => Promise<unknown>;
 }) {
+  const palette = usePalette();
   const t = useT();
   const [busy, setBusy] = useState(false);
 
@@ -229,12 +233,12 @@ export function UploadBox({
         accessibilityLabel={t('Upload {label}', { label: t(label) })}
         className="h-28 items-center justify-center rounded-2xl border border-dashed border-muted bg-surface active:opacity-80">
         {busy ? (
-          <ActivityIndicator color={Palette.primary.DEFAULT} />
+          <ActivityIndicator color={palette.primary.DEFAULT} />
         ) : (
           <SymbolView
             name={{ ios: 'square.and.arrow.up', android: 'upload', web: 'upload' }}
             size={26}
-            tintColor={Palette.primary.DEFAULT}
+            tintColor={palette.primary.DEFAULT}
           />
         )}
         <Text className="mt-1 font-inter text-xs text-muted">{busy ? t('Uploading…') : t(hint)}</Text>
@@ -243,7 +247,9 @@ export function UploadBox({
   );
 }
 
-export function Notice({ title, body, tone = Palette.pending }: { title: string; body: string; tone?: Tone }) {
+export function Notice({ title, body, tone: given }: { title: string; body: string; tone?: Tone }) {
+  const palette = usePalette();
+  const tone = given ?? palette.pending;
   const t = useT();
   return (
     <View className="rounded-2xl p-4" style={{ backgroundColor: tone.container }}>
@@ -254,7 +260,9 @@ export function Notice({ title, body, tone = Palette.pending }: { title: string;
 }
 
 /** photo: an API media path (e.g. photo_url); falls back to initials when absent. */
-export function Avatar({ name, size = 56, tone = Palette.primary, photo }: { name: string; size?: number; tone?: Tone; photo?: string | null }) {
+export function Avatar({ name, size = 56, tone: given, photo }: { name: string; size?: number; tone?: Tone; photo?: string | null }) {
+  const palette = usePalette();
+  const tone = given ?? palette.primary;
   const uri = mediaUrl(photo ?? null);
   if (uri) return <Image source={{ uri }} style={{ width: size, height: size, borderRadius: size / 2 }} accessibilityLabel={name} />;
   return (
@@ -270,7 +278,7 @@ export function Avatar({ name, size = 56, tone = Palette.primary, photo }: { nam
 
 export function StatusView({
   icon,
-  tone = Palette.primary,
+  tone: given,
   title,
   body,
   action,
@@ -283,6 +291,8 @@ export function StatusView({
   action: string;
   onAction: () => void;
 }) {
+  const palette = usePalette();
+  const tone = given ?? palette.primary;
   const t = useT();
   return (
     <View className="flex-1 px-6">

@@ -16,10 +16,12 @@ from core.database import SessionLocal
 from core.security import fernet, hash_password
 from main import app
 from member.auth.curd import _start_session, mobile_hash
+from member.feed import api as feed_api
 from member.profile.model import Member
 from superadmin.city.model import City
 from superadmin.city_admin.model import AdminUser
 
+feed_api.translate = lambda texts: None  # service down or no key; never the real, paid one from a test
 c = TestClient(app)
 tag = secrets.token_hex(4)
 now = datetime.now(timezone.utc)
@@ -245,6 +247,30 @@ try:
     r = c.post(f"{base}/{rn}/reject", headers=x_h, json={"reason": "Off topic"})
     assert r.status_code == 200 and r.json()["status"] == "REJECTED", r.text
     assert "Spam" not in feed(mx_h)
+
+    # translations: live text only, once; no service keeps the original; an edit translates again
+    sent: list[list[str]] = []
+    def fake_translate(texts):
+        sent.append(texts)
+        return {lang: [f"{lang}:{s}" for s in texts] for lang in ("gu", "hi")}
+    tn = news("Tr", now - timedelta(seconds=30)).json()["content_id"]
+    get_tr = lambda: next(i for i in c.get("/member/feed", headers=mx_h).json() if i["content_id"] == tn)
+    assert (get_tr()["title_i18n"], get_tr()["body_i18n"]) == ({}, {})
+    post(title="Unapproved")
+    feed_api.translate = fake_translate
+    assert get_tr()["title_i18n"] == {}  # the reader never waits: this load shows the original, translation runs after
+    tr = get_tr()
+    assert tr["title_i18n"] == {"gu": "gu:Tr", "hi": "hi:Tr"} and tr["body_i18n"]["hi"] == "hi:Tr body", tr
+    assert "hi:Ad FULLSCREEN" in str(c.get("/member/feed", headers=mx_h).json())  # ads too, title only
+    assert not any("Unapproved" in s or s == "Draft" for batch in sent for s in batch), sent
+    before = len(sent)
+    assert get_tr()["title_i18n"]["gu"] == "gu:Tr" and len(sent) == before  # stored, not sent again
+    assert c.put(f"{base}/{tn}", headers=x_h, json={"title": "Tr2"}).status_code == 200
+    assert get_tr()["title_i18n"] == {}  # the old translation is gone with the old text
+    assert get_tr()["title_i18n"]["hi"] == "hi:Tr2" and sent[-1] == ["Tr2", "Tr body"], sent
+    assert c.put(f"{base}/{tn}", headers=x_h, json={"end_at": iso(now + timedelta(hours=3))}).status_code == 200
+    before = len(sent)
+    assert get_tr()["title_i18n"]["hi"] == "hi:Tr2" and len(sent) == before  # a date change keeps it
     print("ok")
 finally:
     with SessionLocal() as db:  # auth_session rows go via ON DELETE CASCADE

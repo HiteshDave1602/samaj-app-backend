@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     otp_bypass: bool = False
     media_dir: str = "media"  # uploaded news/ad images
     private_dir: str = "private"  # ID documents, matrimony photos, import files; encrypted, never served directly
+    # Optional contact email for the free translation service; raises its daily allowance from 5,000 to 50,000 characters.
+    translate_email: str = ""
 
 
 settings = Settings()

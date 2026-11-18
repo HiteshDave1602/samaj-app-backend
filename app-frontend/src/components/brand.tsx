@@ -4,8 +4,8 @@ import { SymbolView } from 'expo-symbols';
 import { useEffect, useState } from 'react';
 import { Keyboard, Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { Palette } from '@/constants/theme';
 import { useT } from '@/lib/i18n';
+import { usePalette, useScheme } from '@/lib/theme';
 
 const SPONSOR_URL = 'https://www.instagram.com/shastribhavinofficial/';
 const DEVELOPER_URL = 'https://www.vrattiks.io/';
@@ -31,11 +31,28 @@ export function useKeyboardOpen() {
 /** Login and registration header: the Pragati Mandal logo on the Kul Sangam cover's sky and crowd.
  * mini: while the keyboard is up, so the form above it stays in view. */
 export function BrandHeader({ size = 'full', back }: { size?: keyof typeof SIZES; back?: boolean }) {
+  const palette = usePalette();
+  const scheme = useScheme();
   const t = useT();
   const [height, logo, top] = SIZES[size];
   return (
     <View style={{ height }}>
       <Image source={require('@/assets/images/brand/hero.jpg')} style={StyleSheet.absoluteFill} contentFit="cover" contentPosition="bottom" />
+      {/* the photo fades to white to meet the cream page; on dark it fades into the page instead.
+          ponytail: native only, react-native-web drops experimental_backgroundImage */}
+      {scheme === 'dark' && (
+        <View
+          style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: '35%',
+            pointerEvents: 'none',
+            experimental_backgroundImage: `linear-gradient(180deg, ${palette.cream}00, ${palette.cream})`,
+          }}
+        />
+      )}
       <Image
         source={require('@/assets/images/brand/logo.png')}
         style={{ width: logo, height: logo * LOGO_RATIO, alignSelf: 'center', marginTop: top }}
@@ -47,8 +64,8 @@ export function BrandHeader({ size = 'full', back }: { size?: keyof typeof SIZES
           onPress={() => router.back()}
           accessibilityRole="button"
           accessibilityLabel={t('Back')}
-          className="absolute left-4 top-3 h-10 w-10 items-center justify-center rounded-full bg-white/85">
-          <SymbolView name={{ ios: 'chevron.left', android: 'arrow_back', web: 'arrow_back' }} size={20} tintColor={Palette.brand.DEFAULT} />
+          className="absolute left-4 top-3 h-10 w-10 items-center justify-center rounded-full bg-card/85">
+          <SymbolView name={{ ios: 'chevron.left', android: 'arrow_back', web: 'arrow_back' }} size={20} tintColor={palette.brand.DEFAULT} />
         </Pressable>
       )}
     </View>
@@ -72,7 +89,7 @@ export function Credits() {
   };
   return (
     <View className="mt-auto border-t border-line pb-2 pt-4">
-      {line('Sponsored by {name}', 'Bhavin Shastri', SPONSOR_URL)}
+      {/* {line('Sponsored by {name}', 'Bhavin Shastri', SPONSOR_URL)} */}
       {line('Developed by {name}', 'Vrattiks Intelligence LLP', DEVELOPER_URL)}
     </View>
   );

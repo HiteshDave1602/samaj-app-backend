@@ -6,9 +6,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BrandHeader, Credits } from '@/components/brand';
 import { Button, Chips, DateField, Field, Notice } from '@/components/ui/form';
-import { Palette } from '@/constants/theme';
 import { api, isoDate, parseDmy, saveSession, type Session } from '@/lib/api';
 import { getLang, useLoc, useT } from '@/lib/i18n';
+import { usePalette } from '@/lib/theme';
 
 // Must match NOTICE_VERSION in backend/member/auth/curd.py; bump both when the text below changes.
 // ponytail: placeholder wording, swap in the approved consent notice from the PRD
@@ -22,6 +22,7 @@ type GenderLabel = keyof typeof GENDERS;
 type City = { city_id: string; name: string; name_i18n: Record<string, string>; state: string };
 
 export default function Register() {
+  const palette = usePalette();
   const t = useT();
   const place = useLoc();
   // ticket: number already verified (older login flow); otherwise mobile comes pre-filled from login and the code is
@@ -148,7 +149,7 @@ export default function Register() {
               onPress={() => setConsent(!consent)}
               accessibilityRole="checkbox"
               accessibilityState={{ checked: consent }}
-              className="flex-row gap-3 rounded-2xl border border-line bg-white p-4">
+              className="flex-row gap-3 rounded-2xl border border-line bg-card p-4">
               <SymbolView
                 name={{
                   ios: consent ? 'checkmark.square.fill' : 'square',
@@ -156,14 +157,14 @@ export default function Register() {
                   web: consent ? 'check_box' : 'check_box_outline_blank',
                 }}
                 size={24}
-                tintColor={consent ? Palette.primary.DEFAULT : Palette.muted}
+                tintColor={consent ? palette.primary.DEFAULT : palette.muted}
               />
               <Text className="flex-1 font-inter text-sm leading-5 text-subtle">{t(NOTICE)}</Text>
             </Pressable>
 
             {taken && (
               <>
-                <Notice title="Already registered" body="This number already has an account. Please log in." tone={Palette.info} />
+                <Notice title="Already registered" body="This number already has an account. Please log in." tone={palette.info} />
                 <Button title="Log in instead" variant="outlined" onPress={() => router.replace('/login')} />
               </>
             )}
@@ -181,7 +182,7 @@ export default function Register() {
                 autoFocus
               />
             )}
-            {error && <Notice title="Could not register" body={error} tone={Palette.rejected} />}
+            {error && <Notice title="Could not register" body={error} tone={palette.rejected} />}
             {!ready && <Text className="font-inter text-sm text-subtle">{t('Still needed: {fields}', { fields: missing.map((m) => t(m)).join(', ') })}</Text>}
             <Button
               title={busy ? 'Submitting…' : codeSent ? 'Verify and submit' : 'Submit for approval'}

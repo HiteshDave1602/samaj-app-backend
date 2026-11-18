@@ -4,10 +4,9 @@ import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Avatar, Button, Notice, ScreenHeader } from '@/components/ui/form';
-import { Palette } from '@/constants/theme';
 import { api, logout } from '@/lib/api';
-import { useHousehold } from '@/lib/family';
 import { label, loc, useT } from '@/lib/i18n';
+import { usePalette } from '@/lib/theme';
 
 // subset of backend member/profile/schema.py MemberOut that this screen shows
 type Me = {
@@ -33,6 +32,7 @@ function age(dob: string) {
 }
 
 export default function ProfileScreen() {
+  const palette = usePalette();
   const t = useT();
   const [me, setMe] = useState<Me>();
   const [error, setError] = useState<string>();
@@ -42,14 +42,6 @@ export default function ProfileScreen() {
       api<Me>('/member/me').then(setMe, (e) => setError(e.message));
     }, []),
   );
-  const { household, error: familyError } = useHousehold();
-  // other app members in the household, then relatives added by request
-  const family = household && [
-    ...household.members
-      .filter((m) => m.member_id !== me?.member_id)
-      .map((m) => ({ id: m.member_id, name: loc(m.full_name, m.full_name_i18n) ?? t('Member'), role: t(m.is_household_head ? 'Head of family' : 'Member'), status: 'APPROVED' })),
-    ...household.relatives.map((r) => ({ id: r.family_member_id, name: loc(r.full_name, r.full_name_i18n)!, role: label(r.relationship), status: r.status })),
-  ];
 
   const name = me && (loc(me.full_name, me.full_name_i18n) ?? t('Member'));
   const details = me
@@ -67,8 +59,8 @@ export default function ProfileScreen() {
     <SafeAreaView edges={['top']} className="flex-1 bg-cream">
       <ScreenHeader title="Profile" />
       <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40, gap: 24 }}>
-        {error && <Notice title="Could not load your profile" body={error} tone={Palette.rejected} />}
-        <View className="items-center rounded-3xl border border-line bg-white p-5">
+        {error && <Notice title="Could not load your profile" body={error} tone={palette.rejected} />}
+        <View className="items-center rounded-3xl border border-line bg-card p-5">
           {me ? (
             <>
               <Avatar name={name!} size={88} photo={me.photo_url} />
@@ -86,36 +78,8 @@ export default function ProfileScreen() {
               </View>
             </>
           ) : (
-            !error && <ActivityIndicator color={Palette.primary.DEFAULT} />
+            !error && <ActivityIndicator color={palette.primary.DEFAULT} />
           )}
-        </View>
-
-        <View className="gap-3">
-          <Text className="font-headline text-xl text-brand">{t('Family members')}</Text>
-          {familyError && <Notice title="Could not load your family" body={familyError} tone={Palette.rejected} />}
-          {!family && !familyError && <ActivityIndicator color={Palette.primary.DEFAULT} />}
-          {family?.length === 0 && (
-            <Notice title="No family members yet" body="Add your relatives; your city admin approves each one." tone={Palette.info} />
-          )}
-          {family?.map((f) => (
-            <View key={f.id} className="flex-row items-center gap-3 rounded-2xl border border-line bg-white p-3">
-              <Avatar name={f.name} size={44} tone={Palette.brand} />
-              <View className="flex-1">
-                <Text className="font-inter-semibold text-base text-ink">{f.name}</Text>
-                <Text className="font-inter text-sm text-subtle">{f.role}</Text>
-              </View>
-              {f.status === 'PENDING' && (
-                <Text className="rounded-full bg-pending-container px-2.5 py-1 font-inter-semibold text-[11px] text-pending">
-                  {t('Pending review')}
-                </Text>
-              )}
-              {f.status === 'REJECTED' && (
-                <Text className="rounded-full bg-rejected-container px-2.5 py-1 font-inter-semibold text-[11px] text-rejected">
-                  {t('Not approved')}
-                </Text>
-              )}
-            </View>
-          ))}
         </View>
 
         <View className="flex-row gap-3">

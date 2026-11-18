@@ -2,6 +2,7 @@ from sqlalchemy import (
     ARRAY, CheckConstraint, Column, DateTime, FetchedValue, ForeignKey, Index, SmallInteger, String, Text, Uuid, case,
     func, text,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 
 from core.database import Base
 import superadmin.city.model  # noqa: F401  registers city and admin_user for the FKs
@@ -39,6 +40,9 @@ class ContentItem(Base):
     city_id = Column(Uuid, ForeignKey("samaj.city.city_id", ondelete="RESTRICT"))
     title = Column(String(200), nullable=False)
     body = Column(Text)
+    # {gu, hi}, filled by the member feed; {} = not translated yet (a text edit empties them again)
+    title_i18n = Column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
+    body_i18n = Column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
     media_key = Column(String(255))
     creative_format = Column(String(10))  # BANNER | FULLSCREEN, ads only
     media_width = Column(SmallInteger)

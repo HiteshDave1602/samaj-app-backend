@@ -4,9 +4,9 @@ import { ActivityIndicator, KeyboardAvoidingView, ScrollView, Text, View } from 
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button, Chips, Field, Notice, ScreenHeader } from '@/components/ui/form';
-import { Palette } from '@/constants/theme';
 import { api } from '@/lib/api';
 import { label, tWords, useT } from '@/lib/i18n';
+import { usePalette } from '@/lib/theme';
 
 // backend member/matrimony/schema.py BiodataIn, in display order. `options` fields are enums.
 // typed as English words from a known list: shown translated
@@ -36,6 +36,7 @@ type Biodata = Record<string, string | number | undefined>;
 
 /** No params: edit my own biodata (PUT replaces it). ?profile=<id>: read someone's after they accepted my request. */
 export default function BiodataScreen() {
+  const palette = usePalette();
   const t = useT();
   const { profile } = useLocalSearchParams<{ profile?: string }>();
   const [data, setData] = useState<Biodata>();
@@ -74,7 +75,7 @@ export default function BiodataScreen() {
       <SafeAreaView className="flex-1 bg-cream">
         <ScreenHeader title="Biodata" back />
         <View className="p-5">
-          {error ? <Notice title="Could not load biodata" body={error} tone={Palette.rejected} /> : <ActivityIndicator />}
+          {error ? <Notice title="Could not load biodata" body={error} tone={palette.rejected} /> : <ActivityIndicator />}
         </View>
       </SafeAreaView>
     );
@@ -84,7 +85,7 @@ export default function BiodataScreen() {
       <SafeAreaView className="flex-1 bg-cream">
         <ScreenHeader title="Biodata" back />
         <ScrollView contentContainerStyle={{ padding: 20, paddingTop: 4 }}>
-          <View className="rounded-3xl border border-line bg-white p-5">
+          <View className="rounded-3xl border border-line bg-card p-5">
             {FIELDS.filter(({ key }) => data[key] != null).map(({ key, title, options }, i) => (
               <View key={key} className={`py-2.5 ${i ? 'border-t border-line' : ''}`}>
                 <Text className="font-inter text-xs text-muted">{t(title)}</Text>
@@ -104,7 +105,7 @@ export default function BiodataScreen() {
       <ScreenHeader title="My biodata" back />
       <KeyboardAvoidingView behavior="padding" className="flex-1">
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 20, paddingTop: 4, gap: 18 }}>
-          <Notice title="Private" body="Only members whose biodata request you accept can see this." tone={Palette.info} />
+          <Notice title="Private" body="Only members whose biodata request you accept can see this." tone={palette.info} />
           {FIELDS.map(({ key, title, options, multiline, numeric, hint }) =>
             options ? (
               <Chips
@@ -126,7 +127,7 @@ export default function BiodataScreen() {
               />
             ),
           )}
-          {error && <Notice title="Could not save" body={error} tone={Palette.rejected} />}
+          {error && <Notice title="Could not save" body={error} tone={palette.rejected} />}
           <Button title={busy ? 'Saving…' : 'Save biodata'} disabled={busy} onPress={save} />
         </ScrollView>
       </KeyboardAvoidingView>

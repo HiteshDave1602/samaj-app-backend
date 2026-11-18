@@ -5,8 +5,8 @@ import { SymbolView, type SymbolViewProps } from 'expo-symbols';
 import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Palette } from '@/constants/theme';
 import { useT } from '@/lib/i18n';
+import { usePalette } from '@/lib/theme';
 
 // a tinted PNG, or a system symbol for tabs without a custom icon yet
 type TabIcon = { image: ImageSource } | { symbol: SymbolViewProps['name'] };
@@ -32,7 +32,7 @@ export default function AppTabs() {
       <TabList asChild>
         <View
           style={{ marginBottom: bottom + 12, elevation: 8 }}
-          className="mx-3 h-[68px] flex-row rounded-[28px] border border-line bg-white px-1 shadow-lg shadow-ink/10">
+          className="mx-3 h-[68px] flex-row rounded-[28px] border border-line bg-card px-1 shadow-lg shadow-ink/10">
           {TABS.map((tab) => (
             <TabTrigger key={tab.name} name={tab.name} href={tab.href} asChild>
               <TabButton label={t(tab.label)} icon={tab.icon} />
@@ -60,6 +60,7 @@ function TabButton({
   ref: _ref,
   ...props
 }: TabTriggerSlotProps & { label: string; icon: TabIcon }) {
+  const palette = usePalette();
   return (
     <Pressable
       {...props}
@@ -72,10 +73,10 @@ function TabButton({
         {isFocused ? (
           // cream ring around the bubble fakes the notch cut into the bar
           <View className="-mt-8 h-14 w-14 items-center justify-center rounded-full border-4 border-cream bg-primary shadow-md shadow-primary/30">
-            <Icon icon={icon} color="#FFFFFF" size={24} />
+            <Icon icon={icon} color={palette['on-primary']} size={24} />
           </View>
         ) : (
-          <Icon icon={icon} color={Palette.muted} size={22} />
+          <Icon icon={icon} color={palette.muted} size={22} />
         )}
         <Text
           numberOfLines={1}

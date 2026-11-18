@@ -6,10 +6,10 @@ import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button, Notice, ScreenHeader } from '@/components/ui/form';
-import { Palette } from '@/constants/theme';
 import { api, authedImage } from '@/lib/api';
 import { label, loc, tWords, useT } from '@/lib/i18n';
 import { Cover, education, height, summary, title, type ProfileCard } from '@/lib/matrimony';
+import { usePalette } from '@/lib/theme';
 
 // backend member/matrimony/schema.py PublicProfileOut
 type Profile = ProfileCard & {
@@ -31,6 +31,7 @@ const REQUEST_NOTE = {
 };
 
 export default function MatrimonyProfile() {
+  const palette = usePalette();
   const t = useT();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [p, setP] = useState<Profile>();
@@ -63,7 +64,7 @@ export default function MatrimonyProfile() {
       <SafeAreaView className="flex-1 bg-cream">
         <ScreenHeader title="Profile" back />
         <View className="p-5">
-          {error ? <Notice title="Could not load profile" body={error} tone={Palette.rejected} /> : <ActivityIndicator />}
+          {error ? <Notice title="Could not load profile" body={error} tone={palette.rejected} /> : <ActivityIndicator />}
         </View>
       </SafeAreaView>
     );
@@ -100,7 +101,7 @@ export default function MatrimonyProfile() {
           </ScrollView>
         )}
 
-        <View className="rounded-3xl border border-line bg-white p-5">
+        <View className="rounded-3xl border border-line bg-card p-5">
           {details.map(([k, v], i) => (
             <View key={k} className={`flex-row justify-between py-2.5 ${i ? 'border-t border-line' : ''}`}>
               <Text className="font-inter text-sm text-muted">{t(k!)}</Text>
@@ -111,7 +112,7 @@ export default function MatrimonyProfile() {
         </View>
 
         <View className="flex-row items-center gap-3 rounded-3xl bg-secondary-container p-4">
-          <SymbolView name={{ ios: 'lock.fill', android: 'lock', web: 'lock' }} size={22} tintColor={Palette.secondary.DEFAULT} />
+          <SymbolView name={{ ios: 'lock.fill', android: 'lock', web: 'lock' }} size={22} tintColor={palette.secondary.DEFAULT} />
           <Text className="flex-1 font-inter text-sm text-secondary">
             {req ? t(REQUEST_NOTE[req.status]) : (
               <>
@@ -121,7 +122,7 @@ export default function MatrimonyProfile() {
           </Text>
         </View>
 
-        {error && <Notice title="Something went wrong" body={error} tone={Palette.rejected} />}
+        {error && <Notice title="Something went wrong" body={error} tone={palette.rejected} />}
         {canRequest && (
           <Button
             title={busy ? 'Sending…' : 'Send biodata request'}

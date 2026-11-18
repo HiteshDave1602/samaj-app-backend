@@ -4,12 +4,13 @@ import { useRef, useState } from 'react';
 import { FlatList, Pressable, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Palette } from '@/constants/theme';
+import { Palettes } from '@/constants/theme';
 import { useT } from '@/lib/i18n';
+import { usePalette } from '@/lib/theme';
 
 type Slide = {
   icon: SymbolViewProps['name'];
-  color: { DEFAULT: string; container: string };
+  color: 'primary' | 'secondary' | 'brand' | 'accent';
   title: string;
   body: string;
 };
@@ -17,25 +18,25 @@ type Slide = {
 const SLIDES: Slide[] = [
   {
     icon: { ios: 'person.3.fill', android: 'groups', web: 'groups' },
-    color: Palette.primary,
+    color: 'primary',
     title: 'Every family, one directory',
     body: 'Find samaj members by name, city or gotra, and see how families connect.',
   },
   {
     icon: { ios: 'heart.fill', android: 'favorite', web: 'favorite' },
-    color: Palette.secondary,
+    color: 'secondary',
     title: 'Matrimony you can trust',
     body: 'Every profile is verified by your samaj admin. A biodata stays private until its owner accepts your request.',
   },
   {
     icon: { ios: 'newspaper.fill', android: 'newspaper', web: 'newspaper' },
-    color: Palette.brand,
+    color: 'brand',
     title: 'News, photos and booklets',
     body: 'Sammelan updates, gallery photos, the vasti patrak and by-laws, all in one place.',
   },
   {
     icon: { ios: 'sun.max.fill', android: 'wb_sunny', web: 'wb_sunny' },
-    color: Palette.accent,
+    color: 'accent',
     title: 'Daily Panchang',
     body: 'Tithi, nakshatra, Rahu Kaal and Choghadiya for today, every morning.',
   },
@@ -44,6 +45,7 @@ const SLIDES: Slide[] = [
 const finish = () => router.replace('/login');
 
 export default function Onboarding() {
+  const palette = usePalette();
   const t = useT();
   const { width } = useWindowDimensions();
   const list = useRef<FlatList<Slide>>(null);
@@ -70,10 +72,10 @@ export default function Onboarding() {
           <View style={{ width }} className="flex-1 items-center justify-center px-8">
             <View
               className="h-64 w-64 items-center justify-center rounded-full"
-              style={{ backgroundColor: item.color.container }}>
+              style={{ backgroundColor: palette[item.color].container }}>
               <View
                 className="h-40 w-40 items-center justify-center rounded-full"
-                style={{ backgroundColor: item.color.DEFAULT }}>
+                style={{ backgroundColor: Palettes.light[item.color].DEFAULT }}>
                 <SymbolView name={item.icon} size={64} tintColor="#FFFFFF" />
               </View>
             </View>
@@ -99,7 +101,7 @@ export default function Onboarding() {
           onPress={next}
           accessibilityRole="button"
           className="items-center rounded-full bg-primary py-4 active:opacity-80">
-          <Text className="font-inter-semibold text-base text-white">
+          <Text className="font-inter-semibold text-base text-on-primary">
             {t(isLast ? 'Get started' : 'Next')}
           </Text>
         </Pressable>
