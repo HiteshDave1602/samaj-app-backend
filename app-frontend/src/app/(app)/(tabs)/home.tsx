@@ -1,7 +1,7 @@
 import { Image } from 'expo-image';
-import { router, type Href } from 'expo-router';
+import { router, useFocusEffect, type Href } from 'expo-router';
 import { SymbolView, type SymbolViewProps } from 'expo-symbols';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { FlatList, Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -65,7 +65,6 @@ function SectionTitle({ title, action, onAction }: { title: string; action?: str
   );
 }
 
-// ponytail: the bell doesn't navigate yet; wire it when notifications land
 export default function HomeScreen() {
   const palette = usePalette();
   const t = useT();
@@ -74,11 +73,29 @@ export default function HomeScreen() {
   const cardWidth = width - 40;
   const [slide, setSlide] = useState(0);
   const news = useFeed().items?.filter((n) => n.content_type === 'NEWS').slice(0, 5) ?? [];
+  const slider = useRef<FlatList>(null);
+  // auto-advance every 3s; keyed on slide so a manual swipe restarts the countdown
+  useEffect(() => {
+    if (news.length < 2) return;
+    const id = setTimeout(() => {
+      const next = (slide + 1) % news.length;
+      slider.current?.scrollToOffset({ offset: next * (cardWidth + 12) });
+      setSlide(next);
+    }, 3000);
+    return () => clearTimeout(id);
+  }, [slide, news.length, cardWidth]);
   const { requests } = useReceivedRequests();
   const [panchang, setPanchang] = useState<Panchang | string>(); // string: why it isn't available
   useEffect(() => {
     api<Panchang>('/member/panchang').then(setPanchang, (e) => setPanchang(e.message));
   }, []);
+  // the page carries the unread count; one item is the smallest page. Refetch on focus: the screen clears it
+  const [unread, setUnread] = useState(0);
+  useFocusEffect(
+    useCallback(() => {
+      api<{ unread: number }>('/member/notifications?limit=1').then((r) => setUnread(r.unread), () => {});
+    }, []),
+  );
 
   return (
     <SafeAreaView edges={['top']} className="flex-1 bg-cream">
@@ -88,12 +105,21 @@ export default function HomeScreen() {
           <Text className="font-inter text-xs text-muted">{t('Jay Shree Krishna')}</Text>
           <Text className="font-headline text-lg text-brand">{t('Pragati Samaj')}</Text>
         </View>
-        <Pressable accessibilityRole="button" accessibilityLabel={t('Notifications')} className="p-2">
+        <Pressable
+          onPress={() => router.push('/notifications')}
+          accessibilityRole="button"
+          accessibilityLabel={unread ? t('Notifications, {n} unread', { n: unread }) : t('Notifications')}
+          className="p-2">
           <SymbolView
             name={{ ios: 'bell', android: 'notifications', web: 'notifications' }}
             size={24}
             tintColor={palette.ink}
           />
+          {unread > 0 && (
+            <View className="absolute right-1 top-1 h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1">
+              <Text className="font-inter-semibold text-[10px] text-on-accent">{unread > 9 ? '9+' : unread}</Text>
+            </View>
+          )}
         </Pressable>
         <Pressable
           onPress={() => router.push('/settings')}
@@ -110,6 +136,7 @@ export default function HomeScreen() {
 
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
         <FlatList
+          ref={slider}
           data={news}
           horizontal
           pagingEnabled

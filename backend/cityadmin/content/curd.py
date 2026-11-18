@@ -10,6 +10,7 @@ from cityadmin.content.schema import ContentCreate, ContentUpdate, NewsSubmit
 from core import media
 from superadmin.audit_log import curd as audit
 from superadmin.city.model import City
+from member.notification import curd as notification
 from member.profile.model import Member
 from superadmin.city_admin.model import AdminUser
 
@@ -167,8 +168,10 @@ def decide(db: Session, admin: AdminUser, actor: audit.Actor, content_id: UUID, 
     after = {"status": status} | ({"rejection_reason": reason} if reason else {})
     audit.log(db, actor, "CONTENT_APPROVE" if status == "SCHEDULED" else "CONTENT_REJECT", "content_item",
               item.content_id, item.city_id, {"status": "PENDING"}, after)
+    if item.created_by_member_id:  # PENDING is member news only; admins' own items have no member to tell
+        notification.add(db, item.created_by_member_id, "NEWS_DECISION", approved=status == "SCHEDULED",
+                         reason=reason, title=item.title, content_id=item.content_id)
     db.commit()
-    # ponytail: the member isn't told the decision or reason yet; it comes with the notification outbox.
     return get(db, admin, content_id)
 
 

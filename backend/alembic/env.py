@@ -12,6 +12,7 @@ import member.profile.model  # noqa: F401
 import member.auth.model  # noqa: F401
 import cityadmin.content.model  # noqa: F401
 import member.matrimony.model  # noqa: F401
+import member.notification.model  # noqa: F401
 import cityadmin.panchang.model  # noqa: F401
 import cityadmin.member_import.model  # noqa: F401
 import cityadmin.member_export.model  # noqa: F401

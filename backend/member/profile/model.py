@@ -76,6 +76,7 @@ class Member(Base):
     language = Column(String(2), nullable=False, server_default="en")  # app UI language; notifications use it too
     source = Column(String(10), nullable=False, server_default="APP")  # APP | IMPORT
     last_login_at = Column(DateTime(timezone=True))
+    notifications_seen_at = Column(DateTime(timezone=True))  # the bell: anything newer is unread
     archive_notice_at = Column(DateTime(timezone=True))
     archived_at = Column(DateTime(timezone=True))
     deleted_at = Column(DateTime(timezone=True))

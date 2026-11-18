@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session, aliased
 
 from core import private_files
 from member.matrimony.model import MatrimonyPhoto, MatrimonyProfile
+from member.notification import curd as notification
 from member.profile.curd import age
 from member.profile.model import Member
 from superadmin.audit_log import curd as audit
@@ -96,9 +97,9 @@ def decide_profile(db: Session, admin: AdminUser, actor: audit.Actor, profile_id
             .values(status="APPROVED", moderated_by_admin_id=admin.admin_id, moderated_at=now)).rowcount
     audit.log(db, actor, "MATRIMONY_APPROVE" if status == "APPROVED" else "MATRIMONY_REJECT", "matrimony_profile",
               profile_id, admin.city_id, {"status": "PENDING_MODERATION"}, after)
+    notification.add(db, profile.member_id, "PROFILE_DECISION", approved=status == "APPROVED", reason=reason)
     db.commit()
-    # ponytail: no PROFILE_DECISION notification yet (notification outbox), and search shows it once
-    # matrimony_search_mv exists (member-side matrimony).
+    # ponytail: search shows it once matrimony_search_mv exists (member-side matrimony).
     return get_profile(db, admin, profile_id)
 
 
@@ -114,6 +115,8 @@ def decide_photo(db: Session, admin: AdminUser, actor: audit.Actor, photo_id: UU
     after = {"status": status} | ({"rejection_reason": reason} if reason else {})
     audit.log(db, actor, "PHOTO_APPROVE" if status == "APPROVED" else "PHOTO_REJECT", "matrimony_photo",
               photo_id, admin.city_id, {"status": "PENDING"}, after)
+    notification.add(db, db.get(MatrimonyProfile, photo.profile_id).member_id, "PHOTO_DECISION",
+                     approved=status == "APPROVED", reason=reason)
     db.commit()
     return get_profile(db, admin, photo.profile_id)
 
