@@ -152,11 +152,16 @@ def _years_ago(n: int) -> date:
 
 def search(db: Session, member: Member, *, age_min: int | None, age_max: int | None, gender: str | None,
            education_level: list[str], city_id: list[UUID], family_background: list[str],
-           after: UUID | None, limit: int) -> dict:
+           after: UUID | None, limit: int, text: str | None = None) -> dict:
     """FR-25: every filter optional, combinable; several values within one filter mean "any of".
-    ponytail: live query instead of the DDD's 4-hourly matrimony_search_mv (FR-28 is met with no lag).
-    Add the view if search over ~50k profiles drifts past NFR-04's 2 s."""
+    The Postgres path, used when Elasticsearch is off or down (member/matrimony/search.py); its `text` is a plain
+    substring match, without ES's typo tolerance or Gujarati/Hindi spellings.
+    ponytail: live query instead of the DDD's 4-hourly matrimony_search_mv (FR-28 is met with no lag)."""
     q = public_query().where(MatrimonyProfile.member_id != member.member_id)  # FR-27: never your own
+    if text:
+        q = q.where(or_(*(col.icontains(text, autoescape=True) for col in (
+            Member.full_name, MatrimonyProfile.occupation, MatrimonyProfile.gotra, MatrimonyProfile.education_detail,
+            Household.native_place))))
     if age_min is not None:
         q = q.where(Member.dob <= _years_ago(age_min))
     if age_max is not None:

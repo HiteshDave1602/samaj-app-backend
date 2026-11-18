@@ -4,5 +4,6 @@
 venv/
 backend/media/
 backend/private/
+backend/loadtest/.out/
 node_modules/
 dist/

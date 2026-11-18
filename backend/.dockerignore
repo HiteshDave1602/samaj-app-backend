@@ -1,0 +1,9 @@
+.env
+venv/
+media/
+private/
+loadtest/.out/
+__pycache__/
+.pytest_cache/
+deploy/
+docker-compose.yml

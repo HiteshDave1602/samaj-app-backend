@@ -4,8 +4,8 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from core.database import get_db
-from member.auth.deps import get_active_member
-from member.directory import curd
+from member.auth.deps import get_active_member, get_searching_member
+from member.directory import curd, search as es_search
 from member.directory.schema import DirectoryPage, HouseholdView
 from member.profile.model import Member
 
@@ -20,11 +20,13 @@ def search(
     family_name: str | None = Query(None, min_length=2, max_length=120),
     offset: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=50),
-    member: Member = Depends(get_active_member),
+    member: Member = Depends(get_searching_member),
     db: Session = Depends(get_db),
 ):
-    """FR-65: filters combine; name and family name match anywhere, case-insensitive. Sorted by name."""
-    return curd.search(db, member, name=name, city_id=city_id, family_name=family_name, offset=offset, limit=limit)
+    """FR-65: filters combine; name and family name match anywhere, case-insensitive. Sorted by name.
+    With the search engine on, they also match small typos and Gujarati/Hindi spellings. 429 past the search rate."""
+    return es_search.search(db, member, name=name, city_id=city_id, family_name=family_name, offset=offset,
+                            limit=limit)
 
 
 @router.get("/households/{household_id}", response_model=HouseholdView)

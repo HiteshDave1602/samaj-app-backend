@@ -12,6 +12,7 @@ from main import app
 from core.database import SessionLocal
 from member.auth.curd import _start_session, mobile_hash
 from member.profile.model import FamilyMember, Household, Member
+from search.sync import drain
 from superadmin.city.model import City
 
 c = TestClient(app)
@@ -64,6 +65,7 @@ with SessionLocal() as db:
     db.commit()
     ids = {"raj": str(raj.member_id), "amit": str(amit.member_id), "hx": str(hx.household_id),
            "gone": str(gone.household_id)}
+drain()  # search engine on: index the rows above now rather than on the worker's next pass
 
 try:
     get = lambda h=amit_h, **p: c.get("/member/directory", headers=h, params=p)  # noqa: E731

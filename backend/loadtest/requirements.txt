@@ -1,0 +1,2 @@
+# Load-test tooling only (loadtest/sample.py); not needed to run the API. k6 itself runs from Docker.
+psutil

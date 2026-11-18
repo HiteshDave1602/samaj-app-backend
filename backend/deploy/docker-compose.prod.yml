@@ -1,0 +1,139 @@
+# Production search cluster (docs/search.md, "Production"): 3 Elasticsearch nodes, TLS on HTTP and transport,
+# the restricted samaj_backend user, persistent volumes, memory limits, a snapshot repository.
+#
+#   cd backend/deploy
+#   docker compose -f docker-compose.prod.yml --env-file prod.env up -d
+#
+# prod.env (keep it out of git):
+#   ES_BIND_IP=10.0.0.12             private interface the API servers reach; never 0.0.0.0 or a public IP
+#   ES_HEAP=4g                       half of ES_MEM_LIMIT, at most ~30g
+#   ES_MEM_LIMIT=8g
+#   ELASTICSEARCH_USERNAME=samaj_backend
+#   ELASTICSEARCH_PASSWORD=<long random>
+#
+# This puts all three nodes on one host, which survives a node crash but not losing the host. For that, run one
+# node per host with the same settings (discovery.seed_hosts = the other hosts) or use a managed cluster.
+name: samaj-search-prod
+
+x-node: &node
+  image: docker.elastic.co/elasticsearch/elasticsearch:9.5.1  # same major as the Python client
+  restart: unless-stopped
+  depends_on:
+    certs: { condition: service_completed_successfully }
+  ulimits:
+    memlock: { soft: -1, hard: -1 }
+    nofile: { soft: 65536, hard: 65536 }
+  mem_limit: ${ES_MEM_LIMIT:-8g}
+  command:
+    - bash
+    - -c
+    - |
+      bin/elasticsearch-users userdel "$$ELASTICSEARCH_USERNAME" >/dev/null 2>&1
+      bin/elasticsearch-users useradd "$$ELASTICSEARCH_USERNAME" -p "$$ELASTICSEARCH_PASSWORD" -r samaj_backend || exit 1
+      exec /usr/local/bin/docker-entrypoint.sh eswrapper
+  healthcheck:
+    test: curl -fs --cacert config/certs/ca/ca.crt -u "$$ELASTICSEARCH_USERNAME:$$ELASTICSEARCH_PASSWORD" "https://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=2s"
+    interval: 10s
+    timeout: 5s
+    retries: 60
+
+x-env: &env
+  cluster.name: samaj-search
+  cluster.initial_master_nodes: es01,es02,es03  # first start only; remove once the cluster has formed
+  bootstrap.memory_lock: "true"
+  ES_JAVA_OPTS: -Xms${ES_HEAP:-4g} -Xmx${ES_HEAP:-4g}
+  path.repo: /snapshots
+  xpack.license.self_generated.type: basic
+  xpack.ml.enabled: "false"
+  xpack.security.enabled: "true"
+  xpack.security.http.ssl.enabled: "true"
+  xpack.security.http.ssl.certificate_authorities: certs/ca/ca.crt
+  xpack.security.transport.ssl.enabled: "true"
+  xpack.security.transport.ssl.certificate_authorities: certs/ca/ca.crt
+  xpack.security.transport.ssl.verification_mode: certificate
+  ELASTICSEARCH_USERNAME: ${ELASTICSEARCH_USERNAME:?set in prod.env}
+  ELASTICSEARCH_PASSWORD: ${ELASTICSEARCH_PASSWORD:?set in prod.env}
+
+services:
+  certs:  # one-shot: a private CA and one certificate per node, kept in the certs volume
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.5.1
+    user: "0"
+    environment:
+      ES_BIND_IP: ${ES_BIND_IP:?set in prod.env}
+    command:
+      - bash
+      - -c
+      - |
+        set -e
+        cd config/certs
+        if [ ! -f ca/ca.crt ]; then
+          /usr/share/elasticsearch/bin/elasticsearch-certutil ca --silent --pem -out ca.zip && unzip -q ca.zip
+        fi
+        if [ ! -f es01/es01.crt ]; then
+          printf 'instances:\n' > instances.yml
+          for n in es01 es02 es03; do
+            printf '  - name: %s\n    dns: [%s, localhost]\n    ip: [127.0.0.1, %s]\n' "$$n" "$$n" "$$ES_BIND_IP" >> instances.yml
+          done
+          /usr/share/elasticsearch/bin/elasticsearch-certutil cert --silent --pem --in instances.yml \
+            --ca-cert ca/ca.crt --ca-key ca/ca.key -out certs.zip && unzip -q certs.zip
+        fi
+        chown -R 1000:0 . && find . -type d -exec chmod 750 {} + && find . -type f -exec chmod 640 {} +
+    volumes:
+      - certs:/usr/share/elasticsearch/config/certs
+
+  es01:
+    <<: *node
+    environment:
+      <<: *env
+      node.name: es01
+      discovery.seed_hosts: es02,es03
+      xpack.security.http.ssl.key: certs/es01/es01.key
+      xpack.security.http.ssl.certificate: certs/es01/es01.crt
+      xpack.security.transport.ssl.key: certs/es01/es01.key
+      xpack.security.transport.ssl.certificate: certs/es01/es01.crt
+    ports:
+      - "${ES_BIND_IP:?set in prod.env}:${ES_PORT:-9200}:9200"  # the API servers' network only; firewall it to them
+    volumes:
+      - certs:/usr/share/elasticsearch/config/certs
+      - es01:/usr/share/elasticsearch/data
+      - snapshots:/snapshots
+      - ./elasticsearch/roles.yml:/usr/share/elasticsearch/config/roles.yml:ro
+
+  es02:
+    <<: *node
+    environment:
+      <<: *env
+      node.name: es02
+      discovery.seed_hosts: es01,es03
+      xpack.security.http.ssl.key: certs/es02/es02.key
+      xpack.security.http.ssl.certificate: certs/es02/es02.crt
+      xpack.security.transport.ssl.key: certs/es02/es02.key
+      xpack.security.transport.ssl.certificate: certs/es02/es02.crt
+    volumes:
+      - certs:/usr/share/elasticsearch/config/certs
+      - es02:/usr/share/elasticsearch/data
+      - snapshots:/snapshots
+      - ./elasticsearch/roles.yml:/usr/share/elasticsearch/config/roles.yml:ro
+
+  es03:
+    <<: *node
+    environment:
+      <<: *env
+      node.name: es03
+      discovery.seed_hosts: es01,es02
+      xpack.security.http.ssl.key: certs/es03/es03.key
+      xpack.security.http.ssl.certificate: certs/es03/es03.crt
+      xpack.security.transport.ssl.key: certs/es03/es03.key
+      xpack.security.transport.ssl.certificate: certs/es03/es03.crt
+    volumes:
+      - certs:/usr/share/elasticsearch/config/certs
+      - es03:/usr/share/elasticsearch/data
+      - snapshots:/snapshots
+      - ./elasticsearch/roles.yml:/usr/share/elasticsearch/config/roles.yml:ro
+
+volumes:
+  certs:
+  es01:
+  es02:
+  es03:
+  snapshots:  # one volume shared by all nodes: an "fs" snapshot repository needs the same path everywhere

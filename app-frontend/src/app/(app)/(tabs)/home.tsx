@@ -74,16 +74,21 @@ export default function HomeScreen() {
   const [slide, setSlide] = useState(0);
   const news = useFeed().items?.filter((n) => n.content_type === 'NEWS').slice(0, 5) ?? [];
   const slider = useRef<FlatList>(null);
-  // auto-advance every 3s; keyed on slide so a manual swipe restarts the countdown
+  const currentSlide = useRef(0);
+
+  // Keep cycling through banners, returning to the first after the last one.
   useEffect(() => {
     if (news.length < 2) return;
-    const id = setTimeout(() => {
-      const next = (slide + 1) % news.length;
-      slider.current?.scrollToOffset({ offset: next * (cardWidth + 12) });
+
+    const id = setInterval(() => {
+      const next = (currentSlide.current + 1) % news.length;
+      slider.current?.scrollToOffset({ offset: next * (cardWidth + 12), animated: true });
+      currentSlide.current = next;
       setSlide(next);
     }, 3000);
-    return () => clearTimeout(id);
-  }, [slide, news.length, cardWidth]);
+
+    return () => clearInterval(id);
+  }, [news.length, cardWidth]);
   const { requests } = useReceivedRequests();
   const [panchang, setPanchang] = useState<Panchang | string>(); // string: why it isn't available
   useEffect(() => {
@@ -145,9 +150,11 @@ export default function HomeScreen() {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={{ paddingHorizontal: 20, gap: 12 }}
           keyExtractor={(n) => n.content_id}
-          onMomentumScrollEnd={(e) =>
-            setSlide(Math.round(e.nativeEvent.contentOffset.x / (cardWidth + 12)))
-          }
+          onMomentumScrollEnd={(e) => {
+            const next = Math.round(e.nativeEvent.contentOffset.x / (cardWidth + 12));
+            currentSlide.current = next;
+            setSlide(next);
+          }}
           renderItem={({ item }) => (
             <Pressable
               onPress={() => router.push({ pathname: '/news/[id]', params: { id: item.content_id } })}
@@ -168,7 +175,7 @@ export default function HomeScreen() {
           {news.map((n, i) => (
             <View
               key={n.content_id}
-              className={`h-2 rounded-full ${i === slide ? 'w-6 bg-primary' : 'w-2 bg-line'}`}
+              className={`h-2 rounded-full ${i === Math.min(slide, Math.max(news.length - 1, 0)) ? 'w-6 bg-primary' : 'w-2 bg-line'}`}
             />
           ))}
         </View>

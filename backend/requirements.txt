@@ -11,3 +11,4 @@ python-multipart
 httpx
 openpyxl
 msoffcrypto-tool
+elasticsearch>=9.5,<10  # client major must match the server image in docker-compose.yml

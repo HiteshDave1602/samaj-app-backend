@@ -1,0 +1,80 @@
+# Dev search engine: one Elasticsearch node. Postgres and the API keep running on the host (README).
+#   docker compose up -d        (from backend/; reads ELASTICSEARCH_USERNAME / _PASSWORD from backend/.env)
+# Production layout: deploy/docker-compose.prod.yml
+name: samaj-search
+
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.5.1  # keep the major in step with requirements.txt
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "true"
+      xpack.security.http.ssl.enabled: "false"  # dev only: the port is bound to 127.0.0.1. Prod uses TLS.
+      xpack.ml.enabled: "false"
+      bootstrap.memory_lock: "true"
+      ES_JAVA_OPTS: -Xms1g -Xmx1g
+      ELASTICSEARCH_USERNAME: ${ELASTICSEARCH_USERNAME:?set it in backend/.env}
+      ELASTICSEARCH_PASSWORD: ${ELASTICSEARCH_PASSWORD:?set it in backend/.env}
+    # The backend logs in as a file-realm user holding only the samaj_backend role; no superuser password is needed.
+    command:
+      - bash
+      - -c
+      - |
+        bin/elasticsearch-users userdel "$$ELASTICSEARCH_USERNAME" >/dev/null 2>&1
+        bin/elasticsearch-users useradd "$$ELASTICSEARCH_USERNAME" -p "$$ELASTICSEARCH_PASSWORD" -r samaj_backend || exit 1
+        exec /usr/local/bin/docker-entrypoint.sh eswrapper
+    volumes:
+      - esdata:/usr/share/elasticsearch/data
+      - ./deploy/elasticsearch/roles.yml:/usr/share/elasticsearch/config/roles.yml:ro
+    ports:
+      - "127.0.0.1:9200:9200"  # host only, never 0.0.0.0
+    ulimits:
+      memlock: { soft: -1, hard: -1 }
+    mem_limit: 2g
+    healthcheck:
+      test: curl -fsu "$$ELASTICSEARCH_USERNAME:$$ELASTICSEARCH_PASSWORD" "http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=2s"
+      interval: 10s
+      timeout: 5s
+      retries: 30
+    restart: unless-stopped
+
+  # Dev database in Docker, for Windows machines where Application Control blocks the host's citext.dll (README):
+  #   docker compose --profile dev-db up -d    then DATABASE_URL=postgresql+psycopg2://samaj:samaj-dev@localhost:5435/samaj
+  postgres-dev:
+    profiles: [dev-db]
+    image: postgres:18
+    environment:
+      POSTGRES_DB: samaj
+      POSTGRES_USER: samaj
+      POSTGRES_PASSWORD: samaj-dev  # local dev database, bound to 127.0.0.1
+    ports:
+      - "127.0.0.1:5435:5432"
+    volumes:
+      - pgdev:/var/lib/postgresql
+    healthcheck:
+      test: pg_isready -U samaj -d samaj
+      interval: 2s
+      retries: 30
+    restart: unless-stopped
+
+  # Throwaway Postgres for the test scripts (docs/search.md, "Tests"): docker compose --profile test up -d
+  # Keeps test rows out of the dev DB, and works where Windows Application Control blocks the host's citext.dll.
+  postgres-test:
+    profiles: [test]
+    image: postgres:18
+    environment:
+      POSTGRES_DB: samaj
+      POSTGRES_USER: samaj
+      POSTGRES_PASSWORD: samaj-test  # local throwaway database, bound to 127.0.0.1
+    ports:
+      - "127.0.0.1:5433:5432"
+    tmpfs:
+      - /var/lib/postgresql
+    healthcheck:
+      test: pg_isready -U samaj -d samaj
+      interval: 2s
+      retries: 30
+
+volumes:
+  esdata:
+  pgdev:

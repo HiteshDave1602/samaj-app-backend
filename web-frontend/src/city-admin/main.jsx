@@ -9,7 +9,7 @@ import FamilyAdditions from './pages/FamilyAdditions'
 import Matrimony from './pages/Matrimony'
 import Panchang from './pages/Panchang'
 import Import from './pages/Import'
-import Export from './pages/Export'
+// import Export from './pages/Export'
 
 const PAGES = [
   { id: 'dashboard', label: 'Dashboard', icon: 'M3 12l9-8 9 8M5 10v10h14V10', el: Dashboard },
@@ -19,7 +19,7 @@ const PAGES = [
   { id: 'content', label: 'News & Ads', icon: 'M4 5h13v14H6a2 2 0 0 1-2-2V5ZM17 9h3v8a2 2 0 0 1-2 2M8 9h5M8 13h5', el: Content },
   { id: 'panchang', label: 'Panchang', icon: 'M4 6h16v14H4zM4 10h16M8 3v4M16 3v4', el: Panchang },
   { id: 'import', label: 'Import', icon: 'M12 4v11M7 10l5 5 5-5M4 20h16', el: Import },
-  { id: 'export', label: 'Export', icon: 'M12 15V4M7 9l5-5 5 5M4 20h16', el: Export },
+  // { id: 'export', label: 'Export', icon: 'M12 15V4M7 9l5-5 5 5M4 20h16', el: Export },
 ]
 
 createRoot(document.getElementById('root')).render(
