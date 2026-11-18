@@ -5,9 +5,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BrandHeader, Credits, useKeyboardOpen } from '@/components/brand';
 import { Button, Field, Notice } from '@/components/ui/form';
-import { Palette } from '@/constants/theme';
 import { api, saveSession, type Session } from '@/lib/api';
 import { syncLang, useT } from '@/lib/i18n';
+import { usePalette } from '@/lib/theme';
 
 type VerifyOut = { registered: boolean; session?: Session; registration_ticket?: string };
 
@@ -18,6 +18,7 @@ const MANDAL = 'પ્રગતિ મંડળ';
 // SF-01: the number is checked first, so an unknown number gets "register first" instead of a code. Registering opens
 // the form straight away with the number filled in; register.tsx asks for the code at submit.
 export default function Login() {
+  const palette = usePalette();
   const t = useT();
   const keyboardOpen = useKeyboardOpen();
   const [mobile, setMobile] = useState('');
@@ -97,7 +98,7 @@ export default function Login() {
                   maxLength={6}
                   autoFocus
                 />
-                {error && <Notice title="Could not log in" body={error} tone={Palette.rejected} />}
+                {error && <Notice title="Could not log in" body={error} tone={palette.rejected} />}
                 <Button title={busy ? 'Please wait…' : 'Verify'} disabled={busy || code.length !== 6} onPress={verify} />
                 <View className="flex-row justify-between">
                   <Button title="Change number" variant="outlined" small onPress={() => (setSent(false), setError(undefined))} />
@@ -117,10 +118,10 @@ export default function Login() {
                   autoComplete="tel"
                   hint="Indian numbers need no +91"
                 />
-                {error && <Notice title="Could not send the code" body={error} tone={Palette.rejected} />}
+                {error && <Notice title="Could not send the code" body={error} tone={palette.rejected} />}
                 {unknown ? (
                   <>
-                    <Notice title="No account found" body="This number is not registered yet. Please register first." tone={Palette.info} />
+                    <Notice title="No account found" body="This number is not registered yet. Please register first." tone={palette.info} />
                     <Button title="Register now" onPress={register} />
                   </>
                 ) : (

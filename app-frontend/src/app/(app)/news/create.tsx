@@ -6,15 +6,16 @@ import { Pressable, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button, Field, Notice, ScreenHeader, StatusView, UploadBox } from '@/components/ui/form';
-import { Palette } from '@/constants/theme';
 import { api, mediaUrl, upload, type PickedFile } from '@/lib/api';
 import { useT } from '@/lib/i18n';
+import { usePalette } from '@/lib/theme';
 
 // backend cityadmin/content/schema.py MediaOut / NewsSubmit
 type Media = { media_key: string; media_url: string };
 const MAX_EXTRA = 5;
 
 export default function CreateNews() {
+  const palette = usePalette();
   const t = useT();
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
@@ -94,7 +95,7 @@ export default function CreateNews() {
           />
         )}
         <Notice title="Needs approval" body="Your city admin reviews news before it is published." />
-        {error && <Notice title="Something went wrong" body={error} tone={Palette.rejected} />}
+        {error && <Notice title="Something went wrong" body={error} tone={palette.rejected} />}
         <Button
           title="Submit news"
           disabled={busy || !title.trim() || !body.trim() || !banner}
@@ -106,6 +107,7 @@ export default function CreateNews() {
 }
 
 function Thumb({ uri, wide, onRemove }: { uri: string; wide?: boolean; onRemove: () => void }) {
+  const palette = usePalette();
   const t = useT();
   return (
     <View>
@@ -119,8 +121,8 @@ function Thumb({ uri, wide, onRemove }: { uri: string; wide?: boolean; onRemove:
         accessibilityRole="button"
         accessibilityLabel={t('Remove photo')}
         hitSlop={8}
-        className="absolute right-1 top-1 rounded-full bg-white p-1">
-        <SymbolView name={{ ios: 'xmark', android: 'close', web: 'close' }} size={14} tintColor={Palette.ink} />
+        className="absolute right-1 top-1 rounded-full bg-card p-1">
+        <SymbolView name={{ ios: 'xmark', android: 'close', web: 'close' }} size={14} tintColor={palette.ink} />
       </Pressable>
     </View>
   );

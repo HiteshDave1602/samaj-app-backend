@@ -4,9 +4,9 @@ import { ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button, Chips, Field, Notice, ScreenHeader, StatusView } from '@/components/ui/form';
-import { Palette } from '@/constants/theme';
 import { api, isoDate } from '@/lib/api';
 import { useT } from '@/lib/i18n';
+import { usePalette } from '@/lib/theme';
 
 // backend member/family/schema.py Relationship (to the household head) and auth Gender
 const RELATIONS = {
@@ -17,6 +17,7 @@ const RELATIONS = {
 const GENDERS = { Male: 'MALE', Female: 'FEMALE', Other: 'OTHER' } as const;
 
 export default function AddMember() {
+  const palette = usePalette();
   const t = useT();
   const [name, setName] = useState('');
   const [relation, setRelation] = useState<keyof typeof RELATIONS>();
@@ -75,7 +76,7 @@ export default function AddMember() {
               hint={!dob || dobOk ? undefined : 'Use DD/MM/YYYY'}
             />
             <Notice title="Needs approval" body="Your city admin will review before it appears in the family tree." />
-            {error && <Notice title="Could not send request" body={error} tone={Palette.rejected} />}
+            {error && <Notice title="Could not send request" body={error} tone={palette.rejected} />}
             <Button
               title={busy ? 'Sending…' : 'Send request'}
               disabled={busy || !name.trim() || !relation || !gender || !dobOk}

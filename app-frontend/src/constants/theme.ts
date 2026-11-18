@@ -7,29 +7,23 @@ import '@/global.css';
 
 import { Platform } from 'react-native';
 
-import Palette from './palette';
+import Palettes from './palette';
 
-export { Palette };
+// Screens read colours through usePalette() (src/lib/theme.ts); Palettes.light directly only where a colour must
+// not follow the theme (brand fills under white text, the cream splash).
+export { Palettes };
 
-export const Colors = {
-  light: {
-    text: Palette.ink,
-    background: Palette.cream,
-    backgroundElement: Palette.surface,
-    backgroundSelected: Palette.line,
-    textSecondary: Palette.subtle,
-  },
-  // ponytail: design tokens are light-only; app.json pins userInterfaceStyle to light until a dark palette exists
-  dark: {
-    text: '#ffffff',
-    background: '#000000',
-    backgroundElement: '#212225',
-    backgroundSelected: '#2E3135',
-    textSecondary: '#B0B4BA',
-  },
-} as const;
+const named = (p: typeof Palettes.light) => ({
+  text: p.ink,
+  background: p.cream,
+  backgroundElement: p.surface,
+  backgroundSelected: p.line,
+  textSecondary: p.subtle,
+});
 
-export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
+export const Colors = { light: named(Palettes.light), dark: named(Palettes.dark) };
+
+export type ThemeColor = keyof typeof Colors.light;
 
 export const Fonts = Platform.select({
   ios: {

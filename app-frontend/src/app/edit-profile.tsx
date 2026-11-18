@@ -5,9 +5,9 @@ import { ActivityIndicator, KeyboardAvoidingView, ScrollView, Switch, Text, View
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button, Chips, DateField, Field, Notice, ScreenHeader, UploadBox } from '@/components/ui/form';
-import { Palette } from '@/constants/theme';
 import { api, dmyDate, isoDate, mediaUrl, parseDmy, restoreSession, upload } from '@/lib/api';
 import { LANGUAGES, useLang, useT } from '@/lib/i18n';
+import { usePalette } from '@/lib/theme';
 
 // backend member/profile/schema.py MemberOut (the editable part) and MemberUpdate
 type Me = {
@@ -34,6 +34,7 @@ const genderLabel = (v: string | null) => (Object.keys(GENDERS) as GenderLabel[]
 
 // Outside the (app) gate on purpose: pending and rejected members fix their details and ID document here.
 export default function EditProfile() {
+  const palette = usePalette();
   const t = useT();
   const [me, setMe] = useState<Me>();
   const [form, setForm] = useState({ name: '', dob: '', address: '', family: '', native: '', nameLoc: '', familyLoc: '', nativeLoc: '' });
@@ -118,7 +119,7 @@ export default function EditProfile() {
       <SafeAreaView className="flex-1 bg-cream">
         <ScreenHeader title="Edit profile" back />
         <View className="p-5">
-          {error ? <Notice title="Could not load your profile" body={error} tone={Palette.rejected} /> : <ActivityIndicator />}
+          {error ? <Notice title="Could not load your profile" body={error} tone={palette.rejected} /> : <ActivityIndicator />}
         </View>
       </SafeAreaView>
     );
@@ -129,7 +130,7 @@ export default function EditProfile() {
       <Switch
         value={flags[k]}
         onValueChange={(v) => setFlags({ ...flags, [k]: v })}
-        trackColor={{ true: Palette.primary.DEFAULT }}
+        trackColor={{ true: palette.primary.DEFAULT }}
         accessibilityLabel={t(title)}
       />
     </View>
@@ -194,7 +195,7 @@ export default function EditProfile() {
             </>
           )}
 
-          <View className="rounded-3xl border border-line bg-white p-4">
+          <View className="rounded-3xl border border-line bg-card p-4">
             {toggle('hide_phone', 'Hide my phone in the directory')}
             {toggle('hide_address', 'Hide my address in the directory')}
             {toggle('notify_news', 'Notify me about news')}
@@ -215,8 +216,8 @@ export default function EditProfile() {
             />
           )}
 
-          {error && <Notice title="Could not save" body={error} tone={Palette.rejected} />}
-          {saved && <Notice title={saved} body="Your changes are on the server." tone={Palette.approved} />}
+          {error && <Notice title="Could not save" body={error} tone={palette.rejected} />}
+          {saved && <Notice title={saved} body="Your changes are on the server." tone={palette.approved} />}
           <Button title={busy ? 'Saving…' : 'Save changes'} disabled={busy} onPress={save} />
         </ScrollView>
       </KeyboardAvoidingView>

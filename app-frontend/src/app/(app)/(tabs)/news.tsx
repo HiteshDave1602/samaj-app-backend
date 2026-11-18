@@ -5,13 +5,14 @@ import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Notice, ScreenHeader } from '@/components/ui/form';
-import { Palette } from '@/constants/theme';
 import { mediaUrl } from '@/lib/api';
 import { Cover, formatDate, useFeed } from '@/lib/feed';
 import { useLoc, useT } from '@/lib/i18n';
+import { usePalette } from '@/lib/theme';
 
 // ponytail: FULLSCREEN ads render inline like banners; make them interstitials when ad layout (FR-51) lands
 export default function NewsScreen() {
+  const palette = usePalette();
   const t = useT();
   const loc = useLoc();
   const { items, error } = useFeed();
@@ -25,18 +26,18 @@ export default function NewsScreen() {
             onPress={() => router.push('/news/create')}
             accessibilityRole="button"
             className="flex-row items-center gap-1 rounded-full bg-primary px-4 py-2 active:opacity-80">
-            <SymbolView name={{ ios: 'plus', android: 'add', web: 'add' }} size={16} tintColor="white" />
-            <Text className="font-inter-semibold text-sm text-white">{t('Create news')}</Text>
+            <SymbolView name={{ ios: 'plus', android: 'add', web: 'add' }} size={16} tintColor={palette['on-primary']} />
+            <Text className="font-inter-semibold text-sm text-on-primary">{t('Create news')}</Text>
           </Pressable>
         }
       />
       <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40, gap: 16 }}>
-        {error && <Notice title="Could not load news" body={error} tone={Palette.rejected} />}
-        {!items && !error && <ActivityIndicator color={Palette.primary.DEFAULT} />}
-        {items?.length === 0 && <Notice title="No news yet" body="Your city admin hasn't posted anything." tone={Palette.info} />}
+        {error && <Notice title="Could not load news" body={error} tone={palette.rejected} />}
+        {!items && !error && <ActivityIndicator color={palette.primary.DEFAULT} />}
+        {items?.length === 0 && <Notice title="No news yet" body="Your city admin hasn't posted anything." tone={palette.info} />}
         {items?.map((n) =>
           n.content_type === 'AD' ? (
-            <View key={n.content_id} className="overflow-hidden rounded-3xl border border-line bg-white">
+            <View key={n.content_id} className="overflow-hidden rounded-3xl border border-line bg-card">
               {n.media_url && (
                 <Image
                   source={{ uri: mediaUrl(n.media_url)! }}
@@ -52,7 +53,7 @@ export default function NewsScreen() {
               key={n.content_id}
               onPress={() => router.push({ pathname: '/news/[id]', params: { id: n.content_id } })}
               accessibilityRole="button"
-              className="overflow-hidden rounded-3xl border border-line bg-white active:opacity-90">
+              className="overflow-hidden rounded-3xl border border-line bg-card active:opacity-90">
               <Cover item={n} className="h-36 justify-end p-4">
                 <Text className="font-headline text-2xl text-white">{loc(n.title, n.title_i18n)}</Text>
               </Cover>

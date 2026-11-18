@@ -6,9 +6,9 @@ import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button, Chips, Field, Notice, ScreenHeader, UploadBox } from '@/components/ui/form';
-import { Palette } from '@/constants/theme';
 import { api, authedImage, upload } from '@/lib/api';
 import { label, useT } from '@/lib/i18n';
+import { usePalette } from '@/lib/theme';
 
 // backend member/matrimony/schema.py ManagedBy / EducationLevel / FamilyBackground and MyProfileOut
 const MANAGED_BY = { Self: 'SELF', Parent: 'PARENT', Sibling: 'SIBLING', Relative: 'RELATIVE' } as const;
@@ -34,16 +34,17 @@ type MyProfile = {
   has_biodata: boolean;
 };
 
-const STATUS: Record<MyProfile['status'], { title: string; body: string; tone: typeof Palette.info }> = {
-  DRAFT: { title: 'Draft', body: 'Add at least one photo, then submit it for review.', tone: Palette.info },
-  PENDING_MODERATION: { title: 'Under review', body: 'Your city admin is reviewing your profile.', tone: Palette.pending },
-  APPROVED: { title: 'Live', body: 'Approved: other members can find your profile.', tone: Palette.approved },
-  REJECTED: { title: 'Not approved', body: 'Fix the profile and submit again.', tone: Palette.rejected },
-  ARCHIVED: { title: 'Archived', body: 'This profile is no longer listed.', tone: Palette.info },
+const STATUS: Record<MyProfile['status'], { title: string; body: string; tone: 'info' | 'pending' | 'approved' | 'rejected' }> = {
+  DRAFT: { title: 'Draft', body: 'Add at least one photo, then submit it for review.', tone: 'info' },
+  PENDING_MODERATION: { title: 'Under review', body: 'Your city admin is reviewing your profile.', tone: 'pending' },
+  APPROVED: { title: 'Live', body: 'Approved: other members can find your profile.', tone: 'approved' },
+  REJECTED: { title: 'Not approved', body: 'Fix the profile and submit again.', tone: 'rejected' },
+  ARCHIVED: { title: 'Archived', body: 'This profile is no longer listed.', tone: 'info' },
 };
 
 // One screen for the member's own profile: create (POST) the first time, then edit (PUT), photos and submit.
 export default function MyMatrimonyProfile() {
+  const palette = usePalette();
   const t = useT();
   const [profile, setProfile] = useState<MyProfile | null>(); // null: none yet
   const [form, setForm] = useState({ educationDetail: '', occupation: '', gotra: '', height: '', about: '' });
@@ -98,7 +99,7 @@ export default function MyMatrimonyProfile() {
     return (
       <SafeAreaView className="flex-1 bg-cream">
         <ScreenHeader title="Matrimonial profile" back />
-        <ActivityIndicator className="mt-8" color={Palette.secondary.DEFAULT} />
+        <ActivityIndicator className="mt-8" color={palette.secondary.DEFAULT} />
       </SafeAreaView>
     );
 
@@ -110,7 +111,7 @@ export default function MyMatrimonyProfile() {
       <ScreenHeader title="Matrimonial profile" back />
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 20, paddingTop: 4, gap: 18 }}>
         {status && (
-          <Notice title={status.title} body={profile.moderation_reason ?? status.body} tone={status.tone} />
+          <Notice title={status.title} body={profile.moderation_reason ?? status.body} tone={palette[status.tone]} />
         )}
         <Text className="font-inter text-sm text-subtle">{t('Your name, gender and age come from your member profile.')}</Text>
         <Chips
@@ -150,8 +151,8 @@ export default function MyMatrimonyProfile() {
                     accessibilityRole="button"
                     accessibilityLabel={t('Remove photo')}
                     hitSlop={8}
-                    className="absolute right-1 top-1 rounded-full bg-white p-1">
-                    <SymbolView name={{ ios: 'xmark', android: 'close', web: 'close' }} size={14} tintColor={Palette.ink} />
+                    className="absolute right-1 top-1 rounded-full bg-card p-1">
+                    <SymbolView name={{ ios: 'xmark', android: 'close', web: 'close' }} size={14} tintColor={palette.ink} />
                   </Pressable>
                   <Text numberOfLines={2} className="mt-1 font-inter text-[11px] text-muted">
                     {ph.status === 'REJECTED' ? `${t('Rejected')}${ph.rejection_reason ? `: ${ph.rejection_reason}` : ''}` : label(ph.status)}
@@ -170,7 +171,7 @@ export default function MyMatrimonyProfile() {
             <Pressable
               onPress={() => router.push('/matrimony/biodata')}
               accessibilityRole="button"
-              className="flex-row items-center justify-between rounded-3xl border border-line bg-white p-4 active:opacity-80">
+              className="flex-row items-center justify-between rounded-3xl border border-line bg-card p-4 active:opacity-80">
               <View className="flex-1">
                 <Text className="font-inter-semibold text-base text-ink">{t('Biodata')}</Text>
                 <Text className="font-inter text-sm text-subtle">
@@ -189,7 +190,7 @@ export default function MyMatrimonyProfile() {
             )}
           </>
         )}
-        {error && <Notice title="Something went wrong" body={error} tone={Palette.rejected} />}
+        {error && <Notice title="Something went wrong" body={error} tone={palette.rejected} />}
       </ScrollView>
     </SafeAreaView>
   );

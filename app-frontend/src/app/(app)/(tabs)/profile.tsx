@@ -4,9 +4,9 @@ import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Avatar, Button, Notice, ScreenHeader } from '@/components/ui/form';
-import { Palette } from '@/constants/theme';
 import { api, logout } from '@/lib/api';
 import { label, loc, useT } from '@/lib/i18n';
+import { usePalette } from '@/lib/theme';
 
 // subset of backend member/profile/schema.py MemberOut that this screen shows
 type Me = {
@@ -32,6 +32,7 @@ function age(dob: string) {
 }
 
 export default function ProfileScreen() {
+  const palette = usePalette();
   const t = useT();
   const [me, setMe] = useState<Me>();
   const [error, setError] = useState<string>();
@@ -58,8 +59,8 @@ export default function ProfileScreen() {
     <SafeAreaView edges={['top']} className="flex-1 bg-cream">
       <ScreenHeader title="Profile" />
       <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40, gap: 24 }}>
-        {error && <Notice title="Could not load your profile" body={error} tone={Palette.rejected} />}
-        <View className="items-center rounded-3xl border border-line bg-white p-5">
+        {error && <Notice title="Could not load your profile" body={error} tone={palette.rejected} />}
+        <View className="items-center rounded-3xl border border-line bg-card p-5">
           {me ? (
             <>
               <Avatar name={name!} size={88} photo={me.photo_url} />
@@ -77,7 +78,7 @@ export default function ProfileScreen() {
               </View>
             </>
           ) : (
-            !error && <ActivityIndicator color={Palette.primary.DEFAULT} />
+            !error && <ActivityIndicator color={palette.primary.DEFAULT} />
           )}
         </View>
 

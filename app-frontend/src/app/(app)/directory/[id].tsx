@@ -4,9 +4,9 @@ import { ActivityIndicator, Linking, Pressable, ScrollView, Text, View } from 'r
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Avatar, Notice, ScreenHeader } from '@/components/ui/form';
-import { Palette } from '@/constants/theme';
 import { api } from '@/lib/api';
 import { label, loc, useT } from '@/lib/i18n';
+import { usePalette } from '@/lib/theme';
 
 // backend member/directory/schema.py HouseholdView
 type Person = {
@@ -33,6 +33,7 @@ type Household = {
 };
 
 export default function HouseholdScreen() {
+  const palette = usePalette();
   const t = useT();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [h, setH] = useState<Household>();
@@ -45,17 +46,17 @@ export default function HouseholdScreen() {
     <SafeAreaView className="flex-1 bg-cream">
       <ScreenHeader title={h ? t('{name} family', { name: loc(h.family_name, h.family_name_i18n)! }) : 'Family'} back />
       <ScrollView contentContainerStyle={{ padding: 20, paddingTop: 4, gap: 12 }}>
-        {error && <Notice title="Could not load this family" body={error} tone={Palette.rejected} />}
-        {!h && !error && <ActivityIndicator color={Palette.primary.DEFAULT} />}
+        {error && <Notice title="Could not load this family" body={error} tone={palette.rejected} />}
+        {!h && !error && <ActivityIndicator color={palette.primary.DEFAULT} />}
         {h && (
           <Text className="font-inter text-sm text-subtle">
             {[loc(h.city_name, h.city_name_i18n), h.native_place && t('Native: {place}', { place: loc(h.native_place, h.native_place_i18n)! })].filter(Boolean).join(' · ')}
           </Text>
         )}
         {h?.people.map(({ full_name, full_name_i18n, ...p }) => ({ ...p, full_name: loc(full_name, full_name_i18n) })).map((p) => (
-          <View key={p.id} className="rounded-3xl border border-line bg-white p-4">
+          <View key={p.id} className="rounded-3xl border border-line bg-card p-4">
             <View className="flex-row items-center gap-3">
-              <Avatar name={p.full_name ?? '?'} size={48} tone={p.is_household_head ? Palette.primary : Palette.brand} photo={p.photo_url} />
+              <Avatar name={p.full_name ?? '?'} size={48} tone={p.is_household_head ? palette.primary : palette.brand} photo={p.photo_url} />
               <View className="flex-1">
                 <Text className="font-inter-semibold text-base text-ink">{p.full_name ?? t('Member')}</Text>
                 <Text className="font-inter text-sm text-subtle">

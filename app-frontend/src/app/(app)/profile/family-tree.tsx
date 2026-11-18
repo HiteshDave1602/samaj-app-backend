@@ -3,9 +3,9 @@ import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Avatar, Notice, ScreenHeader } from '@/components/ui/form';
-import { Palette } from '@/constants/theme';
 import { label, loc, useT } from '@/lib/i18n';
 import { useHousehold } from '@/lib/family';
+import { usePalette } from '@/lib/theme';
 
 // relationships are to the household head, who sits in generation 2
 const GENERATION: Record<string, number> = {
@@ -18,6 +18,7 @@ const GENERATION: Record<string, number> = {
 
 // ponytail: groups by generation only; a real tree with branches needs parent links from the API
 export default function FamilyTree() {
+  const palette = usePalette();
   const t = useT();
   const { household, error } = useHousehold();
   const people = household
@@ -40,8 +41,8 @@ export default function FamilyTree() {
     <SafeAreaView className="flex-1 bg-cream">
       <ScreenHeader title={household ? t('{name} family', { name: loc(household.family_name, household.family_name_i18n)! }) : 'Family tree'} back />
       <ScrollView contentContainerStyle={{ padding: 20, alignItems: 'center' }}>
-        {error && <Notice title="Could not load your family" body={error} tone={Palette.rejected} />}
-        {!household && !error && <ActivityIndicator color={Palette.primary.DEFAULT} />}
+        {error && <Notice title="Could not load your family" body={error} tone={palette.rejected} />}
+        {!household && !error && <ActivityIndicator color={palette.primary.DEFAULT} />}
         {rows.map((row, i) => (
           <Fragment key={i}>
             {i > 0 && <View className="h-8 w-0.5 bg-line" />}
@@ -49,8 +50,8 @@ export default function FamilyTree() {
               {row.map((p) => (
                 <View
                   key={p.id}
-                  className={`w-28 items-center rounded-3xl border bg-white p-3 ${p.head ? 'border-primary' : 'border-line'}`}>
-                  <Avatar name={p.name} size={52} tone={p.head ? Palette.primary : Palette.brand} />
+                  className={`w-28 items-center rounded-3xl border bg-card p-3 ${p.head ? 'border-primary' : 'border-line'}`}>
+                  <Avatar name={p.name} size={52} tone={p.head ? palette.primary : palette.brand} />
                   <Text numberOfLines={1} className="mt-2 font-inter-semibold text-sm text-ink">
                     {p.name.split(' ')[0]}
                   </Text>

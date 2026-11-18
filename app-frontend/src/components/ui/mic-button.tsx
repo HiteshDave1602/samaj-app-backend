@@ -3,8 +3,8 @@ import { SymbolView } from 'expo-symbols';
 import { useState } from 'react';
 import { Alert, Pressable, View } from 'react-native';
 
-import { Palette } from '@/constants/theme';
 import { useT } from '@/lib/i18n';
+import { usePalette } from '@/lib/theme';
 
 // Expo Go has no speech module and importing the library there crashes the whole app, so load it only when present.
 const speech: typeof import('expo-speech-recognition') | null = requireOptionalNativeModule('ExpoSpeechRecognition')
@@ -18,6 +18,7 @@ export function MicButton(props: { onText: (text: string) => void }) {
 }
 
 function MicUnavailable() {
+  const palette = usePalette();
   const t = useT();
   return (
     <View
@@ -25,12 +26,13 @@ function MicUnavailable() {
       accessibilityLabel={t('Voice search')}
       accessibilityState={{ disabled: true }}
       style={{ opacity: 0.4 }}>
-      <SymbolView name={{ ios: 'mic.slash', android: 'mic_off', web: 'mic_off' }} size={20} tintColor={Palette.muted} />
+      <SymbolView name={{ ios: 'mic.slash', android: 'mic_off', web: 'mic_off' }} size={20} tintColor={palette.muted} />
     </View>
   );
 }
 
 function Mic({ onText, speech }: { onText: (text: string) => void; speech: typeof import('expo-speech-recognition') }) {
+  const palette = usePalette();
   const { ExpoSpeechRecognitionModule, useSpeechRecognitionEvent } = speech;
   const t = useT();
   const [listening, setListening] = useState(false);
@@ -62,7 +64,7 @@ function Mic({ onText, speech }: { onText: (text: string) => void; speech: typeo
       <SymbolView
         name={{ ios: listening ? 'mic.fill' : 'mic', android: 'mic', web: 'mic' }}
         size={20}
-        tintColor={listening ? Palette.primary.DEFAULT : Palette.muted}
+        tintColor={listening ? palette.primary.DEFAULT : palette.muted}
       />
     </Pressable>
   );

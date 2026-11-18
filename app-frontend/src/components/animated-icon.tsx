@@ -5,7 +5,7 @@ import { Dimensions, StyleSheet, Text, View } from 'react-native';
 import Animated, { Easing, Keyframe } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 
-import { Palette } from '@/constants/theme';
+import { Palettes } from '@/constants/theme';
 
 const INITIAL_SCALE_FACTOR = Dimensions.get('screen').height / 90;
 const DURATION = 600;
@@ -149,7 +149,8 @@ const styles = StyleSheet.create({
   },
   splashOverlay: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: Palette.cream,
+    // cream in both themes: logo.png's black founding-year line vanishes on dark
+    backgroundColor: Palettes.light.cream,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 1000,
@@ -163,6 +164,6 @@ const styles = StyleSheet.create({
   creditsText: {
     fontFamily: 'Inter_500Medium',
     fontSize: 13,
-    color: Palette.muted,
+    color: Palettes.light.muted,
   },
 });
