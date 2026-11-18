@@ -135,6 +135,12 @@ const T: Record<string, [string, string]> = {
   // directory
   'Search by name': ['નામથી શોધો', 'नाम से खोजें'],
   'Search members': ['સભ્યો શોધો', 'सदस्य खोजें'],
+  'Voice search': ['અવાજથી શોધો', 'आवाज़ से खोजें'],
+  'Stop listening': ['સાંભળવાનું બંધ કરો', 'सुनना बंद करें'],  'Allow microphone access to search by voice': [
+    'અવાજથી શોધવા માટે માઇક્રોફોનની પરવાનગી આપો',
+    'आवाज़ से खोजने के लिए माइक्रोफ़ोन की अनुमति दें',
+  ],
+  'Could not hear you, please try again': ['અવાજ સંભળાયો નહીં, ફરી પ્રયાસ કરો', 'आवाज़ सुनाई नहीं दी, फिर से कोशिश करें'],
   Filters: ['ફિલ્ટર', 'फ़िल्टर'],
   City: ['શહેર', 'शहर'],
   'Family name': ['અટક', 'उपनाम'],

@@ -5,6 +5,7 @@ import { ActivityIndicator, FlatList, Linking, Pressable, Text, TextInput, View 
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Avatar, Chips, Field, Notice, ScreenHeader } from '@/components/ui/form';
+import { MicButton } from '@/components/ui/mic-button';
 import { Palette } from '@/constants/theme';
 import { api } from '@/lib/api';
 import { label, useLoc, useT } from '@/lib/i18n';
@@ -85,6 +86,7 @@ export default function DirectoryScreen() {
             returnKeyType="search"
             className="flex-1 font-inter text-base text-ink"
           />
+          <MicButton onText={setQuery} />
         </View>
         <Pressable
           onPress={() => setShowFilters(!showFilters)}
