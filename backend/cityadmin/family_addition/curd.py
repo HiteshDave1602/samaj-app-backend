@@ -5,6 +5,7 @@ from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, aliased
 
+from member.notification import curd as notification
 from member.profile.model import FamilyMember, Household, Member
 from superadmin.audit_log import curd as audit
 from superadmin.city_admin.model import AdminUser
@@ -69,6 +70,7 @@ def decide(db: Session, admin: AdminUser, actor: audit.Actor, family_member_id: 
     after = {"status": status} | ({"rejection_reason": reason} if reason else {})
     audit.log(db, actor, "FAMILY_APPROVE" if status == "APPROVED" else "FAMILY_REJECT", "family_member",
               fm.family_member_id, admin.city_id, {"status": "PENDING"}, after)
+    notification.add(db, fm.requested_by_member_id, "FAMILY_DECISION", approved=status == "APPROVED",
+                     reason=reason, name=fm.full_name)
     db.commit()
-    # ponytail: no FAMILY_DECISION notification to the requester yet; it comes with the notification outbox.
     return get(db, admin, family_member_id)

@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from member.matrimony import curd as matrimony
 from member.matrimony.model import BiodataRequest, MatrimonyProfile
+from member.notification import curd as notification
 from member.profile.model import Member
 from superadmin.audit_log.curd import IST, Denied
 
@@ -61,7 +62,8 @@ def send(db: Session, member: Member, profile_id: UUID) -> dict:
         raise HTTPException(409, "Your matrimony profile must be approved before you can send biodata requests")
     if profile_id == mine.profile_id:
         raise HTTPException(400, "You can't send a request to yourself")
-    if db.execute(matrimony.public_query().where(MatrimonyProfile.profile_id == profile_id)).first() is None:
+    other = db.execute(matrimony.public_query().where(MatrimonyProfile.profile_id == profile_id)).first()
+    if other is None:
         raise HTTPException(404, "Matrimony profile not found")
     pair = _pair(mine.profile_id, profile_id)
     if db.scalar(select(BiodataRequest.request_id).where(*pair, BiodataRequest.status.in_(OPEN))):
@@ -78,6 +80,7 @@ def send(db: Session, member: Member, profile_id: UUID) -> dict:
         raise HTTPException(429, f"You can send at most {DAILY_LIMIT} biodata requests a day. Try again tomorrow.")
     req = BiodataRequest(requester_profile_id=mine.profile_id, recipient_profile_id=profile_id)
     db.add(req)
+    notification.add(db, other[0].member_id, "BIODATA_REQUEST", profile_id=mine.profile_id)  # FR-31, in-app
     try:
         db.commit()
     except IntegrityError:  # ux_biodata_request_open_pair: B asked A at the same moment
@@ -106,6 +109,8 @@ def respond(db: Session, member: Member, request_id: UUID, accept: bool) -> dict
     req.status, req.responded_at = ("ACCEPTED" if accept else "DECLINED"), _now()
     if not accept:
         req.resend_allowed_at = req.responded_at + RESEND_LOCK
+    notification.add(db, db.get(MatrimonyProfile, req.requester_profile_id).member_id, "BIODATA_RESPONSE",
+                     profile_id=mine, accepted=accept)  # FR-38, in-app
     db.commit()
     # ponytail: BIODATA_RESPONSE push to User A (FR-38) comes with the notification outbox.
     return _out(req, mine, _cards(db, {req.requester_profile_id}))

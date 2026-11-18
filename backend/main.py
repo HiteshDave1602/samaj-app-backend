@@ -21,6 +21,7 @@ from member.family.api import router as member_family_router
 from member.feed.api import router as member_feed_router
 from member.matrimony.api import router as member_matrimony_router
 from member.news.api import router as member_news_router
+from member.notification.api import router as member_notification_router
 from member.panchang.api import router as member_panchang_router
 from member.profile.api import router as member_profile_router
 from superadmin.audit_log.api import router as audit_log_router
@@ -54,6 +55,7 @@ app.include_router(member_feed_router)
 app.include_router(member_news_router)
 app.include_router(member_directory_router)
 app.include_router(member_panchang_router)
+app.include_router(member_notification_router)
 app.mount("/media", StaticFiles(directory=media.MEDIA_DIR), name="media")  # news/ad images; random keys
 
 

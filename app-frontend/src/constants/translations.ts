@@ -19,6 +19,37 @@ const T: Record<string, [string, string]> = {
   Notifications: ['સૂચનાઓ', 'सूचनाएँ'],
   Back: ['પાછા', 'वापस'],
 
+  // notifications
+  'Notifications, {n} unread': ['સૂચનાઓ, {n} વાંચવાની બાકી', 'सूचनाएँ, {n} अपठित'],
+  'No notifications yet': ['હજી કોઈ સૂચના નથી', 'अभी कोई सूचना नहीं'],
+  'News, admin decisions and biodata requests will show up here.': [
+    'સમાચાર, એડમિનના નિર્ણયો અને બાયોડેટા વિનંતીઓ અહીં દેખાશે.',
+    'समाचार, एडमिन के निर्णय और बायोडाटा अनुरोध यहाँ दिखेंगे।',
+  ],
+  'Reason: {reason}': ['કારણ: {reason}', 'कारण: {reason}'],
+  'Membership approved': ['સભ્યપદ મંજૂર થયું', 'सदस्यता स्वीकृत हुई'],
+  'Welcome! The directory and matrimony are now open to you.': [
+    'સ્વાગત છે! હવે ડિરેક્ટરી અને લગ્ન વિભાગ તમારા માટે ખુલ્લા છે.',
+    'स्वागत है! अब निर्देशिका और विवाह सेवा आपके लिए खुली है।',
+  ],
+  'Family member added': ['પરિવારના સભ્ય ઉમેરાયા', 'परिवार का सदस्य जोड़ा गया'],
+  'Family member not added': ['પરિવારના સભ્ય ઉમેરાયા નહીં', 'परिवार का सदस्य नहीं जोड़ा गया'],
+  'Matrimony profile approved': ['લગ્ન પ્રોફાઇલ મંજૂર થઈ', 'विवाह प्रोफ़ाइल स्वीकृत हुई'],
+  'Matrimony profile not approved': ['લગ્ન પ્રોફાઇલ મંજૂર થઈ નહીં', 'विवाह प्रोफ़ाइल स्वीकृत नहीं हुई'],
+  'Matrimony photo approved': ['લગ્ન પ્રોફાઇલનો ફોટો મંજૂર થયો', 'विवाह प्रोफ़ाइल की फ़ोटो स्वीकृत हुई'],
+  'Matrimony photo not approved': ['લગ્ન પ્રોફાઇલનો ફોટો મંજૂર થયો નહીં', 'विवाह प्रोफ़ाइल की फ़ोटो स्वीकृत नहीं हुई'],
+  'It now shows on your profile.': ['હવે તે તમારી પ્રોફાઇલ પર દેખાય છે.', 'अब यह आपकी प्रोफ़ाइल पर दिखती है।'],
+  'Your news is live': ['તમારા સમાચાર પ્રકાશિત થયા', 'आपका समाचार प्रकाशित हुआ'],
+  'Your news was not approved': ['તમારા સમાચાર મંજૂર થયા નહીં', 'आपका समाचार स्वीकृत नहीं हुआ'],
+  'New biodata request': ['નવી બાયોડેટા વિનંતી', 'नया बायोडाटा अनुरोध'],
+  'Biodata request accepted': ['બાયોડેટા વિનંતી સ્વીકારાઈ', 'बायोडाटा अनुरोध स्वीकार हुआ'],
+  'Biodata request declined': ['બાયોડેટા વિનંતી નકારાઈ', 'बायोडाटा अनुरोध अस्वीकार हुआ'],
+  '{who} accepted your request. You can now view their biodata.': [
+    '{who} એ તમારી વિનંતી સ્વીકારી. હવે તમે તેમનો બાયોડેટા જોઈ શકો છો.',
+    '{who} ने आपका अनुरोध स्वीकार किया। अब आप उनका बायोडाटा देख सकते हैं।',
+  ],
+  '{who} declined your request.': ['{who} એ તમારી વિનંતી નકારી.', '{who} ने आपका अनुरोध अस्वीकार किया।'],
+
   // onboarding
   'Every family, one directory': ['દરેક પરિવાર, એક ડિરેક્ટરી', 'हर परिवार, एक निर्देशिका'],
   'Find samaj members by name, city or gotra, and see how families connect.': [

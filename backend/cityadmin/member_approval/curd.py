@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from core import private_files, sms
 from core.security import fernet
+from member.notification import curd as notification
 from member.profile.curd import latest_document, to_profile
 from member.profile.model import Household, IdentityDocument, Member
 from superadmin.audit_log import curd as audit
@@ -87,6 +88,7 @@ def _decide(db: Session, admin: AdminUser, actor: audit.Actor, member: Member, s
     after = {"status": status} | ({"rejection_reason": reason} if reason else {})
     audit.log(db, actor, "MEMBER_APPROVE" if status == "ACTIVE" else "MEMBER_REJECT", "member",
               member.member_id, member.city_id, {"status": "PENDING"}, after)
+    notification.add(db, member.member_id, "ACCOUNT_DECISION", approved=status == "ACTIVE", reason=reason)
 
 
 def _mobile(member: Member) -> str | None:
