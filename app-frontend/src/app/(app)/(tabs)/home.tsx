@@ -1,7 +1,7 @@
 import { Image } from 'expo-image';
 import { router, useFocusEffect, type Href } from 'expo-router';
 import { SymbolView, type SymbolViewProps } from 'expo-symbols';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { FlatList, Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -73,6 +73,17 @@ export default function HomeScreen() {
   const cardWidth = width - 40;
   const [slide, setSlide] = useState(0);
   const news = useFeed().items?.filter((n) => n.content_type === 'NEWS').slice(0, 5) ?? [];
+  const slider = useRef<FlatList>(null);
+  // auto-advance every 3s; keyed on slide so a manual swipe restarts the countdown
+  useEffect(() => {
+    if (news.length < 2) return;
+    const id = setTimeout(() => {
+      const next = (slide + 1) % news.length;
+      slider.current?.scrollToOffset({ offset: next * (cardWidth + 12) });
+      setSlide(next);
+    }, 3000);
+    return () => clearTimeout(id);
+  }, [slide, news.length, cardWidth]);
   const { requests } = useReceivedRequests();
   const [panchang, setPanchang] = useState<Panchang | string>(); // string: why it isn't available
   useEffect(() => {
@@ -125,6 +136,7 @@ export default function HomeScreen() {
 
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
         <FlatList
+          ref={slider}
           data={news}
           horizontal
           pagingEnabled
