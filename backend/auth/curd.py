@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from auth.model import AuthSession
 from core.config import settings
 from core.security import fernet as _fernet, hash_password, new_totp_secret, verify_password, verify_totp
+from superadmin.audit_log import curd as audit
 from superadmin.city_admin.model import AdminUser
 
 IDLE_TIMEOUT = timedelta(days=5)  # FR-73 says 30 min; relaxed on request
@@ -123,13 +124,29 @@ def _start_session(db: Session, admin: AdminUser) -> dict:
     return {"access_token": token, "idle_timeout_minutes": int(IDLE_TIMEOUT.total_seconds() // 60)}
 
 
-def revoke_sessions(db: Session, admin_id: UUID):
-    """Caller commits."""
-    db.execute(
-        update(AuthSession)
-        .where(AuthSession.admin_id == admin_id, AuthSession.revoked_at.is_(None))
-        .values(revoked_at=_now())
-    )
+def revoke_sessions(db: Session, admin_id: UUID, keep: UUID | None = None):
+    """Caller commits. `keep`: a session_id to leave signed in."""
+    q = update(AuthSession).where(AuthSession.admin_id == admin_id, AuthSession.revoked_at.is_(None))
+    if keep:
+        q = q.where(AuthSession.session_id != keep)
+    db.execute(q.values(revoked_at=_now()))
+
+
+def change_password(db: Session, token: str, current_password: str, new_password: str, ip: str | None):
+    """Self-service change: the caller's session stays, every other one ends."""
+    sess, admin = session_admin(db, token)
+    key = f"pwchange:{admin.admin_id}"
+    _check_not_locked(key)  # a stolen session can't brute-force the password
+    if not verify_password(current_password, admin.password_hash):
+        _record_failure(key)
+        raise HTTPException(400, "Current password is incorrect")  # not 401: the panel reads that as "session expired"
+    _failures.pop(key, None)
+    if new_password == current_password:
+        raise HTTPException(400, "New password must be different from the current one")
+    admin.password_hash = hash_password(new_password)
+    revoke_sessions(db, admin.admin_id, keep=sess.session_id)
+    audit.log(db, audit.Actor(admin.admin_id, ip), "ADMIN_PASSWORD_CHANGE", "admin_user", admin.admin_id, admin.city_id)
+    db.commit()
 
 
 def logout(db: Session, token: str):

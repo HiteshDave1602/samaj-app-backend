@@ -12,6 +12,7 @@ class OtpChallenge(Base):
         CheckConstraint("attempts BETWEEN 0 AND 3", name="ck_otp_challenge_attempts"),
         CheckConstraint("expires_at > created_at", name="ck_otp_challenge_1"),
         Index("ix_otp_challenge_mobile_time", "mobile_hash", text("created_at DESC")),
+        Index("ix_otp_challenge_ip_time", "request_ip", text("created_at DESC")),  # per-IP send limit
         Index("ix_otp_challenge_created", "created_at", postgresql_using="brin"),
     )
 

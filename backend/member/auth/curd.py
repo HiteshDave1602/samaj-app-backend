@@ -65,7 +65,16 @@ def send_otp(db: Session, mobile: str, ip: str | None, intent: str | None = None
         raise HTTPException(404, "No account found for this number. Please register first.")
     if intent == "register" and registered:
         raise HTTPException(409, "This number is already registered. Please log in.")
-    # ponytail: two simultaneous sends can both pass this count; fine for a cost limit of 5/hour.
+    # Per IP too (SRS: 10/min on OTP endpoints): a bot rotating numbers stays under the per-number limit.
+    # Counted in Postgres, not core/ratelimit: each send costs an SMS, so the count must span workers and restarts.
+    if ip is not None:
+        last_minute, last_hour = db.execute(select(
+            func.count().filter(OtpChallenge.created_at > now - timedelta(minutes=1)),
+            func.count()).where(OtpChallenge.request_ip == ip, OtpChallenge.created_at > now - timedelta(hours=1))).one()
+        if last_minute >= settings.otp_ip_rate_per_minute or last_hour >= settings.otp_ip_rate_per_hour:
+            wait = "a minute" if last_hour < settings.otp_ip_rate_per_hour else "an hour"
+            raise HTTPException(429, f"Too many OTP requests from this network. Try again in {wait}.")
+    # ponytail: two simultaneous sends can both pass these counts; fine for cost limits of 5/hour and 10/min.
     sent = db.scalar(select(func.count()).where(
         OtpChallenge.mobile_hash == mh, OtpChallenge.created_at > now - timedelta(hours=1)))
     if sent >= OTP_SENDS_PER_HOUR:

@@ -20,6 +20,7 @@ from member.matrimony.model import Biodata, MatrimonyPhoto, MatrimonyProfile
 from member.matrimony.schema import BiodataIn, ProfileCard
 from member.profile.curd import age
 from member.profile.model import Household, Member
+from search.sync import drain
 from superadmin.city.model import City
 from superadmin.city_admin.model import AdminUser
 
@@ -199,6 +200,7 @@ try:
 
     # SF-05 / FR-25: each filter combination returns exactly the expected profiles (Bina searching).
     # Scoped to this test's two cities, so other dev data can't leak in.
+    drain()  # search engine on: index the approvals above now rather than on the worker's next pass
     visible = {k: v for k, v in seed.items() if k in ("S1", "S2", "S3")}
     visible["Asha"] = (profile_id, "FEMALE", age(date(1998, 5, 1)), "GRADUATE", "JOINT", city_id)
     by_id = {v[0]: k for k, v in visible.items()}

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { api, fmtDateTime, qs, useFileUrl, useLoad, useToast } from '../../shared/api'
-import { Badge, Button, Card, Detail, ErrorText, Field, Modal, PageHeader, Pager, StatusBadge, Table, Toolbar, inputCls } from '../../shared/ui'
+import { Badge, Button, Card, Detail, ErrorText, Field, Modal, PageHeader, Pager, Stat, StatusBadge, Table, Toolbar, inputCls } from '../../shared/ui'
 import Decide from '../Decide'
 
 const LIMIT = 50
@@ -15,31 +15,57 @@ const QUEUES = {
 }
 const title = (s) => s && s[0] + s.slice(1).toLowerCase().replaceAll('_', ' ')
 
-export default function Matrimony() {
+// Both panels. The Super Admin sees every city (or one) read-only; deciding stays with each City Admin.
+export default function Matrimony({ me }) {
+  const sa = me.role === 'SUPER_ADMIN'
+  const base = sa ? '/superadmin/matrimony' : '/cityadmin/matrimony'
+  const [cityId, setCityId] = useState('')
   const [queue, setQueue] = useState('moderate')
   const [offset, setOffset] = useState(0)
   const [open, setOpen] = useState(null)
-  const list = useLoad(`/cityadmin/matrimony/profiles${qs({ ...QUEUES[queue].params, limit: LIMIT, offset })}`)
+  const cities = useLoad(sa ? '/superadmin/cities' : null)
+  const cityName = Object.fromEntries(cities.data?.map((c) => [c.city_id, c.name]) ?? [])
+  const counts = useLoad(sa ? `${base}/counts${qs({ city_id: cityId })}` : null)
+  const list = useLoad(`${base}/profiles${qs({ ...QUEUES[queue].params, city_id: cityId, limit: LIMIT, offset })}`)
   const [logOffset, setLogOffset] = useState(0)
-  const log = useLoad(`/cityadmin/matrimony/decisions${qs({ limit: LOG_LIMIT, offset: logOffset })}`)
+  const log = useLoad(`${base}/decisions${qs({ city_id: cityId, limit: LOG_LIMIT, offset: logOffset })}`)
+  const n = (s) => counts.data && (counts.data[s] ?? 0)
 
   return (
     <>
-      <PageHeader title="Matrimony" subtitle="Profiles stay out of search until you approve them. Reject unsuitable photos first; approving a profile approves its remaining photos. Biodata is never shown here." />
+      <PageHeader title="Matrimony" subtitle={sa
+        ? "Every city's matrimony profiles and decisions. Each city's City Admin approves or rejects them. Biodata is never shown here."
+        : 'Profiles stay out of search until you approve them. Reject unsuitable photos first; approving a profile approves its remaining photos. Biodata is never shown here.'} />
+      {sa && (
+        <div className="mb-6 grid gap-3 sm:grid-cols-3">
+          <Stat label="Waiting for moderation" value={n('PENDING_MODERATION')} tone="text-warning" />
+          <Stat label="Approved" value={n('APPROVED')} tone="text-success" />
+          <Stat label="Rejected" value={n('REJECTED')} tone="text-error" />
+        </div>
+      )}
       <Toolbar>
         <Field label="Show">
           <select value={queue} onChange={(e) => { setQueue(e.target.value); setOffset(0) }} className={inputCls}>
             {Object.entries(QUEUES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
           </select>
         </Field>
+        {sa && (
+          <Field label="City">
+            <select value={cityId} onChange={(e) => { setCityId(e.target.value); setOffset(0); setLogOffset(0) }} className={inputCls}>
+              <option value="">All cities</option>
+              {cities.data?.map((c) => <option key={c.city_id} value={c.city_id}>{c.name}</option>)}
+            </select>
+          </Field>
+        )}
       </Toolbar>
-      <Table head={['Profile', 'Education & work', 'Managed by', 'Status', 'Updated', '']} error={list.error} loading={list.loading} empty="Nothing to review here.">
+      <Table head={['Profile', ...(sa ? ['City'] : []), 'Education & work', 'Managed by', 'Status', 'Updated', '']} error={list.error} loading={list.loading} empty="Nothing to review here.">
         {list.data?.items.map((p) => (
           <tr key={p.profile_id}>
             <td>
               <div className="font-semibold">{p.full_name ?? '—'}</div>
               <div className="text-xs text-on-surface-variant">{[title(p.gender), p.age && `${p.age} yrs`].filter(Boolean).join(' · ')}</div>
             </td>
+            {sa && <td>{cityName[p.city_id] ?? '…'}</td>}
             <td>
               <div>{title(p.education_level)}</div>
               {p.occupation && <div className="text-xs text-on-surface-variant">{p.occupation}</div>}
@@ -52,7 +78,7 @@ export default function Matrimony() {
               </div>
             </td>
             <td className="whitespace-nowrap">{fmtDateTime(p.updated_at)}</td>
-            <td className="text-right"><Button variant="text" className="h-8 px-3" onClick={() => setOpen(p.profile_id)}>Review</Button></td>
+            <td className="text-right"><Button variant="text" className="h-8 px-3" onClick={() => setOpen(p.profile_id)}>{sa ? 'View' : 'Review'}</Button></td>
           </tr>
         ))}
       </Table>
@@ -70,7 +96,7 @@ export default function Matrimony() {
                 const name = d.full_name ?? 'a deleted photo'
                 return (
                   <li key={i} className="flex flex-wrap items-baseline gap-x-4 gap-y-1 px-4 py-3 text-sm">
-                    <time className="w-40 shrink-0 text-xs text-on-surface-variant">{fmtDateTime(d.occurred_at)}</time>
+                    <time className="w-40 shrink-0 text-xs text-on-surface-variant">{fmtDateTime(d.occurred_at)}{sa && d.city_id && <><br />{cityName[d.city_id] ?? '…'}</>}</time>
                     <StatusBadge status={approved ? 'APPROVED' : 'REJECTED'} />
                     <div className="min-w-0 flex-1">
                       <span className="font-semibold">{d.admin_name ?? 'City admin'}</span>
@@ -89,19 +115,19 @@ export default function Matrimony() {
           )}
       </Card>
       {log.data && <Pager total={log.data.total} limit={LOG_LIMIT} offset={logOffset} onChange={setLogOffset} />}
-      {open && <Review id={open} onClose={() => { setOpen(null); list.reload(); log.reload() }} />}
+      {open && <Review id={open} base={base} readOnly={sa} onClose={() => { setOpen(null); list.reload(); log.reload(); counts.reload() }} />}
     </>
   )
 }
 
-function Review({ id, onClose }) {
-  const load = useLoad(`/cityadmin/matrimony/profiles/${id}`)
+function Review({ id, base, readOnly, onClose }) {
+  const load = useLoad(`${base}/profiles/${id}`)
   const [fresh, setFresh] = useState(null) // each decision returns the updated profile
   const toast = useToast()
   const p = fresh ?? load.data
 
   async function act(path, body, msg) {
-    setFresh(await api(`/cityadmin/matrimony/${path}`, { method: 'POST', body }))
+    setFresh(await api(`${base}/${path}`, { method: 'POST', body }))
     toast(msg)
   }
 
@@ -135,7 +161,7 @@ function Review({ id, onClose }) {
                       <span className="text-xs text-on-surface-variant">{Math.round(ph.size_bytes / 1024)} KB</span>
                     </div>
                     {ph.rejection_reason && <p className="text-xs text-on-surface-variant">{ph.rejection_reason}</p>}
-                    {ph.status === 'PENDING' && (
+                    {ph.status === 'PENDING' && !readOnly && (
                       <Decide small
                         onApprove={() => act(`photos/${ph.photo_id}/approve`, undefined, 'Photo approved')}
                         onReject={(reason) => act(`photos/${ph.photo_id}/reject`, { reason }, 'Photo rejected')} />
@@ -146,7 +172,7 @@ function Review({ id, onClose }) {
             )}
           </div>
 
-          {p.status === 'PENDING_MODERATION' && (
+          {p.status === 'PENDING_MODERATION' && !readOnly && (
             <div className="border-t border-outline-variant pt-4">
               <Decide approveLabel="Approve profile"
                 onApprove={() => act(`profiles/${id}/approve`, undefined, 'Profile approved. It now shows in search.')}

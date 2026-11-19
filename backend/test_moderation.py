@@ -193,6 +193,26 @@ try:
     assert ("CROSS_CITY_DENIED", f"GET {m}/{ids['px']}", ids["px"]) in events
     assert ("CROSS_CITY_DENIED", f"POST {mt}/photos/{ph4}/approve", ids["prof_x"]) in events  # target: its profile
     assert len(events) == 6, events  # id-document, member, photo file, profile, photo approve, profile reject
+
+    # Super Admin: read-only view of every city, filterable by city, with per-status counts
+    sm, smt = "/superadmin/members", "/superadmin/matrimony"
+    cx, cy = str(city_x.city_id), str(city_y.city_id)
+    assert c.get(f"{smt}/profiles", headers=x_h).status_code == 403 and c.get(sm, headers=x_h).status_code == 403
+    assert c.get(f"{smt}/counts", headers=sa_h, params={"city_id": cx}).json() == {"APPROVED": 1}
+    assert c.get(f"{smt}/counts", headers=sa_h, params={"city_id": cy}).json() == {"REJECTED": 1}
+    items = c.get(f"{smt}/profiles", headers=sa_h, params={"city_id": cy}).json()["items"]
+    assert [(p["profile_id"], p["city_id"], p["status"]) for p in items] == [(ids["prof_y"], cy, "REJECTED")], items
+    prof = c.get(f"{smt}/profiles/{ids['prof_x']}", headers=sa_h).json()
+    assert prof["photos"][0]["file_url"].startswith(f"{smt}/photos/"), prof
+    assert c.get(prof["photos"][0]["file_url"], headers=sa_h).content == PHOTOS[0]
+    log = c.get(f"{smt}/decisions", headers=sa_h, params={"city_id": cx}).json()["items"]
+    assert sorted(d["action"] for d in log) == ["MATRIMONY_APPROVE", "PHOTO_APPROVE", "PHOTO_REJECT"], log
+    assert {d["city_id"] for d in log} == {cx}
+    assert c.get(f"{sm}/counts", headers=sa_h, params={"city_id": cx}).json() == {"ACTIVE": 2}
+    page = c.get(sm, headers=sa_h, params={"city_id": cx}).json()
+    assert [(i["full_name"], i["city_id"]) for i in page["items"]] == [("Asha", cx), ("Pending P", cx)], page
+    assert c.get(f"{sm}/{ids['my']}", headers=sa_h).json()["city_name"] == f"MY-{tag}"
+    assert c.get(f"{sm}/{ids['px']}/id-document", headers=sa_h).content == ID_PDF
     print("ok")
 finally:
     with SessionLocal() as db:  # FK order; auth_session, photos and ID documents go via ON DELETE CASCADE

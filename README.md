@@ -78,6 +78,30 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 pytest
 ```
 
+On Windows, if tests fail with `could not load library ... citext.dll` (Application Control blocks it), run them on
+the throwaway test database instead: [docs/search.md](docs/search.md#11-tests).
+
+The same error on login or any API call means the dev database can't run on the host either. Run it in Docker:
+`docker compose --profile dev-db up -d` (from `backend/`), then set
+`DATABASE_URL=postgresql+psycopg2://samaj:samaj-dev@localhost:5435/samaj`. To keep your data, `pg_dump --no-owner
+--no-acl` the host database and load it with `psql`.
+
+### Search engine (optional)
+
+The member directory and matrimony search can run on Elasticsearch: typo-tolerant, and they match names typed in
+Gujarati or Hindi. Postgres stays the source of truth, and searches fall back to it automatically. Needs Docker
+Desktop. Full guide: [docs/search.md](docs/search.md).
+
+```powershell
+cd backend
+docker compose up -d             # Elasticsearch on 127.0.0.1:9200; first add the ELASTICSEARCH_* lines to .env
+alembic upgrade head
+python -m search.reindex         # copy existing members into the index
+python -m search.worker          # 4th terminal, next to uvicorn: keeps the index in step with every change
+```
+
+Without `ELASTICSEARCH_URL` in `.env`, everything runs on Postgres as before.
+
 ### Dev switches
 
 | Variable | Default | Effect |

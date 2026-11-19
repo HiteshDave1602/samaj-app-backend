@@ -9,6 +9,7 @@ from member.profile.schema import IdDocumentOut as MemberIdDocumentOut, MemberOu
 
 class PendingMemberOut(BaseModel):
     member_id: UUID
+    city_id: UUID
     full_name: str | None
     gender: str | None
     dob: date | None

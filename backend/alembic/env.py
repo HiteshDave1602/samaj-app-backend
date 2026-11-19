@@ -16,6 +16,7 @@ import member.notification.model  # noqa: F401
 import cityadmin.panchang.model  # noqa: F401
 import cityadmin.member_import.model  # noqa: F401
 import cityadmin.member_export.model  # noqa: F401
+import search.outbox  # noqa: F401
 
 config = context.config
 

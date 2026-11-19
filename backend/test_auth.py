@@ -188,6 +188,20 @@ try:
     assert r.json()["mfa_enrolled"] is False, r.text
     new_h, new_secret = first_login(new_email)
     assert new_secret != old_secret
+    assert c.get("/admin/auth/me", headers=new_h).json()["mfa_enrolled_at"] is not None
+
+    # self-service password change: current password checked, other sessions end, this one stays
+    other_h = relogin(new_email, new_secret)
+    change = lambda cur, nw: c.post("/admin/auth/change-password", headers=new_h,
+                                    json={"current_password": cur, "new_password": nw})
+    assert change("wrong-password-000", "changed-password-789").status_code == 400  # 400, not 401: no forced logout
+    assert change(PW, "short").status_code == 422
+    assert change(PW, PW).status_code == 400
+    assert change(PW, "changed-password-789").status_code == 204
+    assert c.get("/admin/auth/me", headers=new_h).status_code == 200
+    assert c.get("/admin/auth/me", headers=other_h).status_code == 401
+    assert c.post("/admin/auth/login", json={"email": new_email, "password": PW}).status_code == 401
+    assert c.post("/admin/auth/login", json={"email": new_email, "password": "changed-password-789"}).status_code == 200
 
     # password reset logs them out; old password stops working
     new_pw = "another-password-456"
@@ -218,6 +232,7 @@ try:
     assert trail == [
         ("CITY_ADMIN_DEACTIVATE", {"status": "ACTIVE"}, {"status": "DEACTIVATED"}),
         ("ADMIN_PASSWORD_RESET", None, None),
+        ("ADMIN_PASSWORD_CHANGE", None, None),
         ("ADMIN_MFA_RESET", None, None),
         ("CITY_ADMIN_UPDATE", {"full_name": "New CA", "email": f"new-{tag}@test.local"},
          {"full_name": "Renamed CA", "email": new_email}),

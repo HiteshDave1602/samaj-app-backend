@@ -4,10 +4,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, UploadFi
 from sqlalchemy.orm import Session
 
 from core.database import get_db
-from member.auth.deps import get_active_member
+from member.auth.deps import get_active_member, get_searching_member
 from member.auth.schema import Gender
 from member.biodata_request import curd as requests
-from member.matrimony import curd
+from member.matrimony import curd, search as es_search
 from member.matrimony.schema import (
     BiodataIn, BiodataOut, EducationLevel, FamilyBackground, MyProfileOut, ProfileCreate, ProfileUpdate,
     PublicProfileOut, SearchPage,
@@ -43,6 +43,7 @@ def submit_profile(member: Member = Depends(get_active_member), db: Session = De
 
 @router.get("/profiles", response_model=SearchPage)
 def search(
+    q: str | None = Query(None, min_length=2, max_length=120),  # name, occupation, gotra, education, native place
     age_min: int | None = Query(None, ge=18, le=100),
     age_max: int | None = Query(None, ge=18, le=100),
     gender: Gender | None = None,  # optional: whether search is opposite-gender only is still open (OQ-13)
@@ -51,16 +52,17 @@ def search(
     family_background: list[FamilyBackground] = Query([]),
     after: UUID | None = None,
     limit: int = Query(20, ge=1, le=50),
-    member: Member = Depends(get_active_member),
+    member: Member = Depends(get_searching_member),
     db: Session = Depends(get_db),
 ):
-    """Approved profiles only, your own included; public summary only (FR-25-26).
-    Repeat a parameter for "any of": ?education_level=GRADUATE&education_level=POSTGRADUATE."""
+    """Approved profiles only, never your own; public summary only (FR-25-26).
+    Repeat a parameter for "any of": ?education_level=GRADUATE&education_level=POSTGRADUATE.
+    `q` tolerates small typos and Gujarati/Hindi spellings while the search engine is up. 429 past the search rate."""
     if age_min is not None and age_max is not None and age_min > age_max:
         raise HTTPException(422, "age_min can't be more than age_max")
-    return curd.search(db, member, age_min=age_min, age_max=age_max, gender=gender,
-                       education_level=education_level, city_id=city_id, family_background=family_background,
-                       after=after, limit=limit)
+    return es_search.search(db, member, q=q, age_min=age_min, age_max=age_max, gender=gender,
+                            education_level=education_level, city_id=city_id, family_background=family_background,
+                            after=after, limit=limit)
 
 
 @router.get("/profiles/{profile_id}", response_model=PublicProfileOut)

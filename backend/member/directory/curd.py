@@ -24,7 +24,7 @@ def _members(name: str | None, city_id: UUID | None, family_name: str | None):
                 Household.family_name, Household.family_name_i18n, Household.native_place, Household.native_place_i18n,
                 City.name.label("city_name"), City.name_i18n.label("city_name_i18n"), Member.mobile_enc,
                 Member.address_enc,
-                Member.hide_phone, Member.hide_address, Member.photo_key)
+                Member.hide_phone, Member.hide_address, Member.photo_key, Member.city_id)
          .join(City, City.city_id == Member.city_id)
          .outerjoin(Household, Household.household_id == Member.household_id)
          .where(*_listed))
@@ -45,7 +45,7 @@ def _relatives(name: str | None, city_id: UUID | None, family_name: str | None):
                 Household.family_name, Household.family_name_i18n, Household.native_place, Household.native_place_i18n,
                 City.name.label("city_name"), City.name_i18n.label("city_name_i18n"), null().label("mobile_enc"),
                 null().label("address_enc"),
-                false().label("hide_phone"), false().label("hide_address"), null().label("photo_key"))
+                false().label("hide_phone"), false().label("hide_address"), null().label("photo_key"), Household.city_id)
          .join(Household, Household.household_id == FamilyMember.household_id)
          .join(City, City.city_id == Household.city_id)
          .where(FamilyMember.status == "APPROVED", FamilyMember.linked_member_id.is_(None),

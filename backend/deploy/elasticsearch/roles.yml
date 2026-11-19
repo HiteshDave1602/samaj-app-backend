@@ -1,0 +1,7 @@
+# File-realm role for the API and the search worker (docs/search.md, "Security").
+# Only its own indices, plus cluster monitoring for /health and GET /superadmin/search/status.
+samaj_backend:
+  cluster: ["monitor"]
+  indices:
+    - names: ["samaj*"]
+      privileges: ["all"]

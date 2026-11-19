@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Annotated
 from uuid import UUID
 
@@ -41,6 +42,11 @@ class TicketIn(BaseModel):
     mfa_ticket: str
 
 
+class PasswordChangeIn(BaseModel):
+    current_password: str = Field(min_length=1, max_length=128)
+    new_password: str = Field(min_length=12, max_length=128)  # same rule as a Super Admin reset
+
+
 class AdminMeOut(BaseModel):
     admin_id: UUID
     role: str  # SUPER_ADMIN | CITY_ADMIN
@@ -48,3 +54,4 @@ class AdminMeOut(BaseModel):
     email: str
     city_id: UUID | None  # None for the Super Admin
     city_name: str | None
+    mfa_enrolled_at: datetime | None
