@@ -1,10 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 
 from auth import curd
-from auth.deps import _bearer, get_current_admin
-from auth.schema import AdminMeOut, EnrollOut, LoginIn, LoginOut, TicketIn, TokenOut, VerifyIn
+from auth.deps import _bearer, client_ip, get_current_admin
+from auth.schema import AdminMeOut, EnrollOut, LoginIn, LoginOut, PasswordChangeIn, TicketIn, TokenOut, VerifyIn
 from core.database import get_db
 from superadmin.city.model import City
 from superadmin.city_admin.model import AdminUser
@@ -33,7 +33,8 @@ def me(admin: AdminUser = Depends(get_current_admin), db: Session = Depends(get_
     """Who is logged in; the dashboard shows the menu for `role` and, for a City Admin, its city."""
     city = db.get(City, admin.city_id) if admin.city_id else None
     return {"admin_id": admin.admin_id, "role": admin.role, "full_name": admin.full_name, "email": admin.email,
-            "city_id": admin.city_id, "city_name": city.name if city else None}
+            "city_id": admin.city_id, "city_name": city.name if city else None,
+            "mfa_enrolled_at": admin.mfa_enrolled_at}
 
 
 @router.post("/logout", status_code=204)
@@ -41,3 +42,12 @@ def logout(creds: HTTPAuthorizationCredentials | None = Depends(_bearer), db: Se
     if creds is None:
         raise HTTPException(401, "Not authenticated")
     curd.logout(db, creds.credentials)
+
+
+@router.post("/change-password", status_code=204)
+def change_password(data: PasswordChangeIn, request: Request,
+                    creds: HTTPAuthorizationCredentials | None = Depends(_bearer), db: Session = Depends(get_db)):
+    """The signed-in admin changes their own password; other devices are signed out."""
+    if creds is None:
+        raise HTTPException(401, "Not authenticated")
+    curd.change_password(db, creds.credentials, data.current_password, data.new_password, client_ip(request))

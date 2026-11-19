@@ -8,6 +8,7 @@ from pydantic import BaseModel
 class ProfileListItem(BaseModel):
     profile_id: UUID
     member_id: UUID
+    city_id: UUID  # the member's city, whose City Admin moderates the profile
     full_name: str | None
     gender: str | None
     age: int | None
@@ -55,6 +56,7 @@ class Decision(BaseModel):
     admin_name: str | None
     profile_id: UUID | None  # None once the profile is gone
     full_name: str | None
+    city_id: UUID | None
     reason: str | None  # rejections only
 
 

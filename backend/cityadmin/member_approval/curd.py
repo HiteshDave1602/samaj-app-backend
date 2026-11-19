@@ -14,36 +14,50 @@ from superadmin.audit_log import curd as audit
 from superadmin.city_admin.model import AdminUser
 
 
-def _page(db: Session, admin: AdminUser, limit: int, offset: int, filters: list, order_by: list) -> dict:
-    # FR-71: every list is limited to the admin's own city.
+def city_filter(column, admin: AdminUser, city_id: UUID | None = None) -> list:
+    """FR-71: a City Admin sees only their own city (city_id ignored); the Super Admin every city, or city_id's."""
+    if admin.role != "SUPER_ADMIN":
+        return [column == admin.city_id]
+    return [column == city_id] if city_id else []
+
+
+def _page(db: Session, admin: AdminUser, limit: int, offset: int, filters: list, order_by: list,
+          city_id: UUID | None = None) -> dict:
     q = (
         select(Member, Household.family_name, Household.native_place)
         .outerjoin(Household, Household.household_id == Member.household_id)
-        .where(Member.city_id == admin.city_id, Member.deleted_at.is_(None), *filters)
+        .where(*city_filter(Member.city_id, admin, city_id), Member.deleted_at.is_(None), *filters)
     )
     total = db.scalar(select(func.count()).select_from(q.subquery()))
     rows = db.execute(q.order_by(*order_by).limit(limit).offset(offset))
     return {"total": total, "items": [{
-        "member_id": m.member_id, "full_name": m.full_name, "gender": m.gender, "dob": m.dob,
+        "member_id": m.member_id, "city_id": m.city_id, "full_name": m.full_name, "gender": m.gender, "dob": m.dob,
         "family_name": family_name, "native_place": native_place, "mobile_last4": m.mobile_last4,
         "status": m.status, "created_at": m.created_at,
     } for m, family_name, native_place in rows]}
 
 
-def list_pending(db: Session, admin: AdminUser, limit: int, offset: int) -> dict:
+def list_pending(db: Session, admin: AdminUser, limit: int, offset: int, city_id: UUID | None = None) -> dict:
     # FR-12: oldest first.
-    return _page(db, admin, limit, offset, [Member.status == "PENDING"], [Member.created_at])
+    return _page(db, admin, limit, offset, [Member.status == "PENDING"], [Member.created_at], city_id)
 
 
 def list_members(db: Session, admin: AdminUser, limit: int, offset: int,
-                 status: str | None = None, search: str | None = None) -> dict:
+                 status: str | None = None, search: str | None = None, city_id: UUID | None = None) -> dict:
     filters = []
     if status:
         filters.append(Member.status == status)
     if search:  # name or family name, case-insensitive; autoescape keeps % and _ literal
         filters.append(or_(Member.full_name.icontains(search, autoescape=True),
                            Household.family_name.icontains(search, autoescape=True)))
-    return _page(db, admin, limit, offset, filters, [Member.full_name, Member.member_id])
+    return _page(db, admin, limit, offset, filters, [Member.full_name, Member.member_id], city_id)
+
+
+def counts(db: Session, admin: AdminUser, city_id: UUID | None = None) -> dict:
+    """Members per status; statuses with nobody are left out."""
+    return dict(db.execute(select(Member.status, func.count())
+                           .where(*city_filter(Member.city_id, admin, city_id), Member.deleted_at.is_(None))
+                           .group_by(Member.status)).all())
 
 
 def _get_in_city(db: Session, admin: AdminUser, member_id: UUID, lock: bool = False,
@@ -51,7 +65,7 @@ def _get_in_city(db: Session, admin: AdminUser, member_id: UUID, lock: bool = Fa
     member = db.get(Member, member_id, with_for_update=lock)
     if member is None or member.deleted_at is not None:
         raise HTTPException(404, "Member not found")
-    if member.city_id != admin.city_id:  # FR-11: 403, and logged as a security event
+    if admin.role != "SUPER_ADMIN" and member.city_id != admin.city_id:  # FR-11: 403, and logged as a security event
         raise audit.Denied(event, "This member belongs to another city", member_id)
     return member
 
