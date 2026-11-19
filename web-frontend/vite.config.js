@@ -6,7 +6,7 @@ import tailwindcss from '@tailwindcss/vite'
 // The API has no CORS, so dev requests go through this proxy (same origin).
 // Trailing slashes keep the API prefixes from swallowing the panel URLs (/super-admin/, /city-admin/).
 // 127.0.0.1, not localhost: Node resolves localhost to ::1 first, and anything else on [::1]:8000 (e.g. a Docker container) would get the requests.
-const API = 'http://127.0.0.1:8000'
+const API = 'http://127.0.0.1:8001' // keep in sync with the uvicorn --port and app-frontend/.env
 const page = (p) => fileURLToPath(new URL(p, import.meta.url))
 
 // https://vite.dev/config/

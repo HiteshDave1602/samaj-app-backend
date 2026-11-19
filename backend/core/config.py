@@ -35,5 +35,13 @@ class Settings(BaseSettings):
     elasticsearch_max_connections: int = 40
     search_rate_per_minute: int = 60  # per member per API process; 429 above it
 
+    # Request limits (core/ratelimit.py), 429 above them. Per API process except the OTP-send ones (Postgres).
+    member_rate_per_minute: int = 60  # every member API, per member (SRS)
+    member_file_rate_per_minute: int = 300  # photo / ID file downloads, per member: list thumbnails
+    admin_rate_per_minute: int = 300  # every admin API, per admin: dashboard pages fire several calls
+    otp_ip_rate_per_minute: int = 10  # OTP send and verify, per client IP (SRS)
+    otp_ip_rate_per_hour: int = 30  # OTP sends per client IP: stops a bot rotating numbers under the minute limit
+    auth_ip_rate_per_minute: int = 10  # admin login / MFA, per client IP: stops guessing across many emails
+
 
 settings = Settings()

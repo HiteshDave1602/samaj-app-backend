@@ -6,6 +6,8 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from auth import curd
+from core import ratelimit
+from core.config import settings
 from core.database import SessionLocal, get_db
 from superadmin.audit_log.curd import Actor, Denied
 from superadmin.audit_log.model import SecurityEvent
@@ -23,6 +25,7 @@ def get_current_admin(
         raise HTTPException(401, "Not authenticated")
     admin = curd.session_admin(db, creds.credentials)[1]
     request.state.admin_id = admin.admin_id  # for log_denied
+    ratelimit.check("admin", admin.admin_id, settings.admin_rate_per_minute)  # every admin route comes through here
     return admin
 
 

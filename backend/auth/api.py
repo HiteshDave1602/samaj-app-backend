@@ -5,6 +5,8 @@ from sqlalchemy.orm import Session
 from auth import curd
 from auth.deps import _bearer, client_ip, get_current_admin
 from auth.schema import AdminMeOut, EnrollOut, LoginIn, LoginOut, PasswordChangeIn, TicketIn, TokenOut, VerifyIn
+from core import ratelimit
+from core.config import settings
 from core.database import get_db
 from superadmin.city.model import City
 from superadmin.city_admin.model import AdminUser
@@ -13,17 +15,22 @@ from superadmin.city_admin.model import AdminUser
 router = APIRouter(prefix="/admin/auth", tags=["Admin Auth"])
 
 
-@router.post("/login", response_model=LoginOut)
+def _per_ip(request: Request):
+    """Login / MFA calls per client IP; the per-email failure lock (curd) can't see guesses spread over emails."""
+    ratelimit.check("admin_auth", client_ip(request), settings.auth_ip_rate_per_minute)
+
+
+@router.post("/login", response_model=LoginOut, dependencies=[Depends(_per_ip)])
 def login(data: LoginIn, db: Session = Depends(get_db)):
     return curd.login(db, data.email, data.password)
 
 
-@router.post("/mfa/enroll", response_model=EnrollOut)
+@router.post("/mfa/enroll", response_model=EnrollOut, dependencies=[Depends(_per_ip)])
 def enroll_mfa(data: TicketIn, db: Session = Depends(get_db)):
     return curd.enroll_mfa(db, data.mfa_ticket)
 
 
-@router.post("/mfa/verify", response_model=TokenOut)
+@router.post("/mfa/verify", response_model=TokenOut, dependencies=[Depends(_per_ip)])
 def verify_mfa(data: VerifyIn, db: Session = Depends(get_db)):
     return curd.verify_mfa(db, data.mfa_ticket, data.code)
 

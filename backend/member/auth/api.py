@@ -2,6 +2,8 @@ from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
 from auth.deps import client_ip
+from core import ratelimit
+from core.config import settings
 from core.database import get_db
 from member.auth import curd
 from member.auth.schema import OtpSendIn, OtpSendOut, OtpVerifyIn, OtpVerifyOut, RefreshIn, RegisterIn, TokenOut
@@ -19,7 +21,8 @@ def send_otp(data: OtpSendIn, request: Request, db: Session = Depends(get_db)):
 
 
 @router.post("/otp/verify", response_model=OtpVerifyOut, response_model_exclude_none=True)
-def verify_otp(data: OtpVerifyIn, db: Session = Depends(get_db)):
+def verify_otp(data: OtpVerifyIn, request: Request, db: Session = Depends(get_db)):
+    ratelimit.check("otp_verify", client_ip(request), settings.otp_ip_rate_per_minute)  # SRS: 10/min per IP
     return curd.verify_otp(db, data.mobile, data.code)
 
 

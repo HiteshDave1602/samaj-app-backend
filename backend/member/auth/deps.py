@@ -2,6 +2,8 @@ from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
+from core import ratelimit
+from core.config import settings
 from core.database import get_db
 from member.auth import curd
 from member.profile.model import Member
@@ -20,6 +22,11 @@ def get_current_member(
         raise HTTPException(401, "Not authenticated")
     member = curd.member_from_access_token(db, creds.credentials)
     request.state.member_id = member.member_id  # for log_denied
+    # Every member route comes through here. Photo/ID files get their own budget so thumbnails don't use it up.
+    if request.url.path.endswith("/file"):
+        ratelimit.check("member_file", member.member_id, settings.member_file_rate_per_minute)
+    else:
+        ratelimit.check("member", member.member_id, settings.member_rate_per_minute)
     return member
 
 

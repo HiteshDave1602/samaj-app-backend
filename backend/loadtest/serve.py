@@ -11,4 +11,5 @@ if __name__ == "__main__":  # worker processes re-import this module; only the p
     if backend == "pg":
         os.environ["ELASTICSEARCH_URL"] = ""
     os.environ["SEARCH_RATE_PER_MINUTE"] = "1000000"
+    os.environ["MEMBER_RATE_PER_MINUTE"] = "1000000"  # same reason: few tokens, many requests each
     uvicorn.run("main:app", host="0.0.0.0", port=port, workers=workers, log_level="warning", access_log=False)
