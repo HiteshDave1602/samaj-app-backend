@@ -1,10 +1,13 @@
 import { Image } from 'expo-image';
-import { useEffect, useState, type ReactNode } from 'react';
-import { View } from 'react-native';
+import { SymbolView } from 'expo-symbols';
+import { useFocusEffect } from 'expo-router';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { Text, View } from 'react-native';
+import Animated, { interpolateColor, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
 
 import { Palettes } from '@/constants/theme';
 import { api, mediaUrl } from '@/lib/api';
-import { locale } from '@/lib/i18n';
+import { locale, useT } from '@/lib/i18n';
 
 // backend member/feed/api.py FeedItemOut
 export type FeedItem = {
@@ -29,9 +32,15 @@ export const cachedItem = (id: string) => last.find((x) => x.content_id === id);
 export function useFeed() {
   const [items, setItems] = useState<FeedItem[]>();
   const [error, setError] = useState<string>();
-  useEffect(() => {
-    api<FeedItem[]>('/member/feed').then((r) => setItems((last = r)), (e) => setError(e.message));
-  }, []);
+  // refetch whenever the screen comes back into view: tabs stay mounted, so a mount-only fetch never sees new approvals
+  useFocusEffect(
+    useCallback(() => {
+      api<FeedItem[]>('/member/feed').then(
+        (r) => (setItems((last = r)), setError(undefined)),
+        (e) => setError(e.message),
+      );
+    }, []),
+  );
   return { items, error };
 }
 
@@ -55,5 +64,28 @@ export function Cover({ item, className, children }: { item: FeedItem; className
       )}
       {children}
     </View>
+  );
+}
+
+export const AD_BAR_HEIGHT = 44;
+// plain array, built on the JS thread: the animated style runs on the UI thread and can't call .map
+const AD_COLORS = TINTS.map((c) => c.DEFAULT);
+
+/** The call-to-action strip under an ad, its fill slowly cycling through the brand colours. */
+export function ViewAdBar() {
+  const t = useT();
+  const p = useSharedValue(0);
+  useEffect(() => {
+    p.value = withRepeat(withTiming(1, { duration: 2400 }), -1, true);
+  }, [p]);
+  const fill = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(p.value, [0, 0.5, 1], AD_COLORS),
+  }));
+  return (
+    <Animated.View
+      style={[{ height: AD_BAR_HEIGHT, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, fill]}>
+      <Text className="font-inter-semibold text-sm text-white">{t('View ad')}</Text>
+      <SymbolView name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }} size={16} tintColor="white" />
+    </Animated.View>
   );
 }

@@ -242,6 +242,20 @@ try:
     assert c.post(f"{base}/{mn}/approve", headers=x_h).status_code == 409
     item = next(i for i in c.get("/member/feed", headers=mx_h).json() if i["title"] == "Member news")
     assert item["extra_media_urls"] == [f"/media/{extra}"], item
+    ma = post(title="Member ad", as_ad=True).json()["content_id"]  # same approval, lands as a BANNER ad
+    assert c.post(f"{base}/{ma}/approve", headers=x_h).json()["content_type"] == "AD"
+    item = next(i for i in c.get("/member/feed", headers=mx_h).json() if i["title"] == "Member ad")
+    assert (item["creative_format"], item["body"]) == ("BANNER", "B"), item
+    assert c.put(f"{base}/{ma}", headers=x_h, json={"status": "CANCELLED"}).status_code == 200  # frees the ad slot
+    # the member's own window: kept on approval, a future start waits in SCHEDULED
+    later = datetime.now(timezone.utc) + timedelta(days=2)
+    assert post(start_at=iso(later), end_at=iso(later - timedelta(days=1))).status_code == 422
+    assert post(end_at=iso(now - timedelta(days=1))).status_code == 400
+    fw = post(title="Future window", start_at=iso(later), end_at=iso(later + timedelta(days=3))).json()["content_id"]
+    r = c.post(f"{base}/{fw}/approve", headers=x_h).json()
+    assert r["status"] == "SCHEDULED" and r["end_at"].startswith(iso(later + timedelta(days=3))[:16]), r
+    assert "Future window" not in feed(mx_h)
+    c.put(f"{base}/{fw}", headers=x_h, json={"status": "CANCELLED"})
     rn = post(title="Spam").json()["content_id"]
     assert c.post(f"{base}/{rn}/reject", headers=x_h, json={"reason": ""}).status_code == 422
     r = c.post(f"{base}/{rn}/reject", headers=x_h, json={"reason": "Off topic"})

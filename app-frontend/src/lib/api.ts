@@ -38,14 +38,16 @@ export const authedImage = (path: string) => ({ uri: `${BASE}${path}`, headers: 
 // Forms take DD/MM/YYYY; the API speaks ISO. The server rejects impossible dates.
 export const isoDate = (dmy: string) => dmy.replace(/^(\d{2})\/(\d{2})\/(\d{4})$/, '$3-$2-$1');
 export const dmyDate = (iso: string) => iso.replace(/^(\d{4})-(\d{2})-(\d{2})$/, '$3/$2/$1');
-/** 'DD/MM/YYYY' as a birth date: null unless it is a real day between 1900 and today (31/02, 33/20/2000 are not). */
-export function parseDmy(dmy: string): Date | null {
+/** 'DD/MM/YYYY' as a birth date: null unless it is a real day between 1900 and today (31/02, 33/20/2000 are not).
+ * `future`: a schedule date instead, today or later. */
+export function parseDmy(dmy: string, future = false): Date | null {
   const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(dmy);
   if (!m) return null;
   const [d, mo, y] = [Number(m[1]), Number(m[2]), Number(m[3])];
   const date = new Date(y, mo - 1, d);
   // the Date constructor rolls 31/02 over into March: a real date keeps its own day and month
-  if (date.getDate() !== d || date.getMonth() !== mo - 1 || y < 1900 || date > new Date()) return null;
+  if (date.getDate() !== d || date.getMonth() !== mo - 1 || y < 1900) return null;
+  if (future ? date < new Date(new Date().setHours(0, 0, 0, 0)) : date > new Date()) return null;
   return date;
 }
 const pad2 = (n: number) => String(n).padStart(2, '0');

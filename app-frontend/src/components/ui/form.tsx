@@ -100,13 +100,24 @@ const badSoFar = (v: string) => {
   return (d?.length === 2 && (+d < 1 || +d > 31)) || (m?.length === 2 && (+m < 1 || +m > 12));
 };
 
-/** Birth date as DD/MM/YYYY: typed, or picked from the phone's calendar. Impossible dates say so at once. */
-export function DateField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+/** Birth date as DD/MM/YYYY: typed, or picked from the phone's calendar. Impossible dates say so at once.
+ * `future`: a schedule date, today or later, instead of a birth date. */
+export function DateField({
+  label,
+  value,
+  onChange,
+  future,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  future?: boolean;
+}) {
   const palette = usePalette();
   const t = useT();
   const [open, setOpen] = useState(false);
   const [left, setLeft] = useState(false); // focus left the box: a half-typed date is wrong too
-  const invalid = !!value && (value.length === 10 || left ? !parseDmy(value) : badSoFar(value));
+  const invalid = !!value && (value.length === 10 || left ? !parseDmy(value, future) : badSoFar(value));
   return (
     <View>
       <Text className="mb-1.5 font-inter-medium text-sm text-ink">{t(label)}</Text>
@@ -136,11 +147,11 @@ export function DateField({ label, value, onChange }: { label: string; value: st
       {open && (
         <View>
           <DateTimePicker
-            value={parseDmy(value) ?? new Date(1995, 0, 1)}
+            value={parseDmy(value, future) ?? (future ? new Date() : new Date(1995, 0, 1))}
             mode="date"
             display={Platform.OS === 'ios' ? 'inline' : 'default'}
-            minimumDate={new Date(1900, 0, 1)}
-            maximumDate={new Date()}
+            minimumDate={future ? new Date() : new Date(1900, 0, 1)}
+            maximumDate={future ? undefined : new Date()}
             onChange={(e, d) => {
               if (Platform.OS !== 'ios') setOpen(false); // Android's dialog closes itself; iOS stays open until Done
               if (e.type === 'set' && d) onChange(toDmy(d));

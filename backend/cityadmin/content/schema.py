@@ -49,6 +49,16 @@ class NewsSubmit(BaseModel):
     body: Body
     media_key: str  # banner
     extra_media_keys: list[str] = Field([], max_length=5)
+    as_ad: bool = False  # member ad request: goes live as a BANNER ad after the same approval
+    # the member's window; omitted = from approval for MEMBER_NEWS_DAYS
+    start_at: AwareDatetime | None = None
+    end_at: AwareDatetime | None = None
+
+    @model_validator(mode="after")
+    def check(self):
+        if self.start_at and self.end_at and self.end_at <= self.start_at:
+            raise ValueError("End date must be after the start date")
+        return self
 
 
 class NewsSubmitted(BaseModel):

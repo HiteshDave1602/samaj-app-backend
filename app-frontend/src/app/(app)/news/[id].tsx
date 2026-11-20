@@ -17,7 +17,7 @@ export default function NewsDetail() {
 
   return (
     <SafeAreaView className="flex-1 bg-cream">
-      <ScreenHeader title="News" back />
+      <ScreenHeader title={n.content_type === 'AD' ? 'Sponsored' : 'News'} back />
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
         <Cover item={n} className="mx-5 h-52 justify-end rounded-3xl p-5">
           <Text className="font-headline text-3xl text-white">{loc(n.title, n.title_i18n)}</Text>
