@@ -45,6 +45,7 @@ export default function DirectoryScreen() {
   const [family, setFamily] = useState('');
   const [results, setResults] = useState<Entry[]>();
   const [error, setError] = useState<string>();
+  const [suggested, setSuggested] = useState(false); // no exact match: the server sent the closest names
   const [bookmarks, setBookmarks] = useState(new Set<string>());
   const activeFilters = [cityId, text(family)].filter(Boolean).length;
 
@@ -62,8 +63,8 @@ export default function DirectoryScreen() {
     // wait for typing to pause before asking the server
     const timer = setTimeout(
       () =>
-        api<{ items: Entry[] }>(`/member/directory?${params}`).then(
-          (r) => (setResults(r.items), setError(undefined)),
+        api<{ items: Entry[]; suggested: boolean }>(`/member/directory?${params}`).then(
+          (r) => (setResults(r.items), setSuggested(r.suggested), setError(undefined)),
           (e) => setError(e.message),
         ),
       300,
@@ -146,7 +147,9 @@ export default function DirectoryScreen() {
             <Notice title="Could not load the directory" body={error} tone={palette.rejected} />
           ) : results ? (
             <Text className="font-inter text-sm text-muted">
-              {t(results.length === 1 ? '{n} person' : '{n} people', { n: results.length })}
+              {suggested && results.length
+                ? t('No exact match. Showing the closest names.')
+                : t(results.length === 1 ? '{n} person' : '{n} people', { n: results.length })}
             </Text>
           ) : (
             <ActivityIndicator color={palette.primary.DEFAULT} />

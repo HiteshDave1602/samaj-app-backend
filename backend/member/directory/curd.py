@@ -1,12 +1,13 @@
 from uuid import UUID
 
 from fastapi import HTTPException
-from sqlalchemy import exists, false, literal, null, select, union_all
+from sqlalchemy import exists, false, func, literal, null, select, union_all
 from sqlalchemy.orm import Session
 
 from core import media
 from core.security import fernet
 from member.profile.model import FamilyMember, Household, Member
+from search import es
 from superadmin.city.model import City
 
 _listed = (Member.status == "ACTIVE", Member.deleted_at.is_(None))  # pending, rejected, archived never appear
@@ -83,8 +84,21 @@ def search(db: Session, viewer: Member, *, name: str | None, city_id: UUID | Non
     ponytail: offset paging, fine at 50k members; switch to a (full_name, id) cursor if deep pages get slow."""
     u = union_all(_members(name, city_id, family_name), _relatives(name, city_id, family_name)).subquery()
     rows = db.execute(select(u).order_by(u.c.full_name, u.c.id).offset(offset).limit(limit + 1)).all()
+    if not rows and offset == 0 and (name or family_name):
+        return _closest(db, viewer, name=name, city_id=city_id, family_name=family_name, limit=limit)
     return {"items": [_entry(r, viewer) for r in rows[:limit]],
             "next_offset": offset + limit if len(rows) > limit else None}
+
+
+def _closest(db: Session, viewer: Member, *, name, city_id, family_name, limit: int) -> dict:
+    """Nothing contained the text (a misspelling): the most similar names instead, one page, best first.
+    ponytail: scores every listed person in the city; fine as the fallback at 50k, ES answers this normally."""
+    u = union_all(_members(None, city_id, None), _relatives(None, city_id, None)).subquery()
+    scores = [func.coalesce(func.word_similarity(t, col), 0) for t, col in
+              ((name, u.c.full_name), (family_name, u.c.family_name)) if t]
+    rows = db.execute(select(u).where(*(s > es.CLOSEST_SIMILARITY for s in scores))  # each term close, like AND
+                      .order_by(sum(scores).desc(), u.c.id).limit(limit)).all()
+    return {"items": [_entry(r, viewer) for r in rows], "next_offset": None, "suggested": True}
 
 
 def household(db: Session, viewer: Member, household_id: UUID) -> dict:

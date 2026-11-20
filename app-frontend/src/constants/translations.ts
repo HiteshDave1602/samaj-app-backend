@@ -184,6 +184,7 @@ const T: Record<string, [string, string]> = {
   '{n} person': ['{n} વ્યક્તિ', '{n} व्यक्ति'],
   '{n} people': ['{n} વ્યક્તિઓ', '{n} लोग'],
   'No members found': ['કોઈ સભ્ય મળ્યા નથી', 'कोई सदस्य नहीं मिला'],
+  'No exact match. Showing the closest names.': ['ચોક્કસ મેળ નથી. સૌથી નજીકના નામ બતાવી રહ્યા છીએ.', 'सटीक मिलान नहीं मिला। सबसे मिलते-जुलते नाम दिखा रहे हैं।'],
   'Try another name or clear the filters.': ['બીજું નામ અજમાવો અથવા ફિલ્ટર દૂર કરો.', 'कोई दूसरा नाम आज़माएँ या फ़िल्टर हटाएँ।'],
   '{relation} of the family head': ['પરિવારના વડાના {relation}', 'परिवार के मुखिया के {relation}'],
   'Remove {name} from saved': ['{name} ને સાચવેલમાંથી દૂર કરો', '{name} को सहेजे गए से हटाएँ'],

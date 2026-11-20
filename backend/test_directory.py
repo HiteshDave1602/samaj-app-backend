@@ -69,7 +69,8 @@ drain()  # search engine on: index the rows above now rather than on the worker'
 
 try:
     get = lambda h=amit_h, **p: c.get("/member/directory", headers=h, params=p)  # noqa: E731
-    names = lambda r: [i["full_name"].removeprefix(f"{fam} ") for i in r.json()["items"]]  # noqa: E731
+    names_of = lambda j: [i["full_name"].removeprefix(f"{fam} ") for i in j["items"]]  # noqa: E731
+    names = lambda r: names_of(r.json())  # noqa: E731
 
     # FR-08: active members only
     assert get(pend_h, name=fam).status_code == 403
@@ -81,7 +82,11 @@ try:
     assert names(get(name=fam.lower() + " r")) == ["Raj"]  # case-insensitive, matches anywhere
     assert names(get(name=fam, city_id=str(city_ids[0]))) == ["Raj", "Son"]
     assert names(get(family_name=f"{fam} sha")) == ["Amit"]
-    assert names(get(name="%_%" + tag)) == []  # wildcards are literal
+    assert get(name="%_%" + tag).json()["suggested"]  # wildcards are literal: no exact match, closest shown
+    # misspelt: closest names instead of nothing
+    r = get(name=f"{fam[:-1]} Rja").json()
+    assert r["suggested"] and names_of(r)[0] == "Raj" and r["next_offset"] is None, r
+    assert not get(name=fam).json()["suggested"]
     assert get(name="a").status_code == 422
 
     # paging

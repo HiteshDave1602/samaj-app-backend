@@ -106,7 +106,8 @@ with SessionLocal() as db:
     city_ids, sa_id, sa_h, hx_id = [x.city_id, y.city_id], sa.admin_id, bearer(sa_token), hx.household_id
 
 get = lambda h=s_h, **p: c.get(D, headers=h, params=p)  # noqa: E731
-names = lambda r: [i["full_name"].removesuffix(f" {fam}") for i in r.json()["items"]]  # noqa: E731
+names_of = lambda j: [i["full_name"].removesuffix(f" {fam}") for i in j["items"]]  # noqa: E731
+names = lambda r: names_of(r.json())  # noqa: E731
 
 
 def mat(h=s_h, **p) -> set[str]:
@@ -158,7 +159,16 @@ try:
     assert names(get(family_name=localized(f"{fam} Mehta")["hi"])) == ["Arjun", "Priya", "Rahul"]
     # filters combine; wildcards are literal; validation
     assert names(get(family_name=fam, city_id=str(city_ids[1]))) == ["Neel"]
-    assert names(get(name="*" + tag)) == [] and names(get(name=f"?ahul {fam}")) == []
+    assert get(name="*" + tag).json()["suggested"] and get(name=f"?ahul {fam}").json()["suggested"]  # no exact match
+    # misspelt past typo distance (first letter wrong): closest names instead of nothing, on ES and on Postgres
+    for down in (0, time.monotonic() + 60):
+        es._down_until = down
+        r = get(name="Pahul", family_name=fam).json()
+        assert r["suggested"] and names_of(r)[:1] == ["Rahul"] and r["next_offset"] is None, (down, r)
+        m = c.get(MAT, headers=s_h, params={"q": "Gashyap"}).json()
+        assert m["suggested"] and [i["full_name"].removesuffix(f" {fam}") for i in m["items"]][:1] == ["Priya"], m
+    es._down_until = 0
+    assert not get(name="Rahul", family_name=fam).json()["suggested"]
     assert get(name="R").status_code == 422 and get(limit=51).status_code == 422
     # offset paging
     p1, p2 = get(family_name=fam, limit=2).json(), get(family_name=fam, limit=2, offset=2).json()
@@ -240,8 +250,8 @@ try:
     # ES down: same answer from Postgres, health says degraded, the breaker skips ES for a while
     real, es._client = es._client, dead_es
     try:
-        assert names(get(family_name=fam)) == ["Neel B"] and mat() == {"Neel B"} and mat(q="doctr") == set()
-        assert mat(q="doctor") == {"Neel B"}  # Postgres q: plain substring, no typo tolerance
+        assert names(get(family_name=fam)) == ["Neel B"] and mat() == {"Neel B"}
+        assert mat(q="doctor") == {"Neel B"} and mat(q="doctr") == {"Neel B"}  # substring, else closest (trigram)
         snap = es.snapshot()
         assert snap["fallback"] >= 1 and snap["postgres_only_for_s"] > 0, snap
         assert c.get("/health").json() == {"status": "ok", "search": "degraded"}

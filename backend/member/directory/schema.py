@@ -29,6 +29,7 @@ class DirectoryEntry(BaseModel):
 class DirectoryPage(BaseModel):
     items: list[DirectoryEntry]
     next_offset: int | None  # pass as ?offset= for the next page; null on the last page
+    suggested: bool = False  # nothing matched the search (a misspelling?): items are the closest names instead
 
 
 class HouseholdView(BaseModel):

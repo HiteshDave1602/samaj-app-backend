@@ -107,6 +107,7 @@ class ProfileCard(BaseModel):
 class SearchPage(BaseModel):
     items: list[ProfileCard]
     next_after: UUID | None  # pass as ?after= for the next page; null on the last page
+    suggested: bool = False  # nothing matched q (a misspelling?): items are the closest profiles instead
 
 
 class PublicPhotoOut(BaseModel):
