@@ -17,6 +17,7 @@ type Entry = {
   full_name: string | null;
   full_name_i18n: Record<string, string>;
   relationship: string | null;
+  is_household_head: boolean;
   household_id: string | null;
   family_name: string | null;
   family_name_i18n: Record<string, string>;
@@ -198,7 +199,9 @@ export default function DirectoryScreen() {
                   </View>
                   {m.relationship && (
                     <Text numberOfLines={1} className="mt-0.5 font-inter text-sm text-subtle">
-                      {t('{relation} of the family head', { relation: label(m.relationship) })}
+                      {m.is_household_head
+                        ? t('Head of family')
+                        : t('{relation} of the family head', { relation: label(m.relationship) })}
                     </Text>
                   )}
                   {family !== '' && (

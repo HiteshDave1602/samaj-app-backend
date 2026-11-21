@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 class ImportJobOut(BaseModel):
     import_job_id: UUID
+    city_id: UUID | None  # None: a Super Admin directory import (rows name their own cities)
     file_format: str  # CSV | XLSX
     template_version: str
     status: str  # DRY_RUN_READY -> COMMITTED

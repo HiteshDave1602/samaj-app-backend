@@ -20,7 +20,22 @@ type Person = {
   phone_hidden: boolean;
   address: string | null;
   photo_url: string | null;
+  // directory-import details; null for app members
+  gotra: string | null;
+  education: string | null;
+  marital_status: string | null;
+  occupation: string | null;
+  hobby: string | null;
+  blood_group: string | null;
 };
+const DETAILS = [
+  ['gotra', 'Gotra / Vatan'],
+  ['education', 'Education'],
+  ['occupation', 'Occupation'],
+  ['marital_status', 'Marital status'],
+  ['blood_group', 'Blood group'],
+  ['hobby', 'Hobby'],
+] as const;
 type I18n = Record<string, string>;
 type Household = {
   family_name: string;
@@ -75,6 +90,12 @@ export default function HouseholdScreen() {
               {p.phone_hidden && <Text className="font-inter text-xs text-muted">{t('Phone hidden')}</Text>}
             </View>
             {p.address && <Text className="mt-2 font-inter text-sm text-subtle">{p.address}</Text>}
+            {DETAILS.filter(([k]) => p[k]).map(([k, name]) => (
+              <Text key={k} className="mt-1 font-inter text-sm text-subtle">
+                <Text className="font-inter-medium text-ink">{t(name)}: </Text>
+                {p[k]}
+              </Text>
+            ))}
           </View>
         ))}
       </ScrollView>

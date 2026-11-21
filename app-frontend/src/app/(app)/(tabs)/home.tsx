@@ -73,12 +73,11 @@ export default function HomeScreen() {
   const cardWidth = width - 40;
   const [slide, setSlide] = useState(0);
   const items = useFeed().items;
-  const news = useMemo(() => {
-    const ad = items?.find((n) => n.content_type === 'AD');
-    const list = items?.filter((n) => n.content_type === 'NEWS').slice(0, ad ? 4 : 5) ?? [];
-    if (ad) list.splice(1, 0, ad); // the newest ad is the second banner
-    return list;
-  }, [items]);
+  // every live news item and ad, in feed order; the feed repeats ads when it rotates them, so keep each once
+  const news = useMemo(
+    () => (items ?? []).filter((n, i, all) => all.findIndex((x) => x.content_id === n.content_id) === i),
+    [items],
+  );
   // Endless loop: a copy of the first banner sits after the last. Sliding onto the copy looks like "next",
   // then the list jumps, without animation, to the identical real first banner: it never rewinds through the others.
   const banners = useMemo(() => (news.length > 1 ? [...news, news[0]] : news), [news]);
@@ -204,7 +203,7 @@ export default function HomeScreen() {
             </Pressable>
           )}
         />
-        <View className="mt-3 flex-row justify-center gap-2">
+        <View className="mt-3 flex-row flex-wrap justify-center gap-2 px-5">
           {news.map((n, i) => (
             <View
               key={n.content_id}

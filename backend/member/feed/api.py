@@ -83,8 +83,8 @@ def feed(background: BackgroundTasks, member: Member = Depends(get_current_membe
         items.append(item)
         if ads and i % AD_EVERY == 0:
             items.append(ads[(i // AD_EVERY - 1) % len(ads)])  # rotate through live ads
-    if ads and len(news) < AD_EVERY:
-        items.append(ads[0])  # a short feed never reaches the 5th slot; still show the newest ad
+    # ads that never got a slot (short feed, or more ads than slots) still show once, at the end
+    items += ads[len(news) // AD_EVERY:]
     return [{c.name: getattr(x, c.name) for c in ContentItem.__table__.columns}
             | {"media_url": media.url(x.media_key), "extra_media_urls": [media.url(k) for k in x.extra_media_keys]}
             for x in items]

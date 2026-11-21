@@ -20,7 +20,7 @@ class ImportJob(Base):
     )
 
     import_job_id = Column(Uuid, primary_key=True, server_default=text("gen_random_uuid()"))
-    city_id = Column(Uuid, ForeignKey("samaj.city.city_id", ondelete="RESTRICT"), nullable=False)
+    city_id = Column(Uuid, ForeignKey("samaj.city.city_id", ondelete="RESTRICT"))  # NULL: Super Admin directory import
     uploaded_by_admin_id = Column(Uuid, ForeignKey("samaj.admin_user.admin_id", ondelete="RESTRICT"), nullable=False)
     file_key = Column(String(255), nullable=False)  # core.private_files key of the uploaded file
     file_format = Column(String(4), nullable=False)

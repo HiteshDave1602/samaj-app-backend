@@ -24,7 +24,9 @@ export const store =
 
 // The access token lives in memory only (15 min); the refresh token (30 days) survives restarts.
 let access: string | null = null;
-let status: Session['member_status'] | null = null;
+/** Dev-only: EXPO_PUBLIC_SKIP_AUTH=1 skips login/registration and opens the app as an ACTIVE member. */
+export const SKIP_AUTH = __DEV__ && process.env.EXPO_PUBLIC_SKIP_AUTH === '1';
+let status: Session['member_status'] | null = SKIP_AUTH ? 'ACTIVE' : null;
 
 /** From the last login/refresh; the (app) layout lets only ACTIVE members past. */
 export const memberStatus = () => status;

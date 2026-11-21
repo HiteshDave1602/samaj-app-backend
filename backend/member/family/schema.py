@@ -30,7 +30,7 @@ class RelativeOut(BaseModel):
     dob: date | None
     status: str  # PENDING | APPROVED | REJECTED
     rejection_reason: str | None
-    requested_by_member_id: UUID
+    requested_by_member_id: UUID | None  # None: added by a directory import
     created_at: datetime
 
 

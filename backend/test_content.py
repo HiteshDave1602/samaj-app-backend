@@ -192,8 +192,8 @@ try:
     assert news("Y news", now - timedelta(minutes=5), h=y_h).status_code == 201
     x_feed = c.get("/member/feed", headers=mx_h).json()
     titles = [i["title"] for i in x_feed]
-    # news newest first: Future(-1m) Late2 Late1 Late0 All cities | ad | Own Pic, ads rotate newest first
-    assert titles == ["Future", "Late2", "Late1", "Late0", "All cities", "Ad BANNER", "Own", "Pic"], titles
+    # news newest first: Future(-1m) Late2 Late1 Late0 All cities | ad | Own Pic | ads with no slot, newest first
+    assert titles == ["Future", "Late2", "Late1", "Late0", "All cities", "Ad BANNER", "Own", "Pic", "Ad FULLSCREEN"], titles
     assert x_feed[5]["creative_format"] == "BANNER" and "created_by_admin_id" not in x_feed[0]
     assert feed(my_h) == ["Y news", "SA for Y", "All cities"]  # PENDING members see news too (FR-08)
     assert c.get("/member/feed").status_code == 401

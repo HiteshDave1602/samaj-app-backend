@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 class DirectoryEntry(BaseModel):
     """FR-66: directory fields only. No DOB, no biodata, no matrimony data."""
-    kind: str  # MEMBER (registered in the app) | RELATIVE (approved family addition, no contact details)
+    kind: str  # MEMBER (registered in the app) | RELATIVE (approved family addition or directory import; no app account)
     id: UUID  # member_id or family_member_id
     full_name: str | None
     full_name_i18n: dict[str, str]  # {"gu": ..., "hi": ...}; the app falls back to the English field
@@ -24,6 +24,13 @@ class DirectoryEntry(BaseModel):
     phone_hidden: bool  # FR-68: the member chose to hide it; the app shows "Hidden"
     address_hidden: bool
     photo_url: str | None  # MEMBER's profile photo; RELATIVE has none
+    # Directory-import details (Super Admin import); null for members and app-added relatives
+    gotra: str | None = None
+    education: str | None = None
+    marital_status: str | None = None
+    occupation: str | None = None
+    hobby: str | None = None
+    blood_group: str | None = None
 
 
 class DirectoryPage(BaseModel):

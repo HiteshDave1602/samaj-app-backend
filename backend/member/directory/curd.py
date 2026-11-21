@@ -1,7 +1,7 @@
 from uuid import UUID
 
 from fastapi import HTTPException
-from sqlalchemy import exists, false, func, literal, null, select, union_all
+from sqlalchemy import exists, false, func, literal, null, or_, select, union_all
 from sqlalchemy.orm import Session
 
 from core import media
@@ -11,11 +11,13 @@ from search import es
 from superadmin.city.model import City
 
 _listed = (Member.status == "ACTIVE", Member.deleted_at.is_(None))  # pending, rejected, archived never appear
+EXTRA = ("gotra", "education", "marital_status", "occupation", "hobby", "blood_group")  # directory-import details; members have none
 
 
-def _live(household_id) -> exists:
+def _live(household_id):
     # A household shows only while it has an active member, so an archived family's relatives drop out too.
-    return exists().where(Member.household_id == household_id, *_listed)
+    # A directory-import household (family_key set) has no app members and always shows.
+    return or_(exists().where(Member.household_id == household_id, *_listed), Household.family_key.is_not(None))
 
 
 def _members(name: str | None, city_id: UUID | None, family_name: str | None):
@@ -25,7 +27,8 @@ def _members(name: str | None, city_id: UUID | None, family_name: str | None):
                 Household.family_name, Household.family_name_i18n, Household.native_place, Household.native_place_i18n,
                 City.name.label("city_name"), City.name_i18n.label("city_name_i18n"), Member.mobile_enc,
                 Member.address_enc,
-                Member.hide_phone, Member.hide_address, Member.photo_key, Member.city_id)
+                Member.hide_phone, Member.hide_address, Member.photo_key, Member.city_id,
+                *(null().label(c) for c in EXTRA))
          .join(City, City.city_id == Member.city_id)
          .outerjoin(Household, Household.household_id == Member.household_id)
          .where(*_listed))
@@ -42,11 +45,12 @@ def _relatives(name: str | None, city_id: UUID | None, family_name: str | None):
     # FR-18: approved only. A relative linked to a registered member is listed as that member instead.
     q = (select(literal("RELATIVE").label("kind"), FamilyMember.family_member_id.label("id"), FamilyMember.full_name,
                 FamilyMember.full_name_i18n, FamilyMember.gender, FamilyMember.relationship,
-                false().label("is_household_head"), Household.household_id,
+                (FamilyMember.relationship == "SELF").label("is_household_head"), Household.household_id,
                 Household.family_name, Household.family_name_i18n, Household.native_place, Household.native_place_i18n,
-                City.name.label("city_name"), City.name_i18n.label("city_name_i18n"), null().label("mobile_enc"),
-                null().label("address_enc"),
-                false().label("hide_phone"), false().label("hide_address"), null().label("photo_key"), Household.city_id)
+                City.name.label("city_name"), City.name_i18n.label("city_name_i18n"), FamilyMember.mobile_enc,
+                FamilyMember.address_enc,
+                false().label("hide_phone"), false().label("hide_address"), null().label("photo_key"), Household.city_id,
+                *(getattr(FamilyMember, c) for c in EXTRA))
          .join(Household, Household.household_id == FamilyMember.household_id)
          .join(City, City.city_id == Household.city_id)
          .where(FamilyMember.status == "APPROVED", FamilyMember.linked_member_id.is_(None),
@@ -75,7 +79,7 @@ def _entry(row, viewer: Member) -> dict:
         "address": fernet.decrypt(row.address_enc).decode() if show_address else None,
         "phone_hidden": row.hide_phone and not own, "address_hidden": row.hide_address and not own,
         "photo_url": media.url(row.photo_key),
-    }
+    } | {c: getattr(row, c) for c in EXTRA}
 
 
 def search(db: Session, viewer: Member, *, name: str | None, city_id: UUID | None, family_name: str | None,
@@ -111,7 +115,7 @@ def household(db: Session, viewer: Member, household_id: UUID) -> dict:
     members = db.execute(_members(None, None, None).where(Member.household_id == household_id)
                          .order_by(Member.is_household_head.desc(), Member.full_name)).all()
     relatives = db.execute(_relatives(None, None, None).where(FamilyMember.household_id == household_id)
-                           .order_by(FamilyMember.created_at)).all()
+                           .order_by((FamilyMember.relationship == "SELF").desc(), FamilyMember.created_at)).all()
     return {"household_id": h.household_id, "family_name": h.family_name, "family_name_i18n": h.family_name_i18n,
             "native_place": h.native_place, "native_place_i18n": h.native_place_i18n,
             "city_name": city.name, "city_name_i18n": city.name_i18n,
