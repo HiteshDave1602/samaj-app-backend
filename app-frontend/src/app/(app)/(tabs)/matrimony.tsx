@@ -36,6 +36,8 @@ export default function MatrimonyScreen() {
   const [cities, setCities] = useState<City[]>([]);
   const [cityId, setCityId] = useState<string>(); // by id: the name changes with the language
   const [ageBand, setAgeBand] = useState<string>();
+  const [showFilters, setShowFilters] = useState(false);
+  const activeFilters = [ageBand, cityId].filter(Boolean).length;
 
   useEffect(() => {
     api<City[]>('/member/auth/cities').then(setCities, () => {});
@@ -147,8 +149,28 @@ export default function MatrimonyScreen() {
         )}
 
         <View className="gap-3">
-          <Text className="font-headline text-xl text-brand">{t('Verified profiles')}</Text>
+          <View className="flex-row items-center justify-between">
+            <Text className="font-headline text-xl text-brand">{t('Verified profiles')}</Text>
+            <Pressable
+              onPress={() => setShowFilters(!showFilters)}
+              accessibilityRole="button"
+              accessibilityLabel={t('Filters')}
+              accessibilityState={{ expanded: showFilters }}
+              className={`h-12 w-12 items-center justify-center rounded-full ${showFilters || activeFilters ? 'bg-secondary' : 'border border-line bg-card'}`}>
+              <SymbolView
+                name={{ ios: 'line.3.horizontal.decrease', android: 'tune', web: 'tune' }}
+                size={20}
+                tintColor={showFilters || activeFilters ? palette['on-secondary'] : palette.ink}
+              />
+              {activeFilters > 0 && (
+                <View className="absolute -right-0.5 -top-0.5 h-5 w-5 items-center justify-center rounded-full border-2 border-cream bg-accent">
+                  <Text className="font-inter-semibold text-[10px] text-on-accent">{activeFilters}</Text>
+                </View>
+              )}
+            </Pressable>
+          </View>
           {/* tapping the selected chip again clears it */}
+          {showFilters && (
           <View className="gap-4 rounded-3xl border border-line bg-card p-4">
             <Chips label="Age" options={Object.keys(AGES)} value={ageBand} onChange={(v) => setAgeBand(v === ageBand ? undefined : v)} />
             <Chips
@@ -161,7 +183,19 @@ export default function MatrimonyScreen() {
               value={cityId}
               onChange={(v) => setCityId(v === cityId ? undefined : v)}
             />
+            {activeFilters > 0 && (
+              <Pressable
+                onPress={() => {
+                  setAgeBand(undefined);
+                  setCityId(undefined);
+                }}
+                accessibilityRole="button"
+                className="self-start">
+                <Text className="font-inter-semibold text-sm text-secondary">{t('Clear filters')}</Text>
+              </Pressable>
+            )}
           </View>
+          )}
           {!profiles && !error && <ActivityIndicator color={palette.secondary.DEFAULT} />}
           {profiles?.length === 0 &&
             (ageBand || cityId ? (

@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, UploadFi
 from sqlalchemy.orm import Session
 
 from core.database import get_db
+from core.validation import Search
 from member.auth.deps import get_active_member, get_searching_member
 from member.auth.schema import Gender
 from member.biodata_request import curd as requests
@@ -43,7 +44,7 @@ def submit_profile(member: Member = Depends(get_active_member), db: Session = De
 
 @router.get("/profiles", response_model=SearchPage)
 def search(
-    q: str | None = Query(None, min_length=2, max_length=120),  # name, occupation, gotra, education, native place
+    q: Search(120, 2) | None = None,  # name, occupation, gotra, education, native place
     age_min: int | None = Query(None, ge=18, le=100),
     age_max: int | None = Query(None, ge=18, le=100),
     gender: Gender | None = None,  # optional: whether search is opposite-gender only is still open (OQ-13)

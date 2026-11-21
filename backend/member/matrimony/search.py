@@ -47,16 +47,21 @@ def search(db: Session, member: Member, *, q: str | None, age_min: int | None, a
             {"multi_match": {"query": q, "fields": TEXT_FIELDS, "operator": "and", "fuzziness": es.FUZZY,
                              "prefix_length": 1}},
             {"multi_match": {"query": q, "fields": TEXT_FIELDS, "operator": "and", "type": "bool_prefix"}}]}}] if q else []
+        not_mine = [{"term": {"member_id": str(member.member_id)}}]  # FR-27: never your own
         db.close()  # hand the pooled connection back while ES works; the hydration below takes one again
-        hits = es.search(NAME, query={"bool": {"filter": f, "must": must,  # FR-27: never your own
-                                               "must_not": [{"term": {"member_id": str(member.member_id)}}]}},
+        hits = es.search(NAME, query={"bool": {"filter": f, "must": must, "must_not": not_mine}},
                          sort=[{"profile_id": "asc"}], size=limit + 1, **({"search_after": [str(after)]} if after else {}))
+        suggested = not hits and after is None and bool(q)
+        if suggested:  # misspelt: show the closest profiles instead of nothing, one page, best first
+            hits = es.search(NAME, query={"bool": {"filter": f, "must": [es.closest_query(q, TEXT_FIELDS)],
+                                                   "must_not": not_mine}}, size=limit)
         page = [h["_id"] for h in hits]
         rows = {str(r[0].profile_id): r for r in db.execute(
             curd.public_query().where(MatrimonyProfile.profile_id.in_([UUID(i) for i in page[:limit]]),
                                       MatrimonyProfile.member_id != member.member_id))}
         return {"items": [curd.card(*rows[i]) for i in page[:limit] if i in rows],
-                "next_after": page[limit - 1] if len(page) > limit else None}
+                "next_after": page[limit - 1] if len(page) > limit and not suggested else None,
+                "suggested": suggested}
 
     return es.answer(from_es, pg)
 

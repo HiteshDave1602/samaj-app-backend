@@ -3,7 +3,7 @@ from datetime import date
 from uuid import UUID
 
 from fastapi import HTTPException
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -13,6 +13,7 @@ from member.matrimony.model import Biodata, MatrimonyPhoto, MatrimonyProfile
 from member.matrimony.schema import BiodataIn, ProfileCreate, ProfileUpdate
 from member.profile.curd import age
 from member.profile.model import Household, Member
+from search import es
 from superadmin.city.model import City
 
 PHOTO_MAX_BYTES = 2 * 1024 * 1024  # FR-24
@@ -158,10 +159,6 @@ def search(db: Session, member: Member, *, age_min: int | None, age_max: int | N
     substring match, without ES's typo tolerance or Gujarati/Hindi spellings.
     ponytail: live query instead of the DDD's 4-hourly matrimony_search_mv (FR-28 is met with no lag)."""
     q = public_query().where(MatrimonyProfile.member_id != member.member_id)  # FR-27: never your own
-    if text:
-        q = q.where(or_(*(col.icontains(text, autoescape=True) for col in (
-            Member.full_name, MatrimonyProfile.occupation, MatrimonyProfile.gotra, MatrimonyProfile.education_detail,
-            Household.native_place))))
     if age_min is not None:
         q = q.where(Member.dob <= _years_ago(age_min))
     if age_max is not None:
@@ -174,11 +171,23 @@ def search(db: Session, member: Member, *, age_min: int | None, age_max: int | N
         q = q.where(MatrimonyProfile.location_city_id.in_(city_id))
     if family_background:
         q = q.where(MatrimonyProfile.family_background.in_(family_background))
+    filtered = q
+    if text:
+        q = q.where(or_(*(col.icontains(text, autoescape=True) for col in _TEXT_COLUMNS)))
     if after:
         q = q.where(MatrimonyProfile.profile_id > after)
     rows = db.execute(q.order_by(MatrimonyProfile.profile_id).limit(limit + 1)).all()
+    if not rows and text and after is None:  # misspelt: the closest profiles instead of nothing, one page, best first
+        score = func.greatest(*(func.word_similarity(text, col) for col in _TEXT_COLUMNS))
+        rows = db.execute(filtered.where(score > es.CLOSEST_SIMILARITY)
+                          .order_by(score.desc(), MatrimonyProfile.profile_id).limit(limit)).all()
+        return {"items": [card(*r) for r in rows], "next_after": None, "suggested": True}
     items = [card(*r) for r in rows[:limit]]
     return {"items": items, "next_after": items[-1]["profile_id"] if len(rows) > limit else None}
+
+
+_TEXT_COLUMNS = (Member.full_name, MatrimonyProfile.occupation, MatrimonyProfile.gotra,
+                 MatrimonyProfile.education_detail, Household.native_place)
 
 
 def public_profile(db: Session, profile_id: UUID) -> dict:

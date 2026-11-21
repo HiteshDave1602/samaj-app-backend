@@ -1,8 +1,9 @@
 from datetime import date, datetime
-from typing import Annotated
 from uuid import UUID
 
-from pydantic import BaseModel, Field, StringConstraints
+from pydantic import BaseModel, Field
+
+from core.validation import Search as SearchText, Strict, Text
 
 from member.profile.schema import IdDocumentOut as MemberIdDocumentOut, MemberOut
 
@@ -25,7 +26,7 @@ class PendingPage(BaseModel):
     items: list[PendingMemberOut]
 
 
-Search = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
+Search = SearchText(120)
 
 
 class IdDocumentOut(MemberIdDocumentOut):
@@ -39,10 +40,10 @@ class MemberReviewOut(MemberOut):
     id_document: IdDocumentOut | None = None  # the file itself: GET /cityadmin/members/{id}/id-document
 
 
-class RejectIn(BaseModel):
+class RejectIn(Strict):
     # FR-13: Reject needs a reason; the member sees it in the app.
-    reason: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)]
+    reason: Text(500, multiline=True)
 
 
-class BulkApproveIn(BaseModel):
+class BulkApproveIn(Strict):
     member_ids: list[UUID] = Field(min_length=1, max_length=100)

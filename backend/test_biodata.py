@@ -2,6 +2,7 @@
 The SRS makes this a release gate: biodata reaches only the two members of an ACCEPTED request -- never a third
 member, a City Admin or the Super Admin -- and every denied read is logged. Cleans up after itself;
 security_event rows stay (append-only)."""
+import re
 import secrets
 from datetime import date, datetime, timedelta, timezone
 from uuid import uuid4
@@ -24,6 +25,8 @@ from superadmin.city_admin.model import AdminUser
 
 c = TestClient(app)
 tag = secrets.token_hex(4)
+# names take letters only (core/validation.py): the same tag spelt in letters, runs squeezed so it never repeats 4x
+name_tag = re.sub(r"(.)+", r"", tag.translate(str.maketrans("0123456789", "ghijklmnop")))
 now = datetime.now(timezone.utc)
 M = "/member/matrimony"
 
@@ -79,7 +82,7 @@ with SessionLocal() as db:
     member_ids = {"A": ma.member_id, "B": mb.member_id, "C": mc.member_id}
 
 # each member's biodata carries a marker that must never appear where it shouldn't
-SECRET = {k: f"Secret{k}{tag}" for k in "ABC"}
+SECRET = {k: f"Secret{k}{name_tag}" for k in "ABC"}
 for k, h in (("A", a_h), ("B", b_h), ("C", c_h)):
     assert c.put(f"{M}/biodata", headers=h, json={"father_name": SECRET[k], "gotra": "Kashyap"}).status_code == 200
 

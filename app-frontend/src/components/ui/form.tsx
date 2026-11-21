@@ -4,7 +4,7 @@ import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import { SymbolView, type SymbolViewProps } from 'expo-symbols';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { ActivityIndicator, Platform, Pressable, Text, TextInput, View, type TextInputProps } from 'react-native';
 
 import { mediaUrl, parseDmy, toDmy, type PickedFile } from '@/lib/api';
@@ -73,21 +73,41 @@ export function Button({
   );
 }
 
-export function Field({ label, hint, multiline, placeholder, ...props }: TextInputProps & { label: string; hint?: string }) {
+/** error: a message from lib/validate.ts ('' = fine). Shown once the person has left the field, never on first load;
+ * showError shows it at once (a saved value from the server that today's rules refuse, so Save isn't disabled silently). */
+export function Field({
+  label,
+  hint,
+  error,
+  showError,
+  multiline,
+  placeholder,
+  onBlur,
+  ...props
+}: TextInputProps & { label: string; hint?: string; error?: string; showError?: boolean }) {
   const palette = usePalette();
   const t = useT();
+  const [left, setLeft] = useState(false);
+  const shown = (left || !!showError) && !!error;
   return (
     <View>
       <Text className="mb-1.5 font-inter-medium text-sm text-ink">{t(label)}</Text>
       <TextInput
         {...props}
+        onBlur={(e) => (setLeft(true), onBlur?.(e))}
         placeholder={placeholder && t(placeholder)}
         multiline={multiline}
         placeholderTextColor={palette.muted}
         textAlignVertical={multiline ? 'top' : 'center'}
-        className={`rounded-2xl border border-line bg-card px-4 font-inter text-base text-ink ${multiline ? 'min-h-32 py-3' : 'h-12'}`}
+        accessibilityLabel={t(label)}
+        accessibilityHint={shown ? t(error!) : undefined}
+        className={`rounded-2xl border ${shown ? 'border-rejected' : 'border-line'} bg-card px-4 font-inter text-base text-ink ${multiline ? 'min-h-32 py-3' : 'h-12'}`}
       />
-      {hint && <Text className="mt-1 font-inter text-xs text-muted">{t(hint)}</Text>}
+      {shown ? (
+        <Text accessibilityLiveRegion="polite" className="mt-1 font-inter text-xs text-rejected">{t(error!)}</Text>
+      ) : (
+        hint && <Text className="mt-1 font-inter text-xs text-muted">{t(hint)}</Text>
+      )}
     </View>
   );
 }
@@ -100,13 +120,24 @@ const badSoFar = (v: string) => {
   return (d?.length === 2 && (+d < 1 || +d > 31)) || (m?.length === 2 && (+m < 1 || +m > 12));
 };
 
-/** Birth date as DD/MM/YYYY: typed, or picked from the phone's calendar. Impossible dates say so at once. */
-export function DateField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+/** Birth date as DD/MM/YYYY: typed, or picked from the phone's calendar. Impossible dates say so at once.
+ * `future`: a schedule date, today or later, instead of a birth date. */
+export function DateField({
+  label,
+  value,
+  onChange,
+  future,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  future?: boolean;
+}) {
   const palette = usePalette();
   const t = useT();
   const [open, setOpen] = useState(false);
   const [left, setLeft] = useState(false); // focus left the box: a half-typed date is wrong too
-  const invalid = !!value && (value.length === 10 || left ? !parseDmy(value) : badSoFar(value));
+  const invalid = !!value && (value.length === 10 || left ? !parseDmy(value, future) : badSoFar(value));
   return (
     <View>
       <Text className="mb-1.5 font-inter-medium text-sm text-ink">{t(label)}</Text>
@@ -136,11 +167,11 @@ export function DateField({ label, value, onChange }: { label: string; value: st
       {open && (
         <View>
           <DateTimePicker
-            value={parseDmy(value) ?? new Date(1995, 0, 1)}
+            value={parseDmy(value, future) ?? (future ? new Date() : new Date(1995, 0, 1))}
             mode="date"
             display={Platform.OS === 'ios' ? 'inline' : 'default'}
-            minimumDate={new Date(1900, 0, 1)}
-            maximumDate={new Date()}
+            minimumDate={future ? new Date() : new Date(1900, 0, 1)}
+            maximumDate={future ? undefined : new Date()}
             onChange={(e, d) => {
               if (Platform.OS !== 'ios') setOpen(false); // Android's dialog closes itself; iOS stays open until Done
               if (e.type === 'set' && d) onChange(toDmy(d));
@@ -255,6 +286,41 @@ export function Notice({ title, body, tone: given }: { title: string; body: stri
     <View className="rounded-2xl p-4" style={{ backgroundColor: tone.container }}>
       <Text className="font-inter-semibold text-sm" style={{ color: tone.DEFAULT }}>{t(title)}</Text>
       <Text className="mt-0.5 font-inter text-sm" style={{ color: tone.DEFAULT }}>{t(body)}</Text>
+    </View>
+  );
+}
+
+/** Seconds left until a deadline; start(s) sets it s seconds from now. Wall-clock based, so a backgrounded app stays right. */
+export function useCountdown() {
+  const [{ now, end }, setTimes] = useState({ now: 0, end: 0 });
+  const left = Math.max(0, Math.ceil((end - now) / 1000));
+  useEffect(() => {
+    if (!left) return;
+    const id = setTimeout(() => setTimes((x) => ({ ...x, now: Date.now() })), 1000);
+    return () => clearTimeout(id);
+  }, [left, now]);
+  const start = (seconds: number) => {
+    const t = Date.now();
+    setTimes({ now: t, end: t + seconds * 1000 });
+  };
+  return [left, start] as const;
+}
+
+/** After an OTP send: the code itself (demo backend only, OTP_SHOW_CODE) and its time left. */
+export function OtpStatus({ code, left }: { code?: string; left: number }) {
+  const palette = usePalette();
+  const t = useT();
+  if (!left) return <Notice title="Code expired" body="Tap Resend code to get a new one." tone={palette.rejected} />;
+  const tone = palette.info;
+  return (
+    <View className="items-center rounded-2xl p-4" style={{ backgroundColor: tone.container }}>
+      {code && (
+        <>
+          <Text className="font-inter text-sm" style={{ color: tone.DEFAULT }}>{t('Your code')}</Text>
+          <Text selectable className="font-inter-semibold text-3xl tracking-[8px]" style={{ color: tone.DEFAULT }}>{code}</Text>
+        </>
+      )}
+      <Text className="mt-1 font-inter text-sm" style={{ color: tone.DEFAULT }}>{t('Expires in {s}s', { s: String(left) })}</Text>
     </View>
   );
 }

@@ -7,6 +7,7 @@ import { Button, Chips, Field, Notice, ScreenHeader, StatusView } from '@/compon
 import { api, isoDate } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 import { usePalette } from '@/lib/theme';
+import { rules } from '@/lib/validate';
 
 // backend member/family/schema.py Relationship (to the household head) and auth Gender
 const RELATIONS = {
@@ -27,6 +28,7 @@ export default function AddMember() {
   const [error, setError] = useState<string>();
   const [sent, setSent] = useState(false);
   const dobOk = /^\d{2}\/\d{2}\/\d{4}$/.test(dob);
+  const nameError = rules.personName(name, { required: true });
 
   async function send() {
     setBusy(true);
@@ -58,7 +60,7 @@ export default function AddMember() {
         <>
           <ScreenHeader title="Add family member" back />
           <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 20, paddingTop: 4, gap: 18 }}>
-            <Field label="Name of the member" value={name} onChangeText={setName} placeholder="Full name" maxLength={120} />
+            <Field label="Name of the member" value={name} onChangeText={setName} placeholder="Full name" maxLength={120} error={nameError} />
             <Chips
               label="Relation to the head of family"
               options={Object.keys(RELATIONS) as (keyof typeof RELATIONS)[]}
@@ -79,7 +81,7 @@ export default function AddMember() {
             {error && <Notice title="Could not send request" body={error} tone={palette.rejected} />}
             <Button
               title={busy ? 'Sending…' : 'Send request'}
-              disabled={busy || !name.trim() || !relation || !gender || !dobOk}
+              disabled={busy || !!nameError || !relation || !gender || !dobOk}
               onPress={send}
             />
           </ScrollView>

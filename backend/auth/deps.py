@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from auth import curd
 from core import ratelimit
 from core.config import settings
+from core.guard import envelope
 from core.database import SessionLocal, get_db
 from superadmin.audit_log.curd import Actor, Denied
 from superadmin.audit_log.model import SecurityEvent
@@ -23,9 +24,15 @@ def get_current_admin(
 ) -> AdminUser:
     if creds is None:
         raise HTTPException(401, "Not authenticated")
-    admin = curd.session_admin(db, creds.credentials)[1]
+    sess, admin = curd.session_admin(db, creds.credentials)
     request.state.admin_id = admin.admin_id  # for log_denied
+    request.state.auth_session = sess
     ratelimit.check("admin", admin.admin_id, settings.admin_rate_per_minute)  # every admin route comes through here
+    if sess.city_panel:
+        # Super Admin in the City Admin panel: a never-saved City Admin copy scoped to the chosen city, so every
+        # City Admin route and city filter applies unchanged, and every Super Admin route refuses it.
+        admin = AdminUser(admin_id=admin.admin_id, role="CITY_ADMIN", city_id=sess.acting_city_id, status=admin.status,
+                          full_name=admin.full_name, email=admin.email, mfa_enrolled_at=admin.mfa_enrolled_at)
     return admin
 
 
@@ -39,6 +46,14 @@ def require_city_admin(admin: AdminUser = Depends(get_current_admin)) -> AdminUs
     """City scope (FR-71) is then enforced per query with admin.city_id."""
     if admin.role != "CITY_ADMIN":
         raise HTTPException(403, "City Admin only")
+    if admin.city_id is None:
+        raise HTTPException(409, "Choose a city first")  # Super Admin in the City Admin panel, no city picked yet
+    return admin
+
+
+def require_city_panel_super_admin(request: Request, admin: AdminUser = Depends(get_current_admin)) -> AdminUser:
+    if not request.state.auth_session.city_panel:
+        raise HTTPException(403, "Only for the Super Admin in the City Admin panel")
     return admin
 
 
@@ -69,4 +84,4 @@ def log_denied(request: Request, exc: Denied) -> JSONResponse:
             source_ip=client_ip(request),
         ))
         db.commit()
-    return JSONResponse({"detail": exc.detail}, status_code=403)
+    return envelope(403, exc.detail)

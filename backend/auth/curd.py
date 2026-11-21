@@ -52,32 +52,36 @@ def login(db: Session, email: str, password: str) -> dict:
     key = f"pw:{email.lower()}"
     _check_not_locked(key)
     admin = db.scalar(select(AdminUser).where(AdminUser.email == email))
-    password_ok = verify_password(password, admin.password_hash if admin else _DUMMY_HASH)
-    if admin is None or not password_ok:
+    main_ok = verify_password(password, admin.password_hash if admin else _DUMMY_HASH)
+    # Always two checks, so timing doesn't tell whether a Super Admin has a City Admin panel password.
+    alt_hash = admin.city_panel_password_hash if admin and admin.role == "SUPER_ADMIN" else None
+    city_panel = verify_password(password, alt_hash or _DUMMY_HASH) and alt_hash is not None and not main_ok
+    if admin is None or not (main_ok or city_panel):
         _record_failure(key)
         raise HTTPException(401, "Invalid email or password")
     if admin.status != "ACTIVE":
         raise HTTPException(403, "Account is not active")
     _failures.pop(key, None)
     if not settings.admin_mfa:
-        return {"mfa_enrolled": admin.mfa_enrolled_at is not None} | _start_session(db, admin)
-    ticket = _fernet.encrypt(str(admin.admin_id).encode()).decode()
+        return {"mfa_enrolled": admin.mfa_enrolled_at is not None} | _start_session(db, admin, city_panel)
+    ticket = _fernet.encrypt(f"{admin.admin_id}:{int(city_panel)}".encode()).decode()
     return {"mfa_ticket": ticket, "mfa_enrolled": admin.mfa_enrolled_at is not None}
 
 
-def _admin_from_ticket(db: Session, ticket: str) -> AdminUser:
+def _admin_from_ticket(db: Session, ticket: str) -> tuple[AdminUser, bool]:
+    """(admin, city_panel) from a login ticket."""
     try:
-        admin_id = UUID(_fernet.decrypt(ticket.encode(), ttl=TICKET_TTL_SECONDS).decode())
+        admin_id, _, city_panel = _fernet.decrypt(ticket.encode(), ttl=TICKET_TTL_SECONDS).decode().partition(":")
+        admin = db.get(AdminUser, UUID(admin_id))
     except (InvalidToken, ValueError):
         raise HTTPException(401, "MFA ticket is invalid or expired; log in again")
-    admin = db.get(AdminUser, admin_id)
     if not admin or admin.status != "ACTIVE":
         raise HTTPException(401, "MFA ticket is invalid or expired; log in again")
-    return admin
+    return admin, city_panel == "1"
 
 
 def enroll_mfa(db: Session, ticket: str) -> dict:
-    admin = _admin_from_ticket(db, ticket)
+    admin, _ = _admin_from_ticket(db, ticket)
     if admin.mfa_enrolled_at is not None:
         # Re-enrolment only after a Super Admin MFA reset (FR-74).
         raise HTTPException(409, "MFA is already enrolled")
@@ -93,7 +97,7 @@ def enroll_mfa(db: Session, ticket: str) -> dict:
 
 
 def verify_mfa(db: Session, ticket: str, code: str) -> dict:
-    admin = _admin_from_ticket(db, ticket)
+    admin, city_panel = _admin_from_ticket(db, ticket)
     if admin.totp_secret_enc is None:
         raise HTTPException(400, "MFA is not enrolled; call /mfa/enroll first")
     key = f"mfa:{admin.admin_id}"
@@ -106,10 +110,10 @@ def verify_mfa(db: Session, ticket: str, code: str) -> dict:
     _failures.pop(key, None)
     if admin.mfa_enrolled_at is None:
         admin.mfa_enrolled_at = _now()
-    return _start_session(db, admin)
+    return _start_session(db, admin, city_panel)
 
 
-def _start_session(db: Session, admin: AdminUser) -> dict:
+def _start_session(db: Session, admin: AdminUser, city_panel: bool = False) -> dict:
     now = _now()
     admin.last_login_at = now
     token = secrets.token_urlsafe(32)
@@ -117,6 +121,7 @@ def _start_session(db: Session, admin: AdminUser) -> dict:
         admin_id=admin.admin_id,
         refresh_token_hash=hash_token(token),
         mfa_verified=True,  # required by ck_auth_session_2; not proof of MFA while settings.admin_mfa is off
+        city_panel=city_panel,
         last_activity_at=now,
         expires_at=now + SESSION_MAX_AGE,
     ))
@@ -133,20 +138,41 @@ def revoke_sessions(db: Session, admin_id: UUID, keep: UUID | None = None):
 
 
 def change_password(db: Session, token: str, current_password: str, new_password: str, ip: str | None):
-    """Self-service change: the caller's session stays, every other one ends."""
+    """Self-service change of the password this session signed in with: the caller's session stays, every other one ends."""
     sess, admin = session_admin(db, token)
+    field, other = ("city_panel_password_hash", "password_hash") if sess.city_panel else ("password_hash", "city_panel_password_hash")
+    _set_password(db, admin, field, other, current_password, new_password)
+    revoke_sessions(db, admin.admin_id, keep=sess.session_id)
+    action = "CITY_PANEL_PASSWORD_CHANGE" if sess.city_panel else "ADMIN_PASSWORD_CHANGE"
+    audit.log(db, audit.Actor(admin.admin_id, ip), action, "admin_user", admin.admin_id, admin.city_id)
+    db.commit()
+
+
+def set_city_panel_password(db: Session, admin: AdminUser, current_password: str, new_password: str, ip: str | None):
+    """Super Admin, from the Super Admin panel: set/replace the password that opens the City Admin panel.
+    Checked against the main password; City Admin panel sessions end."""
+    _set_password(db, admin, "city_panel_password_hash", "password_hash", current_password, new_password,
+                  check_field="password_hash")
+    db.execute(update(AuthSession).where(AuthSession.admin_id == admin.admin_id, AuthSession.city_panel,
+                                         AuthSession.revoked_at.is_(None)).values(revoked_at=_now()))
+    audit.log(db, audit.Actor(admin.admin_id, ip), "CITY_PANEL_PASSWORD_SET", "admin_user", admin.admin_id, None)
+    db.commit()
+
+
+def _set_password(db: Session, admin: AdminUser, field: str, other: str, current_password: str, new_password: str,
+                  check_field: str | None = None):
+    """Caller commits. `other` is the account's second password: they must differ, or login can't tell the panels apart."""
     key = f"pwchange:{admin.admin_id}"
     _check_not_locked(key)  # a stolen session can't brute-force the password
-    if not verify_password(current_password, admin.password_hash):
+    if not verify_password(current_password, getattr(admin, check_field or field)):
         _record_failure(key)
         raise HTTPException(400, "Current password is incorrect")  # not 401: the panel reads that as "session expired"
     _failures.pop(key, None)
-    if new_password == current_password:
+    if new_password == current_password and not check_field:
         raise HTTPException(400, "New password must be different from the current one")
-    admin.password_hash = hash_password(new_password)
-    revoke_sessions(db, admin.admin_id, keep=sess.session_id)
-    audit.log(db, audit.Actor(admin.admin_id, ip), "ADMIN_PASSWORD_CHANGE", "admin_user", admin.admin_id, admin.city_id)
-    db.commit()
+    if getattr(admin, other) and verify_password(new_password, getattr(admin, other)):
+        raise HTTPException(400, "Super Admin panel and City Admin panel passwords must be different")
+    setattr(admin, field, hash_password(new_password))
 
 
 def logout(db: Session, token: str):

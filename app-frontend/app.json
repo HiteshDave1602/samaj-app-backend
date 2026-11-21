@@ -57,7 +57,10 @@
           "microphonePermission": "Speak a name to search the directory.",
           "speechRecognitionPermission": "Turn what you say into search text."
         }
-      ]
+      ],
+      "expo-image",
+      "expo-status-bar",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,

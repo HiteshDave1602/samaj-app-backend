@@ -17,6 +17,7 @@ type Entry = {
   full_name: string | null;
   full_name_i18n: Record<string, string>;
   relationship: string | null;
+  is_household_head: boolean;
   household_id: string | null;
   family_name: string | null;
   family_name_i18n: Record<string, string>;
@@ -45,6 +46,7 @@ export default function DirectoryScreen() {
   const [family, setFamily] = useState('');
   const [results, setResults] = useState<Entry[]>();
   const [error, setError] = useState<string>();
+  const [suggested, setSuggested] = useState(false); // no exact match: the server sent the closest names
   const [bookmarks, setBookmarks] = useState(new Set<string>());
   const activeFilters = [cityId, text(family)].filter(Boolean).length;
 
@@ -62,8 +64,8 @@ export default function DirectoryScreen() {
     // wait for typing to pause before asking the server
     const timer = setTimeout(
       () =>
-        api<{ items: Entry[] }>(`/member/directory?${params}`).then(
-          (r) => (setResults(r.items), setError(undefined)),
+        api<{ items: Entry[]; suggested: boolean }>(`/member/directory?${params}`).then(
+          (r) => (setResults(r.items), setSuggested(r.suggested), setError(undefined)),
           (e) => setError(e.message),
         ),
       300,
@@ -146,7 +148,9 @@ export default function DirectoryScreen() {
             <Notice title="Could not load the directory" body={error} tone={palette.rejected} />
           ) : results ? (
             <Text className="font-inter text-sm text-muted">
-              {t(results.length === 1 ? '{n} person' : '{n} people', { n: results.length })}
+              {suggested && results.length
+                ? t('No exact match. Showing the closest names.')
+                : t(results.length === 1 ? '{n} person' : '{n} people', { n: results.length })}
             </Text>
           ) : (
             <ActivityIndicator color={palette.primary.DEFAULT} />
@@ -195,7 +199,9 @@ export default function DirectoryScreen() {
                   </View>
                   {m.relationship && (
                     <Text numberOfLines={1} className="mt-0.5 font-inter text-sm text-subtle">
-                      {t('{relation} of the family head', { relation: label(m.relationship) })}
+                      {m.is_household_head
+                        ? t('Head of family')
+                        : t('{relation} of the family head', { relation: label(m.relationship) })}
                     </Text>
                   )}
                   {family !== '' && (

@@ -5,14 +5,16 @@ import { useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Button, Field, Notice, ScreenHeader, StatusView, UploadBox } from '@/components/ui/form';
-import { api, mediaUrl, upload, type PickedFile } from '@/lib/api';
+import { Button, Chips, DateField, Field, Notice, ScreenHeader, StatusView, UploadBox } from '@/components/ui/form';
+import { api, mediaUrl, parseDmy, toDmy, upload, type PickedFile } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 import { usePalette } from '@/lib/theme';
+import { rules } from '@/lib/validate';
 
 // backend cityadmin/content/schema.py MediaOut / NewsSubmit
 type Media = { media_key: string; media_url: string };
 const MAX_EXTRA = 5;
+const DEFAULT_DAYS = 30; // backend MEMBER_NEWS_DAYS
 
 export default function CreateNews() {
   const palette = usePalette();
@@ -21,6 +23,14 @@ export default function CreateNews() {
   const [body, setBody] = useState('');
   const [banner, setBanner] = useState<Media>();
   const [extras, setExtras] = useState<Media[]>([]);
+  const [kind, setKind] = useState<'News' | 'Ad'>('News');
+  const [from, setFrom] = useState(() => toDmy(new Date()));
+  const [until, setUntil] = useState(() => toDmy(new Date(Date.now() + DEFAULT_DAYS * 864e5)));
+  const start = parseDmy(from, true);
+  const end = parseDmy(until, true);
+  const badRange = !!start && !!end && end < start;
+  const titleError = rules.text(title, { required: true, max: 200 });
+  const bodyError = rules.text(body, { required: true, max: 10000, multiline: true });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const [sent, setSent] = useState(false);
@@ -38,7 +48,16 @@ export default function CreateNews() {
     try {
       await api('/member/news', {
         method: 'POST',
-        body: { title, body, media_key: banner!.media_key, extra_media_keys: extras.map((x) => x.media_key) },
+        body: {
+          title,
+          body,
+          media_key: banner!.media_key,
+          extra_media_keys: extras.map((x) => x.media_key),
+          as_ad: kind === 'Ad',
+          // whole days in the phone's timezone: from the start of the first day to the end of the last
+          start_at: start!.toISOString(),
+          end_at: new Date(end!.getFullYear(), end!.getMonth(), end!.getDate() + 1).toISOString(),
+        },
       });
       setSent(true);
     } catch (e: any) {
@@ -65,7 +84,8 @@ export default function CreateNews() {
     <SafeAreaView className="flex-1 bg-cream">
       <ScreenHeader title="Create news" back />
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 20, paddingTop: 4, gap: 18 }}>
-        <Field label="Title" value={title} onChangeText={setTitle} placeholder="What's the news?" maxLength={200} />
+        <Chips label="Show as" options={['News', 'Ad'] as const} value={kind} onChange={setKind} />
+        <Field label="Title" value={title} onChangeText={setTitle} placeholder="What's the news?" maxLength={200} error={titleError} />
         {banner ? (
           <Thumb uri={banner.media_url} wide onRemove={() => setBanner(undefined)} />
         ) : (
@@ -75,7 +95,7 @@ export default function CreateNews() {
             onPick={async (f) => setBanner(await send(f))}
           />
         )}
-        <Field label="Content" value={body} onChangeText={setBody} placeholder="Write the full news here" multiline maxLength={10000} />
+        <Field label="Content" value={body} onChangeText={setBody} placeholder="Write the full news here" multiline maxLength={10000} error={bodyError} />
         {extras.length > 0 && (
           <View className="flex-row flex-wrap gap-3">
             {extras.map((x) => (
@@ -94,11 +114,27 @@ export default function CreateNews() {
             }}
           />
         )}
-        <Notice title="Needs approval" body="Your city admin reviews news before it is published." />
+        <View className="flex-row gap-3">
+          <View className="flex-1">
+            <DateField label="Active from" value={from} onChange={setFrom} future />
+          </View>
+          <View className="flex-1">
+            <DateField label="Active until" value={until} onChange={setUntil} future />
+          </View>
+        </View>
+        {badRange && <Notice title="Check the dates" body="The end date can't be before the start date." tone={palette.rejected} />}
+        <Notice
+          title="Needs approval"
+          body={
+            kind === 'Ad'
+              ? 'Your city admin reviews ads before they are published. Ads show as sponsored cards with a View ad button.'
+              : 'Your city admin reviews news before it is published.'
+          }
+        />
         {error && <Notice title="Something went wrong" body={error} tone={palette.rejected} />}
         <Button
-          title="Submit news"
-          disabled={busy || !title.trim() || !body.trim() || !banner}
+          title={kind === 'Ad' ? 'Submit ad' : 'Submit news'}
+          disabled={busy || !!titleError || !!bodyError || !banner || !start || !end || badRange}
           onPress={submit}
         />
       </ScrollView>

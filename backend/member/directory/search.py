@@ -32,16 +32,22 @@ def search(db: Session, viewer: Member, *, name: str | None, city_id: UUID | Non
         must = [es.name_query(name, "full_name")] if name else []
         if family_name:
             must.append(es.name_query(family_name, "family_name"))
+        city = [{"term": {"city_id": str(city_id)}}] if city_id else []
         db.close()  # hand the pooled connection back while ES works; the hydration below takes one again
         hits = es.search(
-            NAME,
-            query={"bool": {"filter": [{"term": {"city_id": str(city_id)}}] if city_id else [], "must": must}},
+            NAME, query={"bool": {"filter": city, "must": must}},
             sort=[{"full_name.sort": {"order": "asc", "missing": "_last"}}, {"id": "asc"}],
             from_=offset, size=limit + 1)
+        suggested = not hits and offset == 0 and bool(must)
+        if suggested:  # misspelt: show the closest names instead of nothing, one page, best first
+            close = [es.closest_query(t, [f, f"{f}_i18n.gu", f"{f}_i18n.hi"])
+                     for t, f in ((name, "full_name"), (family_name, "family_name")) if t]
+            hits = es.search(NAME, query={"bool": {"filter": city, "must": close}}, size=limit)
         page = [h["_id"] for h in hits]
         rows = {key(r): r for r in _rows(db, page[:limit])}
         return {"items": [curd._entry(rows[k], viewer) for k in page[:limit] if k in rows],
-                "next_offset": offset + limit if len(page) > limit else None}
+                "next_offset": offset + limit if len(page) > limit and not suggested else None,
+                "suggested": suggested}
 
     return es.answer(from_es, pg)
 

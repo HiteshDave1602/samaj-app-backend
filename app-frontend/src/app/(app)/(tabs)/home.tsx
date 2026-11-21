@@ -1,12 +1,12 @@
 import { Image } from 'expo-image';
 import { router, useFocusEffect, type Href } from 'expo-router';
 import { SymbolView, type SymbolViewProps } from 'expo-symbols';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { api } from '@/lib/api';
-import { Cover, formatDate, useFeed } from '@/lib/feed';
+import { Cover, formatDate, useFeed, ViewAdBar } from '@/lib/feed';
 import { tWords, useLoc, useT } from '@/lib/i18n';
 import { Cover as ProfileCover, title, useReceivedRequests } from '@/lib/matrimony';
 import { usePalette } from '@/lib/theme';
@@ -72,23 +72,40 @@ export default function HomeScreen() {
   const { width } = useWindowDimensions();
   const cardWidth = width - 40;
   const [slide, setSlide] = useState(0);
-  const news = useFeed().items?.filter((n) => n.content_type === 'NEWS').slice(0, 5) ?? [];
+  const items = useFeed().items;
+  // every live news item and ad, in feed order; the feed repeats ads when it rotates them, so keep each once
+  const news = useMemo(
+    () => (items ?? []).filter((n, i, all) => all.findIndex((x) => x.content_id === n.content_id) === i),
+    [items],
+  );
+  // Endless loop: a copy of the first banner sits after the last. Sliding onto the copy looks like "next",
+  // then the list jumps, without animation, to the identical real first banner: it never rewinds through the others.
+  const banners = useMemo(() => (news.length > 1 ? [...news, news[0]] : news), [news]);
   const slider = useRef<FlatList>(null);
   const currentSlide = useRef(0);
+  const dragging = useRef(false);
+  const step = cardWidth + 12;
 
-  // Keep cycling through banners, returning to the first after the last one.
   useEffect(() => {
-    if (news.length < 2) return;
+    const count = news.length;
+    const show = (i: number, animated: boolean) => {
+      slider.current?.scrollToOffset({ offset: i * step, animated });
+      currentSlide.current = i;
+      setSlide(i % Math.max(count, 1));
+    };
+    show(0, false); // the banner set changed: start over
+    if (count < 2) return;
 
+    let jump: ReturnType<typeof setTimeout>;
     const id = setInterval(() => {
-      const next = (currentSlide.current + 1) % news.length;
-      slider.current?.scrollToOffset({ offset: next * (cardWidth + 12), animated: true });
-      currentSlide.current = next;
-      setSlide(next);
+      if (dragging.current) return; // never pull the list away from a finger
+      const next = currentSlide.current + 1;
+      show(next, true);
+      // on the copy: swap to the real first once the slide animation (~300 ms) is over
+      if (next >= count) jump = setTimeout(() => show(0, false), 600);
     }, 3000);
-
-    return () => clearInterval(id);
-  }, [news.length, cardWidth]);
+    return () => (clearInterval(id), clearTimeout(jump));
+  }, [news.length, step]);
   const { requests } = useReceivedRequests();
   const [panchang, setPanchang] = useState<Panchang | string>(); // string: why it isn't available
   useEffect(() => {
@@ -142,36 +159,51 @@ export default function HomeScreen() {
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
         <FlatList
           ref={slider}
-          data={news}
+          data={banners}
           horizontal
-          pagingEnabled
-          snapToInterval={cardWidth + 12}
+          // snapToInterval alone: pagingEnabled pages by the screen width, which is wider than a card step
+          snapToInterval={step}
+          snapToAlignment="start"
           decelerationRate="fast"
+          disableIntervalMomentum
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={{ paddingHorizontal: 20, gap: 12 }}
-          keyExtractor={(n) => n.content_id}
+          keyExtractor={(n, i) => (i === news.length ? 'loop' : n.content_id)}
+          getItemLayout={(_, i) => ({ length: step, offset: 20 + i * step, index: i })}
+          onScrollBeginDrag={() => (dragging.current = true)}
           onMomentumScrollEnd={(e) => {
-            const next = Math.round(e.nativeEvent.contentOffset.x / (cardWidth + 12));
-            currentSlide.current = next;
-            setSlide(next);
+            dragging.current = false;
+            let i = Math.round(e.nativeEvent.contentOffset.x / step);
+            if (i >= news.length && news.length > 1) {
+              i = 0; // swiped onto the copy: same swap as the timer
+              slider.current?.scrollToOffset({ offset: 0, animated: false });
+            }
+            currentSlide.current = i;
+            setSlide(i);
           }}
           renderItem={({ item }) => (
             <Pressable
               onPress={() => router.push({ pathname: '/news/[id]', params: { id: item.content_id } })}
               accessibilityRole="button"
               style={{ width: cardWidth }}
-              className="active:opacity-90">
-              <Cover item={item} className="h-44 justify-end rounded-3xl p-5">
+              className="overflow-hidden rounded-3xl active:opacity-90">
+              {/* an ad's cover gives up the bar's height so every banner is h-44 */}
+              <Cover
+                item={item}
+                className={`justify-end p-5 ${item.content_type === 'AD' ? 'h-[132px]' : 'h-44'}`}>
                 <Text className="mb-auto self-start rounded-full bg-accent px-3 py-1 font-inter-semibold text-xs text-on-accent">
-                  {t('Latest news')}
+                  {t(item.content_type === 'AD' ? 'Sponsored' : 'Latest news')}
                 </Text>
-                <Text numberOfLines={2} className="font-headline text-2xl text-white">{loc(item.title, item.title_i18n)}</Text>
-                <Text className="font-inter text-sm text-white/80">{formatDate(item.start_at)}</Text>
+                <Text numberOfLines={item.content_type === 'AD' ? 1 : 2} className="font-headline text-2xl text-white">
+                  {loc(item.title, item.title_i18n)}
+                </Text>
+                {item.content_type === 'NEWS' && <Text className="font-inter text-sm text-white/80">{formatDate(item.start_at)}</Text>}
               </Cover>
+              {item.content_type === 'AD' && <ViewAdBar />}
             </Pressable>
           )}
         />
-        <View className="mt-3 flex-row justify-center gap-2">
+        <View className="mt-3 flex-row flex-wrap justify-center gap-2 px-5">
           {news.map((n, i) => (
             <View
               key={n.content_id}

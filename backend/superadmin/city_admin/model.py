@@ -32,6 +32,8 @@ class AdminUser(Base):
     full_name = Column(String(120), nullable=False)
     email = Column(CITEXT, nullable=False, unique=True)
     password_hash = Column(String(255), nullable=False)
+    # Super Admin only: same email + this password opens the City Admin panel (any city)
+    city_panel_password_hash = Column(String(255))
     totp_secret_enc = Column(LargeBinary)
     mfa_enrolled_at = Column(DateTime(timezone=True))
     status = Column(String(20), nullable=False, server_default="ACTIVE")  # ACTIVE | SUSPENDED | DEACTIVATED

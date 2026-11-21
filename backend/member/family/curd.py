@@ -1,5 +1,6 @@
 from fastapi import HTTPException
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from member.family.schema import FamilyRequestIn
@@ -39,13 +40,19 @@ def get_household(db: Session, member: Member) -> dict:
 def request_addition(db: Session, member: Member, data: FamilyRequestIn) -> dict:
     """FR-17: lands in the City Admin's Family Additions queue as PENDING."""
     household = _household(db, member)
-    # ponytail: name + DOB match only; two parallel identical requests can both pass. A rejected one can be resent.
+    # Name + DOB match; a rejected one can be resent. The check gives the friendly answer, the unique index
+    # ux_family_member_person catches two identical requests sent at the same moment.
+    duplicate = HTTPException(409, f"{data.full_name} is already added or waiting for approval")
     if db.scalar(select(FamilyMember.family_member_id).where(
             FamilyMember.household_id == household.household_id, FamilyMember.status != "REJECTED",
             func.lower(FamilyMember.full_name) == data.full_name.lower(), FamilyMember.dob == data.dob)):
-        raise HTTPException(409, f"{data.full_name} is already added or waiting for approval")
+        raise duplicate
     fm = FamilyMember(household_id=household.household_id, requested_by_member_id=member.member_id,
                       **data.model_dump())
     db.add(fm)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise duplicate
     return _relative(fm)

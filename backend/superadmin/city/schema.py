@@ -1,19 +1,20 @@
 from datetime import datetime
-from typing import Annotated
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, StringConstraints
+from pydantic import BaseModel, ConfigDict
 
-Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=80)]
-State = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=60)]
+from core.validation import Place, Strict
+
+Name = Place(80)
+State = Place(60)
 
 
-class CityCreate(BaseModel):
+class CityCreate(Strict):
     name: Name
     state: State
 
 
-class CityUpdate(BaseModel):
+class CityUpdate(Strict):
     name: Name | None = None
     state: State | None = None
     is_active: bool | None = None

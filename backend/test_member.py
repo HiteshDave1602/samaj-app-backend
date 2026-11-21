@@ -21,6 +21,7 @@ tag = secrets.token_hex(4)
 outbox: dict[str, str] = {}
 sms.send_sms = lambda mobile, text: outbox.__setitem__(mobile, text.split()[0])  # capture codes, send nothing
 settings.otp_bypass = False  # the wrong-code checks below need real verification
+settings.otp_show_code = False  # flipped on once below to check the demo echo
 
 
 def new_mobile() -> str:
@@ -58,8 +59,15 @@ try:
     for bad in ("12345", "+911234567890", "abcdefghij"):
         assert send(bad).status_code == 422, bad
     r = send(f"{mobile[:5]} {mobile[5:]}")
-    assert r.status_code == 200 and r.json() == {"registered": False, "expires_in_seconds": 300}, r.text
+    assert r.status_code == 200 and r.json() == {"registered": False, "expires_in_seconds": 60}, r.text
     code = outbox[e164]
+
+    # demo flag: the send response carries the same code the SMS would
+    demo = new_mobile()
+    settings.otp_show_code = True
+    r = send(demo)
+    settings.otp_show_code = False
+    assert r.json()["code"] == outbox["+91" + demo], r.text
 
     # FR-03: 3 wrong attempts lock the code, even the right one after that
     assert "2 attempt(s) left" in verify(mobile, wrong(code)).text

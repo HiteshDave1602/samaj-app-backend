@@ -12,6 +12,9 @@ export type Session = {
   member_status: 'PENDING' | 'ACTIVE' | 'REJECTED' | 'ARCHIVED';
 };
 
+/** POST /member/auth/otp/send. code: only from a demo backend (OTP_SHOW_CODE), which shows it instead of an SMS. */
+export type OtpSent = { registered: boolean; expires_in_seconds: number; code?: string };
+
 // Keychain/Keystore on device; SecureStore has no web build, so the web preview falls back to localStorage.
 export const store =
   Platform.OS === 'web'
@@ -24,7 +27,9 @@ export const store =
 
 // The access token lives in memory only (15 min); the refresh token (30 days) survives restarts.
 let access: string | null = null;
-let status: Session['member_status'] | null = null;
+/** Dev-only: EXPO_PUBLIC_SKIP_AUTH=1 skips login/registration and opens the app as an ACTIVE member. */
+export const SKIP_AUTH = __DEV__ && process.env.EXPO_PUBLIC_SKIP_AUTH === '1';
+let status: Session['member_status'] | null = SKIP_AUTH ? 'ACTIVE' : null;
 
 /** From the last login/refresh; the (app) layout lets only ACTIVE members past. */
 export const memberStatus = () => status;
@@ -38,14 +43,16 @@ export const authedImage = (path: string) => ({ uri: `${BASE}${path}`, headers: 
 // Forms take DD/MM/YYYY; the API speaks ISO. The server rejects impossible dates.
 export const isoDate = (dmy: string) => dmy.replace(/^(\d{2})\/(\d{2})\/(\d{4})$/, '$3-$2-$1');
 export const dmyDate = (iso: string) => iso.replace(/^(\d{4})-(\d{2})-(\d{2})$/, '$3/$2/$1');
-/** 'DD/MM/YYYY' as a birth date: null unless it is a real day between 1900 and today (31/02, 33/20/2000 are not). */
-export function parseDmy(dmy: string): Date | null {
+/** 'DD/MM/YYYY' as a birth date: null unless it is a real day between 1900 and today (31/02, 33/20/2000 are not).
+ * `future`: a schedule date instead, today or later. */
+export function parseDmy(dmy: string, future = false): Date | null {
   const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(dmy);
   if (!m) return null;
   const [d, mo, y] = [Number(m[1]), Number(m[2]), Number(m[3])];
   const date = new Date(y, mo - 1, d);
   // the Date constructor rolls 31/02 over into March: a real date keeps its own day and month
-  if (date.getDate() !== d || date.getMonth() !== mo - 1 || y < 1900 || date > new Date()) return null;
+  if (date.getDate() !== d || date.getMonth() !== mo - 1 || y < 1900) return null;
+  if (future ? date < new Date(new Date().setHours(0, 0, 0, 0)) : date > new Date()) return null;
   return date;
 }
 const pad2 = (n: number) => String(n).padStart(2, '0');
@@ -84,7 +91,15 @@ export async function logout() {
   if (refresh_token) await api('/member/auth/logout', { method: 'POST', body: { refresh_token } }, false).catch(() => {});
 }
 
+const fieldLabel = (k: string) => {
+  const last = k.split('.').pop()!.replace(/_/g, ' ');
+  return last.charAt(0).toUpperCase() + last.slice(1);
+};
+
 function detail(json: any, fallback: string): string {
+  // 422s name each field: "Full name: Enter a real name"
+  const fields: Record<string, string> | undefined = json?.error?.fields;
+  if (fields) return Object.entries(fields).map(([k, m]) => (k === 'body' ? m : `${fieldLabel(k)}: ${m}`)).join('; ');
   const d = json?.detail;
   if (typeof d === 'string') return d;
   if (Array.isArray(d)) return d.map((e) => e.msg.replace(/^Value error, /, '')).join('; ');
@@ -119,8 +134,10 @@ export async function api<T = any>(
     clearTimeout(timer);
   }
   if (res.status === 401 && retry && access && (await restoreSession())) return api(path, { method, body }, false);
-  if (!res.ok)
-    throw Object.assign(new Error(detail(await res.json().catch(() => null), `${res.status} ${res.statusText}`)), { status: res.status });
+  if (!res.ok) {
+    const json = await res.json().catch(() => null);
+    throw Object.assign(new Error(detail(json, `${res.status} ${res.statusText}`)), { status: res.status, fields: json?.error?.fields });
+  }
   return res.status === 204 ? (null as T) : res.json();
 }
 

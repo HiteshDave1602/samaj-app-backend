@@ -1,6 +1,6 @@
 from sqlalchemy import (
     Boolean, CheckConstraint, Column, Date, DateTime, FetchedValue, ForeignKey, Index, Integer, LargeBinary, String,
-    UniqueConstraint, Uuid, event, inspect, text,
+    UniqueConstraint, Uuid, event, func, inspect, text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Session
@@ -22,6 +22,8 @@ class Household(Base):
         Index("ix_household_city", "city_id"),
         Index("ix_household_family_name_trgm", "family_name", postgresql_using="gin",
               postgresql_ops={"family_name": "gin_trgm_ops"}),  # directory family search (FR-65)
+        Index("ux_household_city_family_key", "city_id", "family_key", unique=True,
+              postgresql_where=text("family_key IS NOT NULL")),
     )
 
     household_id = Column(Uuid, primary_key=True, server_default=_uuid)
@@ -30,6 +32,7 @@ class Household(Base):
     family_name_i18n = Column(JSONB, nullable=False, server_default=_i18n)
     native_place = Column(String(120))
     native_place_i18n = Column(JSONB, nullable=False, server_default=_i18n)
+    family_key = Column(String(200))  # set on households a Super Admin directory import created: "<head name>|<mobile>"
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=_now)
     updated_at = Column(DateTime(timezone=True), nullable=False, server_default=_now, server_onupdate=FetchedValue())
 
@@ -140,11 +143,15 @@ class FamilyMember(Base):
         Index("ix_family_member_requested_by", "requested_by_member_id"),
         Index("ix_family_member_linked", "linked_member_id"),
         Index("ix_family_member_reviewed_by", "reviewed_by_admin_id"),
+        # one live entry per person per household (migration f8a1c3e5b7d9)
+        Index("ux_family_member_person", "household_id", func.lower(text("full_name")), "dob", unique=True,
+              postgresql_where=text("status <> 'REJECTED' AND dob IS NOT NULL")),
     )
 
     family_member_id = Column(Uuid, primary_key=True, server_default=_uuid)
     household_id = Column(Uuid, ForeignKey("samaj.household.household_id", ondelete="CASCADE"), nullable=False)
-    requested_by_member_id = Column(Uuid, ForeignKey("samaj.member.member_id", ondelete="RESTRICT"), nullable=False)
+    # NULL: came from a Super Admin directory import, not a member's request
+    requested_by_member_id = Column(Uuid, ForeignKey("samaj.member.member_id", ondelete="RESTRICT"))
     linked_member_id = Column(Uuid, ForeignKey("samaj.member.member_id", ondelete="SET NULL"))
     full_name = Column(String(120), nullable=False)
     full_name_i18n = Column(JSONB, nullable=False, server_default=_i18n)
@@ -155,6 +162,15 @@ class FamilyMember(Base):
     rejection_reason = Column(String(500))
     reviewed_by_admin_id = Column(Uuid, ForeignKey("samaj.admin_user.admin_id", ondelete="SET NULL"))
     reviewed_at = Column(DateTime(timezone=True))
+    # Directory import only (shown in the directory; relatives added in the app leave them empty)
+    mobile_enc = Column(LargeBinary)
+    address_enc = Column(LargeBinary)
+    gotra = Column(String(120))
+    education = Column(String(120))
+    marital_status = Column(String(30))
+    occupation = Column(String(120))
+    hobby = Column(String(200))
+    blood_group = Column(String(10))
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=_now)
 
 

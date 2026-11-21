@@ -1,14 +1,15 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Pressable, ScrollView, Text, View } from 'react-native';
+import { KeyboardAvoidingView, LayoutAnimation, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BrandHeader, Credits } from '@/components/brand';
-import { Button, Chips, DateField, Field, Notice } from '@/components/ui/form';
-import { api, isoDate, parseDmy, saveSession, type Session } from '@/lib/api';
+import { Button, Chips, DateField, Field, Notice, OtpStatus, useCountdown } from '@/components/ui/form';
+import { api, isoDate, parseDmy, saveSession, type OtpSent, type Session } from '@/lib/api';
 import { getLang, useLoc, useT } from '@/lib/i18n';
 import { usePalette } from '@/lib/theme';
+import { rules } from '@/lib/validate';
 
 // Must match NOTICE_VERSION in backend/member/auth/curd.py; bump both when the text below changes.
 // ponytail: placeholder wording, swap in the approved consent notice from the PRD
@@ -31,6 +32,9 @@ export default function Register() {
   const [mobile, setMobile] = useState(params.mobile ?? '');
   const [code, setCode] = useState('');
   const [codeSent, setCodeSent] = useState(false);
+  const [shownCode, setShownCode] = useState<string>();
+  const [left, startCountdown] = useCountdown();
+  const expired = codeSent && !left; // the submit button resends instead
   const [taken, setTaken] = useState(false); // the number already has an account
   const [cities, setCities] = useState<City[]>([]);
   const [form, setForm] = useState({ name: '', dob: '', family: '', native: '', address: '' });
@@ -47,6 +51,13 @@ export default function Register() {
 
   // ponytail: city chips suit a handful of cities; switch to a searchable list once there are dozens
   const city = cities.find((c) => c.city_id === cityId);
+  const errors = {
+    mobile: params.ticket ? '' : rules.mobile(mobile),
+    name: rules.personName(form.name, { required: true }),
+    family: rules.personName(form.family, { required: true }),
+    native: rules.place(form.native),
+    address: rules.text(form.address, { required: true, max: 500, multiline: true }),
+  };
   const missing = [
     !params.ticket && mobile.trim().length < 10 && 'mobile number',
     !form.name.trim() && 'full name',
@@ -57,7 +68,7 @@ export default function Register() {
     !form.address.trim() && 'address',
     !consent && 'consent',
   ].filter((m): m is string => !!m);
-  const ready = missing.length === 0;
+  const ready = missing.length === 0 && !Object.values(errors).some(Boolean);
 
   async function submit() {
     setBusy(true);
@@ -65,13 +76,18 @@ export default function Register() {
     try {
       let ticket = params.ticket;
       if (!ticket) {
-        if (!codeSent) {
+        if (!codeSent || expired) {
+          let r: OtpSent;
           try {
-            await api('/member/auth/otp/send', { method: 'POST', body: { mobile, intent: 'register' } });
+            r = await api<OtpSent>('/member/auth/otp/send', { method: 'POST', body: { mobile, intent: 'register' } });
           } catch (e) {
             if ((e as { status?: number }).status === 409) return setTaken(true);
             throw e;
           }
+          LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut); // code field slides in
+          setShownCode(r.code);
+          startCountdown(r.expires_in_seconds);
+          setCode('');
           return setCodeSent(true);
         }
         const r = await api<{ session?: Session; registration_ticket?: string }>('/member/auth/otp/verify', {
@@ -122,13 +138,16 @@ export default function Register() {
                 label="Mobile number"
                 value={mobile}
                 onChangeText={(v) => (setMobile(v), setCodeSent(false), setTaken(false))}
+                editable={!codeSent || expired} // locked while its code is live
+                style={codeSent && !expired ? { opacity: 0.6 } : undefined}
                 placeholder="98765 43210"
                 keyboardType="phone-pad"
                 autoComplete="tel"
                 hint="Indian numbers need no +91"
+                error={errors.mobile}
               />
             )}
-            <Field label="Full name" value={form.name} onChangeText={set('name')} placeholder="As on your ID" autoComplete="name" />
+            <Field label="Full name" value={form.name} onChangeText={set('name')} placeholder="As on your ID" autoComplete="name" maxLength={120} error={errors.name} />
             <Chips label="Gender" options={Object.keys(GENDERS) as GenderLabel[]} value={gender} onChange={setGender} />
             <DateField label="Date of birth" value={form.dob} onChange={set('dob')} />
             <Chips
@@ -141,9 +160,9 @@ export default function Register() {
               value={cityId}
               onChange={setCityId}
             />
-            <Field label="Family name" value={form.family} onChangeText={set('family')} placeholder="e.g. Patel" />
-            <Field label="Native place (optional)" value={form.native} onChangeText={set('native')} placeholder="e.g. Visnagar" />
-            <Field label="Address" value={form.address} onChangeText={set('address')} placeholder="House, street, area" multiline maxLength={500} />
+            <Field label="Family name" value={form.family} onChangeText={set('family')} placeholder="e.g. Patel" maxLength={120} error={errors.family} />
+            <Field label="Native place (optional)" value={form.native} onChangeText={set('native')} placeholder="e.g. Visnagar" maxLength={120} error={errors.native} />
+            <Field label="Address" value={form.address} onChangeText={set('address')} placeholder="House, street, area" multiline maxLength={500} error={errors.address} />
 
             <Pressable
               onPress={() => setConsent(!consent)}
@@ -182,11 +201,12 @@ export default function Register() {
                 autoFocus
               />
             )}
+            {codeSent && <OtpStatus code={shownCode} left={left} />}
             {error && <Notice title="Could not register" body={error} tone={palette.rejected} />}
             {!ready && <Text className="font-inter text-sm text-subtle">{t('Still needed: {fields}', { fields: missing.map((m) => t(m)).join(', ') })}</Text>}
             <Button
-              title={busy ? 'Submitting…' : codeSent ? 'Verify and submit' : 'Submit for approval'}
-              disabled={busy || !ready || taken || (codeSent && code.length !== 6)}
+              title={busy ? 'Submitting…' : expired ? 'Resend code' : codeSent ? 'Verify and submit' : 'Submit for approval'}
+              disabled={busy || !ready || taken || (codeSent && !expired && code.length !== 6)}
               onPress={submit}
             />
             <View className="h-4" />

@@ -2,7 +2,7 @@ import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useEffect, useState } from 'react';
-import { Keyboard, Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Keyboard, LayoutAnimation, Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useT } from '@/lib/i18n';
 import { usePalette, useScheme } from '@/lib/theme';
@@ -13,17 +13,30 @@ const LOGO_RATIO = 600 / 587; // height / width of assets/images/brand/logo.png
 // header height, logo width, logo top margin
 const SIZES = { full: [330, 168, 48], compact: [190, 112, 36], mini: [104, 64, 20] } as const;
 
-/** True while the on-screen keyboard is up. */
+/** True while the on-screen keyboard is up. Layout changes driven by it animate instead of jumping. */
 export function useKeyboardOpen() {
   const [open, setOpen] = useState(false);
   useEffect(() => {
     // iOS announces the keyboard before it moves; Android only after
     const ios = Platform.OS === 'ios';
+    let hideTimer: ReturnType<typeof setTimeout> | undefined;
+    let current = false;
+    const set = (v: boolean) => {
+      if (v === current) return;
+      current = v;
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      setOpen(v);
+    };
     const subs = [
-      Keyboard.addListener(ios ? 'keyboardWillShow' : 'keyboardDidShow', () => setOpen(true)),
-      Keyboard.addListener(ios ? 'keyboardWillHide' : 'keyboardDidHide', () => setOpen(false)),
+      Keyboard.addListener(ios ? 'keyboardWillShow' : 'keyboardDidShow', () => (clearTimeout(hideTimer), set(true))),
+      // Moving focus between inputs (number -> OTP code) closes and reopens the keyboard; waiting a moment
+      // skips that blip so the header doesn't flash full size and back.
+      Keyboard.addListener(ios ? 'keyboardWillHide' : 'keyboardDidHide', () => {
+        clearTimeout(hideTimer);
+        hideTimer = setTimeout(() => set(false), 300);
+      }),
     ];
-    return () => subs.forEach((s) => s.remove());
+    return () => (clearTimeout(hideTimer), subs.forEach((s) => s.remove()));
   }, []);
   return open;
 }

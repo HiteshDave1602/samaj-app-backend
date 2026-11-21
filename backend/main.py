@@ -14,7 +14,7 @@ from cityadmin.member_approval.api import router as member_approval_router
 from cityadmin.member_export.api import router as member_export_router
 from cityadmin.member_import.api import router as member_import_router
 from cityadmin.panchang.api import router as panchang_router
-from core import media
+from core import guard, media
 from core.admission import AdmissionLimit
 from core.config import settings
 from core.database import get_db
@@ -35,6 +35,7 @@ from superadmin.content.api import router as superadmin_content_router
 from superadmin.audit_log.curd import Denied
 from superadmin.matrimony.api import router as superadmin_matrimony_router
 from superadmin.member.api import router as superadmin_member_router
+from superadmin.member_import.api import router as superadmin_member_import_router
 from superadmin.pending_member.api import router as pending_member_router
 from superadmin.search.api import router as search_status_router
 from search import es
@@ -52,6 +53,7 @@ async def lifespan(_app: FastAPI):
 app = FastAPI(title="Samaj API", lifespan=lifespan)
 # One slot fewer than the DB pool: log_denied and the feed's translation task each open a second session.
 app.add_middleware(AdmissionLimit, limit=settings.db_pool_size + settings.db_max_overflow - 1)
+guard.install(app)  # body size cap, one error shape, input-failure logs; after AdmissionLimit so it runs first
 app.add_exception_handler(Denied, log_denied)  # cross-city / ID-document 403s go to security_event
 app.include_router(auth_router)
 app.include_router(city_router)
@@ -73,6 +75,7 @@ app.include_router(member_export_router)
 app.include_router(superadmin_content_router)
 app.include_router(superadmin_matrimony_router)
 app.include_router(superadmin_member_router)
+app.include_router(superadmin_member_import_router)
 app.include_router(member_feed_router)
 app.include_router(member_news_router)
 app.include_router(member_directory_router)

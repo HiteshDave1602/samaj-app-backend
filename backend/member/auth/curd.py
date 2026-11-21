@@ -20,7 +20,7 @@ from member.auth.schema import RegisterIn
 from member.profile.model import Consent, Household, Member
 from superadmin.city.model import City
 
-OTP_TTL = timedelta(minutes=5)  # FR-03
+OTP_TTL = timedelta(seconds=settings.otp_ttl_seconds)  # FR-03
 OTP_MAX_ATTEMPTS = 3  # FR-03
 OTP_SENDS_PER_HOUR = 5  # FR-04
 ACCESS_TTL_SECONDS = 15 * 60  # NFR-16
@@ -89,8 +89,13 @@ def send_otp(db: Session, mobile: str, ip: str | None, intent: str | None = None
         request_ip=ip,
     ))
     db.commit()
-    sms.send_sms(mobile, f"{code} is your Samaj verification code. It expires in 5 minutes. Do not share it.")
-    return {"registered": registered, "expires_in_seconds": int(OTP_TTL.total_seconds())}
+    ttl = int(OTP_TTL.total_seconds())
+    expiry = f"{ttl // 60} minute(s)" if ttl >= 60 else f"{ttl} seconds"
+    sms.send_sms(mobile, f"{code} is your Samaj verification code. It expires in {expiry}. Do not share it.")
+    out = {"registered": registered, "expires_in_seconds": ttl}
+    if settings.otp_show_code:  # demo: the app displays the code since no SMS goes out yet
+        out["code"] = code
+    return out
 
 
 def verify_otp(db: Session, mobile: str, code: str) -> dict:

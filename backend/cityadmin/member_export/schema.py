@@ -5,6 +5,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field, SecretStr, model_validator
 
 from cityadmin.member_approval.schema import Search
+from core.validation import Strict
 
 # FR-84: the only columns an export can hold. Biodata is not among them and can't be asked for.
 Column = Literal["full_name", "gender", "dob", "age", "mobile", "address", "family_name", "native_place", "status",
@@ -12,7 +13,7 @@ Column = Literal["full_name", "gender", "dob", "age", "mobile", "address", "fami
 ALL_COLUMNS: list[str] = list(get_args(Column))
 
 
-class ExportFilters(BaseModel):
+class ExportFilters(Strict):
     status: list[Literal["PENDING", "ACTIVE", "REJECTED", "ARCHIVED"]] = Field(default=["ACTIVE"], min_length=1)
     gender: Literal["MALE", "FEMALE", "OTHER"] | None = None
     age_min: int | None = Field(None, ge=0, le=120)
@@ -27,7 +28,7 @@ class ExportFilters(BaseModel):
         return self
 
 
-class ExportIn(BaseModel):
+class ExportIn(Strict):
     filters: ExportFilters = ExportFilters()
     columns: list[Column] = Field(default_factory=lambda: list(ALL_COLUMNS), min_length=1)
     # FR-83: opens the file. SecretStr keeps it out of reprs and logs; it is never stored (FR-85).

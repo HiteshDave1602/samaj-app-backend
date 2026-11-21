@@ -56,7 +56,7 @@ export default function Export() {
             <Field label="Age to"><input name="age_max" type="number" min={0} max={120} className={inputCls} /></Field>
           </div>
           <Field label="Area" hint="Matched in the address and native place"><input name="area" maxLength={120} className={inputCls} /></Field>
-          <Field label="Family name"><input name="family_name" maxLength={120} className={inputCls} /></Field>
+          <Field label="Family name"><input name="family_name" data-rule="none" maxLength={120} className={inputCls} /></Field>
           <Field label="Columns" className="sm:col-span-2"><Checks name="columns" options={COLUMNS} checked={() => true} /></Field>
           <Field label="File password" hint="At least 8 characters. Needed to open the file." className="sm:col-span-2 sm:max-w-sm">
             <input name="password" type="password" required minLength={8} maxLength={128} autoComplete="new-password" className={inputCls} />

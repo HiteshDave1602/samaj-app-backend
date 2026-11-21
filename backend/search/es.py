@@ -21,6 +21,7 @@ SEARCH_TIMEOUT = 2.0  # seconds per ES call from an API request; a slower answer
 BREAK_SECONDS = 30  # after an ES outage, skip ES for this long rather than make every request wait on it
 MAX_WINDOW = 10_000  # index.max_result_window: offset + limit past it is answered by Postgres
 FUZZY = "AUTO:4,7"  # typo tolerance: exact under 4 letters, 1 edit for 4-6, 2 edits from 7
+CLOSEST_SIMILARITY = 0.3  # Postgres fallback's "closest match" floor (pg_trgm word_similarity, 0..1)
 
 KEYWORD = {"type": "keyword"}
 ANALYSIS = {
@@ -53,6 +54,11 @@ def name_query(text: str, field: str) -> dict:
         should.append({"wildcard": {f"{f}.sub": {"value": pattern, "case_insensitive": True}}})
         should.append({"match": {f: {"query": text, "operator": "and", "fuzziness": FUZZY, "prefix_length": 1}}})
     return {"bool": {"should": should, "minimum_should_match": 1}}
+
+
+def closest_query(text: str, fields: list[str]) -> dict:
+    """Last resort when nothing matched: any word within 2 edits, first letter included. Sort by _score (best first)."""
+    return {"multi_match": {"query": text, "fields": fields, "fuzziness": 2, "prefix_length": 0}}
 
 
 # ---- client -------------------------------------------------------------------------------------------------------
