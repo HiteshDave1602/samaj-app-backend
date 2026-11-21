@@ -10,6 +10,7 @@ import AuditLog from './pages/AuditLog'
 import Members from '../city-admin/pages/Members'
 import Matrimony from '../city-admin/pages/Matrimony'
 import Import from './pages/Import'
+import Profile from '../city-admin/pages/Profile'
 
 const PAGES = [
   { id: 'overview', label: 'Overview', icon: 'M3 12l9-8 9 8M5 10v10h14V10', el: Overview },
@@ -20,6 +21,7 @@ const PAGES = [
   { id: 'import', label: 'Import', icon: 'M12 4v11M7 10l5 5 5-5M5 20h14', el: Import },
   { id: 'content', label: 'News & Ads', icon: 'M4 5h13v14H6a2 2 0 0 1-2-2V5ZM17 9h3v8a2 2 0 0 1-2 2M8 9h5M8 13h5', el: Content },
   { id: 'audit', label: 'Audit Log', icon: 'M9 5h10M9 12h10M9 19h10M5 5h.01M5 12h.01M5 19h.01', el: AuditLog },
+  { id: 'profile', label: 'Profile', icon: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM4 20a8 8 0 0 1 16 0', el: Profile },
 ]
 
 createRoot(document.getElementById('root')).render(

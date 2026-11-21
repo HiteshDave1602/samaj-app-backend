@@ -1,26 +1,22 @@
 import { useState } from 'react'
-import { api, setToken, useSubmit } from './api'
+import { PANEL_PATH, api, setToken, takeNotice, useSubmit } from './api'
 import { Button, ErrorText, Field, inputCls } from './ui'
 
-const WRONG_PANEL = {
-  SUPER_ADMIN: 'This panel is for the Super Admin. City Admins sign in at /city-admin/.',
-  CITY_ADMIN: 'This panel is for City Admins. The Super Admin signs in at /super-admin/.',
-}
-
-// POST /login -> token when the server has MFA off; else (first time) /mfa/enroll -> /mfa/verify -> token. Then the role must match the panel.
-export default function Login({ role, label, onLogin, notice }) {
+// POST /login -> token when the server has MFA off; else (first time) /mfa/enroll -> /mfa/verify -> token.
+// The server decides the panel from the credentials (a Super Admin's second password opens the City Admin panel);
+// /me says which, and the token moves under that panel's key before going there.
+export default function Login() {
   const [ticket, setTicket] = useState(null)
   const [enroll, setEnroll] = useState(null) // { secret, otpauth_uri } on first login
+  const [notice] = useState(takeNotice)
+  const [showPw, setShowPw] = useState(false)
 
   async function start(token) {
     setToken(token)
-    const me = await api('/admin/auth/me')
-    if (me.role !== role) {
-      await api('/admin/auth/logout', { method: 'POST' }).catch(() => {})
-      setToken(null)
-      throw new Error(WRONG_PANEL[role])
-    }
-    onLogin(me)
+    const me = await api('/admin/auth/me').finally(() => setToken(null))
+    const panel = PANEL_PATH[me.role]
+    setToken(token, panel)
+    location.assign(`/${panel}/`)
   }
 
   const login = useSubmit(async ({ email, password }) => {
@@ -43,7 +39,7 @@ export default function Login({ role, label, onLogin, notice }) {
         <div className="mb-8 text-center">
           <Lotus className="mx-auto mb-3 h-12 w-12" />
           <h1 className="font-display text-[32px] leading-10 font-bold text-secondary">Samaj</h1>
-          <p className="text-xs font-semibold tracking-[.5px] text-heritage-text uppercase">{label}</p>
+          <p className="text-xs font-semibold tracking-[.5px] text-heritage-text uppercase">Admin</p>
         </div>
 
         <div className="rounded-2xl border border-outline-variant bg-surface p-6 shadow-sm">
@@ -52,7 +48,19 @@ export default function Login({ role, label, onLogin, notice }) {
               <h2 className="text-xl leading-7 font-semibold">Sign in</h2>
               {notice && <p className="rounded-lg bg-warning-container px-3 py-2 text-sm text-on-warning-container">{notice}</p>}
               <Field label="Email"><input name="email" type="email" required data-rule="none" autoComplete="username" autoFocus className={inputCls} /></Field>
-              <Field label="Password"><input name="password" type="password" required autoComplete="current-password" className={inputCls} /></Field>
+              <Field label="Password">
+                <div className="relative">
+                  <input name="password" type={showPw ? 'text' : 'password'} required autoComplete="current-password" className={`${inputCls} pr-11`} />
+                  <button type="button" onClick={() => setShowPw((s) => !s)} aria-label={showPw ? 'Hide password' : 'Show password'} aria-pressed={showPw}
+                    className="absolute inset-y-0 right-0 flex w-11 items-center justify-center rounded-r-lg text-on-surface-variant hover:text-primary focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none">
+                    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" />
+                      <circle cx="12" cy="12" r="3" />
+                      {showPw && <path d="M4 4l16 16" />}
+                    </svg>
+                  </button>
+                </div>
+              </Field>
               <ErrorText>{login.error}</ErrorText>
               <Button type="submit" disabled={login.busy}>{login.busy ? 'Signing in…' : 'Continue'}</Button>
             </form>

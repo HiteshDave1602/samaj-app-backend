@@ -52,9 +52,15 @@ class PasswordChangeIn(Strict):
 
 class AdminMeOut(BaseModel):
     admin_id: UUID
-    role: str  # SUPER_ADMIN | CITY_ADMIN
+    role: str  # SUPER_ADMIN | CITY_ADMIN; the panel this session is for
     full_name: str
     email: str
-    city_id: UUID | None  # None for the Super Admin
+    city_id: UUID | None  # None for the Super Admin, and for the Super Admin in the City Admin panel before picking a city
     city_name: str | None
     mfa_enrolled_at: datetime | None
+    is_super_admin: bool  # true in the City Admin panel too, when it is the Super Admin acting as a City Admin
+    has_city_panel_password: bool
+
+
+class ActingCityIn(Strict):
+    city_id: UUID

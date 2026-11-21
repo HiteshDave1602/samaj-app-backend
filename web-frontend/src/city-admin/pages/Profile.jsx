@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useState } from 'react'
 import { api, fmtDate, useSubmit, useToast } from '../../shared/api'
 import { Button, Card, Detail, ErrorText, Field, PageHeader, inputCls } from '../../shared/ui'
 
@@ -9,17 +9,44 @@ const Section = ({ title, children }) => (
   </Card>
 )
 
-/** theme / toggleTheme / logout come from Panel, which owns them. */
-export default function Profile({ me, theme, toggleTheme, logout }) {
-  const toast = useToast()
-  const form = useRef(null)
-  const dark = theme === 'dark'
+const PasswordFields = ({ current }) => (
+  <>
+    <Field label={current}>
+      <input name="current_password" type="password" required autoComplete="current-password" className={inputCls} />
+    </Field>
+    <Field label="New password" hint="At least 12 characters.">
+      <input name="new_password" type="password" required minLength={12} maxLength={128} autoComplete="new-password" className={inputCls} />
+    </Field>
+    <Field label="Confirm new password">
+      <input name="confirm_password" type="password" required minLength={12} maxLength={128} autoComplete="new-password" className={inputCls} />
+    </Field>
+  </>
+)
 
-  const pw = useSubmit(async ({ current_password, new_password, confirm_password }) => {
+/** `key` changes after a save, so the form remounts empty. */
+function usePasswordForm(path, done) {
+  const [key, setKey] = useState(0)
+  const submit = useSubmit(async ({ current_password, new_password, confirm_password }) => {
     if (new_password !== confirm_password) throw new Error('New passwords do not match')
-    await api('/admin/auth/change-password', { method: 'POST', body: { current_password, new_password } })
-    form.current.reset()
-    toast('Password changed. Other devices have been signed out.')
+    await api(path, { method: 'POST', body: { current_password, new_password } })
+    setKey((k) => k + 1)
+    done()
+  })
+  return { ...submit, key }
+}
+
+/** Both panels. reloadMe / theme / toggleTheme / logout come from Panel, which owns them. */
+export default function Profile({ me, reloadMe, theme, toggleTheme, logout }) {
+  const toast = useToast()
+  const dark = theme === 'dark'
+  const superPanel = me.role === 'SUPER_ADMIN'
+  const roleLabel = !me.is_super_admin ? 'City Admin' : superPanel ? 'Super Admin' : 'Super Admin, acting as City Admin'
+  const hasCityPw = me.has_city_panel_password
+
+  const pw = usePasswordForm('/admin/auth/change-password', () => toast('Password changed. Other devices have been signed out.'))
+  const cityPw = usePasswordForm('/admin/auth/city-panel-password', () => {
+    reloadMe() // Panel's `me` is what every page sees; keep it current, not a copy here
+    toast('City Admin panel password saved. City Admin panel sessions have been signed out.')
   })
 
   return (
@@ -30,30 +57,36 @@ export default function Profile({ me, theme, toggleTheme, logout }) {
           <dl className="grid gap-4 text-sm sm:grid-cols-2">
             <Detail label="Name">{me.full_name}</Detail>
             <Detail label="Email (sign-in ID)"><span className="break-all">{me.email}</span></Detail>
-            <Detail label="Role">City Admin</Detail>
-            <Detail label="City">{me.city_name ?? '—'}</Detail>
+            <Detail label="Role">{roleLabel}</Detail>
+            {!superPanel && <Detail label="City">{me.city_name ?? '—'}</Detail>}
             <Detail label="Password">••••••••••••</Detail>
             <Detail label="Two-step verification">{me.mfa_enrolled_at ? `On since ${fmtDate(me.mfa_enrolled_at)}` : 'Not set up'}</Detail>
           </dl>
-          <p className="mt-4 text-xs text-on-surface-variant">To change your name or email, or to reset two-step verification, ask the Super Admin.</p>
+          {!me.is_super_admin && <p className="mt-4 text-xs text-on-surface-variant">To change your name or email, or to reset two-step verification, ask the Super Admin.</p>}
         </Section>
 
-        <Section title="Reset password">
-          <form ref={form} onSubmit={pw.onSubmit} className="flex flex-col gap-4 sm:max-w-sm">
-            <Field label="Current password">
-              <input name="current_password" type="password" required autoComplete="current-password" className={inputCls} />
-            </Field>
-            <Field label="New password" hint="At least 12 characters.">
-              <input name="new_password" type="password" required minLength={12} maxLength={128} autoComplete="new-password" className={inputCls} />
-            </Field>
-            <Field label="Confirm new password">
-              <input name="confirm_password" type="password" required minLength={12} maxLength={128} autoComplete="new-password" className={inputCls} />
-            </Field>
+        <Section title={superPanel || !me.is_super_admin ? 'Reset password' : 'Reset City Admin panel password'}>
+          <form key={pw.key} onSubmit={pw.onSubmit} className="flex flex-col gap-4 sm:max-w-sm">
+            <PasswordFields current="Current password" />
             <ErrorText>{pw.error}</ErrorText>
             <p className="text-xs text-on-surface-variant">You stay signed in here; every other device is signed out.</p>
             <Button type="submit" disabled={pw.busy} className="self-start">{pw.busy ? 'Saving…' : 'Change password'}</Button>
           </form>
         </Section>
+
+        {superPanel && (
+          <Section title="City Admin panel password">
+            <form key={cityPw.key} onSubmit={cityPw.onSubmit} className="flex flex-col gap-4 sm:max-w-sm">
+              <p className="text-sm text-on-surface-variant">
+                Sign in with your email and this password to open the City Admin panel for any city.
+                It must be different from your Super Admin password. {hasCityPw ? 'One is set; saving replaces it.' : 'Not set yet.'}
+              </p>
+              <PasswordFields current="Super Admin password" />
+              <ErrorText>{cityPw.error}</ErrorText>
+              <Button type="submit" disabled={cityPw.busy} className="self-start">{cityPw.busy ? 'Saving…' : hasCityPw ? 'Replace' : 'Set password'}</Button>
+            </form>
+          </Section>
+        )}
 
         <Section title="Appearance">
           <div className="flex items-center justify-between gap-4">

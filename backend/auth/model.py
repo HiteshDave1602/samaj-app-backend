@@ -17,6 +17,9 @@ class AuthSession(Base):
     admin_id = Column(Uuid, ForeignKey("samaj.admin_user.admin_id", ondelete="CASCADE"))
     refresh_token_hash = Column(LargeBinary, nullable=False, unique=True)  # sha256 of the bearer token
     mfa_verified = Column(Boolean, nullable=False, server_default=text("false"))
+    # Super Admin signed in with their City Admin panel password: acts as the City Admin of acting_city_id
+    city_panel = Column(Boolean, nullable=False, server_default=text("false"))
+    acting_city_id = Column(Uuid, ForeignKey("samaj.city.city_id", ondelete="SET NULL"))
     device_label = Column(String(80))
     last_activity_at = Column(DateTime(timezone=True), nullable=False, server_default=text("now()"))
     expires_at = Column(DateTime(timezone=True), nullable=False)

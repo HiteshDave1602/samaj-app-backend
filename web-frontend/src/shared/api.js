@@ -3,9 +3,22 @@ import { checkControl, fieldLabel } from './validate'
 
 // sessionStorage: the admin token dies with the tab instead of lingering on a shared machine.
 // One key per panel (/super-admin/, /city-admin/) so signing in to one doesn't clobber the other.
-const KEY = `samaj_token_${location.pathname.split('/')[1]}`
-export const getToken = () => sessionStorage.getItem(KEY)
-export const setToken = (t) => (t ? sessionStorage.setItem(KEY, t) : sessionStorage.removeItem(KEY))
+// The sign-in page (/) puts the token under the key of the panel it opens.
+export const PANEL_PATH = { SUPER_ADMIN: 'super-admin', CITY_ADMIN: 'city-admin' }
+const key = (panel = location.pathname.split('/')[1]) => `samaj_token_${panel}`
+export const getToken = () => sessionStorage.getItem(key())
+export const setToken = (t, panel) => (t ? sessionStorage.setItem(key(panel), t) : sessionStorage.removeItem(key(panel)))
+
+// Why the panel sent the person back to sign in (e.g. session expired); shown once on the sign-in page.
+export function toSignIn(notice) {
+  if (notice) sessionStorage.setItem('samaj_notice', notice)
+  location.assign('/')
+}
+export function takeNotice() {
+  const n = sessionStorage.getItem('samaj_notice')
+  sessionStorage.removeItem('samaj_notice')
+  return n
+}
 
 let onExpired = () => {}
 export const setOnExpired = (fn) => { onExpired = fn }
@@ -69,10 +82,22 @@ export function useFileUrl(path) {
   return url
 }
 
-/** GET `path` whenever it changes (null: don't fetch); reload() refetches. */
+const POLL_MS = 30_000
+
+/** GET `path` whenever it changes (null: don't fetch); reload() refetches. It also refetches every 30 s while the
+ * tab is visible and on coming back to the tab, so changes made elsewhere (the app, another admin) show without a
+ * page refresh. */
+// ponytail: polling, ~12 req/min on the busiest page (limit 300); server push if that ever matters.
 export function useLoad(path) {
   const [state, setState] = useState({ data: null, error: null, path: null })
   const [tick, setTick] = useState(0)
+  useEffect(() => {
+    const visible = () => document.visibilityState === 'visible'
+    const onVisible = () => visible() && setTick((t) => t + 1)
+    const timer = setInterval(onVisible, POLL_MS)
+    document.addEventListener('visibilitychange', onVisible)
+    return () => { clearInterval(timer); document.removeEventListener('visibilitychange', onVisible) }
+  }, [])
   useEffect(() => {
     if (!path) return
     let live = true

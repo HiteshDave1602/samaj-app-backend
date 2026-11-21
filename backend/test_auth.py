@@ -88,6 +88,46 @@ try:
     assert c.get("/superadmin/city-admins", headers=sa_h).status_code == 200
     assert c.get("/superadmin/city-admins", headers=ca_h).status_code == 403
 
+    # Super Admin in the City Admin panel: same email, a second password, any city they pick
+    CP = "city-panel-pass-456"
+    set_cp = lambda h, cur, nw: c.post("/admin/auth/city-panel-password", headers=h,
+                                       json={"current_password": cur, "new_password": nw})
+    assert c.get("/admin/auth/me", headers=sa_h).json()["has_city_panel_password"] is False
+    assert set_cp(ca_h, PW, CP).status_code == 403  # Super Admin only
+    assert set_cp(sa_h, "wrong-password-000", CP).status_code == 400
+    assert set_cp(sa_h, PW, PW).status_code == 400  # must differ from the Super Admin password
+    assert set_cp(sa_h, PW, CP).status_code == 204
+    r = c.post("/admin/auth/login", json={"email": sa_email, "password": CP})
+    assert r.status_code == 200, r.text
+    r = verify(r.json()["mfa_ticket"], totp(sa_secret))  # same authenticator as the Super Admin panel
+    assert r.status_code == 200, r.text
+    cp_h = {"Authorization": f"Bearer {r.json()['access_token']}"}
+    me = c.get("/admin/auth/me", headers=cp_h).json()
+    assert me["role"] == "CITY_ADMIN" and me["is_super_admin"] is True and me["city_id"] is None, me
+    assert c.get("/cityadmin/members/pending", headers=cp_h).status_code == 409  # no city picked yet
+    assert c.get("/superadmin/cities", headers=cp_h).status_code == 403  # the second password isn't Super Admin access
+    assert set_cp(cp_h, CP, "another-cp-pass-789").status_code == 403
+    assert c.get("/admin/auth/cities", headers=sa_h).status_code == 403  # only from the City Admin panel
+    assert c.get("/admin/auth/cities", headers=ca_h).status_code == 403
+    assert str(city_id) in [x["city_id"] for x in c.get("/admin/auth/cities", headers=cp_h).json()]
+    assert c.put("/admin/auth/city", headers=cp_h, json={"city_id": str(uuid4())}).status_code == 404
+    assert c.put("/admin/auth/city", headers=ca_h, json={"city_id": str(city_id)}).status_code == 403
+    assert c.put("/admin/auth/city", headers=cp_h, json={"city_id": str(city_id)}).status_code == 204
+    me = c.get("/admin/auth/me", headers=cp_h).json()
+    assert me["city_id"] == str(city_id) and me["city_name"] == f"TestCity-{tag}", me
+    assert c.get("/cityadmin/members/pending", headers=cp_h).status_code == 200
+    # changing the City Admin panel password from there: can't equal the Super Admin password
+    cp_change = lambda cur, nw: c.post("/admin/auth/change-password", headers=cp_h,
+                                       json={"current_password": cur, "new_password": nw})
+    assert cp_change(CP, PW).status_code == 400
+    assert c.get("/admin/auth/me", headers=sa_h).json()["role"] == "SUPER_ADMIN"  # main password: Super Admin panel
+    assert c.get("/admin/auth/me", headers=sa_h).json()["has_city_panel_password"] is True
+    # replacing the City Admin panel password ends its sessions, not the Super Admin's
+    assert set_cp(sa_h, PW, "another-cp-pass-789").status_code == 204
+    assert c.get("/admin/auth/me", headers=cp_h).status_code == 401
+    assert c.get("/admin/auth/me", headers=sa_h).status_code == 200
+    assert c.post("/admin/auth/login", json={"email": sa_email, "password": CP}).status_code == 401
+
     # FR-70: second active admin for the same city rejected
     r = c.post("/superadmin/city-admins", headers=sa_h, json={
         "city_id": str(city_id), "full_name": "Dup", "email": f"dup-{tag}@test.local", "password": PW})
@@ -133,13 +173,13 @@ try:
     city2 = audit(city_id=city2_id)["items"]  # newest first; the 409 create/rename attempts left no entries
     assert [x["action"] for x in city2] == ["CITY_UPDATE", "CITY_CREATE"], city2
     assert city2[0]["before_state"] == {"is_active": True} and city2[0]["after_state"] == {"is_active": False}
-    assert audit(actor_id=str(sa_id), limit=1)["total"] == 3
+    assert audit(actor_id=str(sa_id), limit=1)["total"] == 5  # + the two CITY_PANEL_PASSWORD_SET
     assert audit(actor_id=str(sa_id), date_to="2026-01-01")["total"] == 0
 
     r = c.get("/superadmin/audit-logs/export.csv", headers=sa_h, params={"actor_id": str(sa_id)})
     assert r.status_code == 200 and r.headers["content-type"].startswith("text/csv"), r.text
     lines = r.content.decode("utf-8-sig").splitlines()
-    assert lines[0].startswith("occurred_at,") and len(lines) == 4 and "CITY_ADMIN_SUSPEND" in lines[1], lines
+    assert lines[0].startswith("occurred_at,") and len(lines) == 6 and "CITY_ADMIN_SUSPEND" in lines[1], lines
 
     # FR-87: append-only, even straight in the DB
     with SessionLocal() as db:
