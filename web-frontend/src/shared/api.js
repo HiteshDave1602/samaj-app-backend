@@ -1,4 +1,5 @@
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useRef, useState } from 'react'
+import { checkControl, fieldLabel } from './validate'
 
 // sessionStorage: the admin token dies with the tab instead of lingering on a shared machine.
 // One key per panel (/super-admin/, /city-admin/) so signing in to one doesn't clobber the other.
@@ -10,6 +11,8 @@ let onExpired = () => {}
 export const setOnExpired = (fn) => { onExpired = fn }
 
 function detail(json, fallback) {
+  const fields = json?.error?.fields
+  if (fields) return Object.entries(fields).map(([k, m]) => (k === 'body' ? m : `${fieldLabel(k)}: ${m}`)).join('; ')
   const d = json?.detail
   if (typeof d === 'string') return d
   if (Array.isArray(d)) return d.map((e) => e.msg.replace(/^Value error, /, '')).join('; ')
@@ -25,7 +28,8 @@ export async function api(path, { method = 'GET', body, form, raw } = {}) {
   if (!res.ok) {
     const json = await res.json().catch(() => null)
     if (res.status === 401 && token) { setToken(null); onExpired(detail(json, 'Session expired')) }
-    throw new Error(detail(json, `${res.status} ${res.statusText}`))
+    // fields: {name: message} from a 422, so useSubmit can mark the inputs themselves
+    throw Object.assign(new Error(detail(json, `${res.status} ${res.statusText}`)), { status: res.status, fields: json?.error?.fields })
   }
   if (raw) return res
   return res.status === 204 ? null : res.json()
@@ -81,16 +85,43 @@ export function useLoad(path) {
   return { data: state.data, error: state.error, loading: state.path !== path, reload: () => setTick((t) => t + 1) }
 }
 
-/** Form submit with busy + error state. fn gets the form's fields as an object, plus the FormData for getAll(). */
+// A message set on an input stays until the person edits that input.
+const watched = new WeakSet()
+function watch(form) {
+  if (watched.has(form)) return
+  watched.add(form)
+  form.addEventListener('input', (e) => e.target.setCustomValidity?.(''))
+}
+
+/** Form submit with busy + error state. fn gets the form's fields as an object, plus the FormData for getAll().
+ * Every form gets the shared field rules (validate.js) on top of the browser's required/maxLength/type checks, the
+ * server's field errors shown on the inputs themselves, and one submission at a time. */
 export function useSubmit(fn) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
+  const running = useRef(false) // state lags a render behind; a fast double Enter must not send twice
   async function onSubmit(e) {
     e.preventDefault()
-    const fd = new FormData(e.currentTarget)
+    const form = e.currentTarget
+    if (running.current) return
+    watch(form)
+    for (const el of form.elements) el.setCustomValidity?.(checkControl(el))
+    if (!form.reportValidity()) return // the browser shows the first problem on its field
+    const fd = new FormData(form)
+    running.current = true
     setBusy(true)
     setError(null)
-    try { await fn(Object.fromEntries(fd), fd) } catch (x) { setError(x.message) } finally { setBusy(false) }
+    try {
+      await fn(Object.fromEntries(fd), fd)
+    } catch (x) {
+      setError(x.message)
+      const els = Object.entries(x.fields ?? {}).map(([k, m]) => [form.elements.namedItem(k), m]).filter(([el]) => el?.setCustomValidity)
+      for (const [el, m] of els) el.setCustomValidity(m)
+      if (els.length) form.reportValidity()
+    } finally {
+      running.current = false
+      setBusy(false)
+    }
   }
   return { onSubmit, busy, error }
 }

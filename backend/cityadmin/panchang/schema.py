@@ -1,13 +1,15 @@
 from datetime import date, datetime
-from typing import Annotated, Literal
+from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, StringConstraints
+from pydantic import BaseModel
 
-Value = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=40)]
+from core.validation import Strict, Text
+
+Value = Text(40)
 
 
-class PanchangIn(BaseModel):
+class PanchangIn(Strict):
     tithi: Value
     nakshatra: Value
     yoga: Value

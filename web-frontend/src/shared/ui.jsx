@@ -19,7 +19,8 @@ export function Button({ variant = 'primary', className = '', ...props }) {
 }
 
 export const inputCls =
-  'h-10 w-full rounded-lg border border-outline-variant bg-surface px-3 text-sm text-on-surface placeholder:text-outline focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/25'
+  // user-invalid: red only after the person has touched the field (or tried to submit), never on first load
+  'h-10 w-full rounded-lg border border-outline-variant bg-surface px-3 text-sm text-on-surface placeholder:text-outline focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/25 user-invalid:border-error user-invalid:ring-error/25'
 
 export function Field({ label, hint, children, className = '' }) {
   return (

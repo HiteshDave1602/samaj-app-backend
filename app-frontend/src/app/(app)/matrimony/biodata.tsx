@@ -7,6 +7,7 @@ import { Button, Chips, Field, Notice, ScreenHeader } from '@/components/ui/form
 import { api } from '@/lib/api';
 import { label, tWords, useT } from '@/lib/i18n';
 import { usePalette } from '@/lib/theme';
+import { rules } from '@/lib/validate';
 
 // backend member/matrimony/schema.py BiodataIn, in display order. `options` fields are enums.
 // typed as English words from a known list: shown translated
@@ -34,18 +35,39 @@ const FIELDS: { key: string; title: string; options?: string[]; multiline?: bool
 
 type Biodata = Record<string, string | number | undefined>;
 
+// backend BiodataIn limits; every field is optional
+const CHECK: Record<string, (v: string) => string> = {
+  height_cm: rules.height,
+  birth_time: rules.time,
+  birth_place: (v) => rules.place(v),
+  rashi: (v) => rules.text(v, { max: 40 }),
+  nakshatra: (v) => rules.text(v, { max: 40 }),
+  gotra: (v) => rules.text(v, { max: 60 }),
+  father_name: (v) => rules.personName(v),
+  father_occupation: (v) => rules.text(v),
+  mother_name: (v) => rules.personName(v),
+  mother_occupation: (v) => rules.text(v),
+  siblings: (v) => rules.text(v, { max: 300, multiline: true }),
+  annual_income: (v) => rules.text(v, { max: 60 }),
+  residence_address: (v) => rules.text(v, { max: 500, multiline: true }),
+  contact_phone: (v) => rules.mobile(v),
+  contact_email: (v) => rules.email(v, { max: 254 }),
+  expectations: (v) => rules.text(v, { max: 1000, multiline: true }),
+};
+
 /** No params: edit my own biodata (PUT replaces it). ?profile=<id>: read someone's after they accepted my request. */
 export default function BiodataScreen() {
   const palette = usePalette();
   const t = useT();
   const { profile } = useLocalSearchParams<{ profile?: string }>();
   const [data, setData] = useState<Biodata>();
+  const [saved, setSaved] = useState<Biodata>({}); // as loaded: a stored value the rules now refuse is flagged at once
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
 
   useEffect(() => {
     api<Biodata>(profile ? `/member/matrimony/profiles/${profile}/biodata` : '/member/matrimony/biodata').then(
-      setData,
+      (b) => (setData(b), setSaved(b)),
       // my own: 404 until the first save, so start empty
       (e) => (profile ? setError(e.message) : setData({})),
     );
@@ -100,6 +122,8 @@ export default function BiodataScreen() {
     );
 
   const set = (k: string) => (v: string) => setData({ ...data, [k]: v });
+  const errors = Object.fromEntries(FIELDS.map(({ key }) => [key, CHECK[key]?.(String(data[key] ?? '')) ?? '']));
+  const invalid = Object.values(errors).some(Boolean);
   return (
     <SafeAreaView className="flex-1 bg-cream">
       <ScreenHeader title="My biodata" back />
@@ -123,12 +147,14 @@ export default function BiodataScreen() {
                 onChangeText={set(key)}
                 multiline={multiline}
                 hint={hint}
+                error={errors[key]}
+                showError={saved[key] != null && data[key] === saved[key]}
                 keyboardType={numeric ? 'number-pad' : undefined}
               />
             ),
           )}
           {error && <Notice title="Could not save" body={error} tone={palette.rejected} />}
-          <Button title={busy ? 'Saving…' : 'Save biodata'} disabled={busy} onPress={save} />
+          <Button title={busy ? 'Saving…' : 'Save biodata'} disabled={busy || invalid} onPress={save} />
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

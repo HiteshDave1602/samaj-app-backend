@@ -2,19 +2,22 @@ from datetime import datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import AwareDatetime, BaseModel, Field, StringConstraints, model_validator
+from pydantic import AwareDatetime, BaseModel, Field, model_validator
 
-Title = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
-Body = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=10_000)]
+from core.validation import Strict, Text
+
+Title = Text(200)
+Body = Text(10_000, multiline=True)
+MediaKey = Annotated[str, Field(max_length=40)]  # server-made keys; core/media.py checks the exact form
 
 
-class ContentCreate(BaseModel):
+class ContentCreate(Strict):
     content_type: Literal["NEWS", "AD"]
     # FR-48. City Admin: optional, must be their own city. Super Admin: a city, or omitted for every city.
     city_id: UUID | None = None
     title: Title
     body: Body | None = None  # required for NEWS
-    media_key: str | None = None  # from POST /cityadmin/content/media; required for AD
+    media_key: MediaKey | None = None  # from POST /cityadmin/content/media; required for AD
     creative_format: Literal["BANNER", "FULLSCREEN"] | None = None  # required for AD
     start_at: AwareDatetime
     end_at: AwareDatetime
@@ -33,22 +36,22 @@ class ContentCreate(BaseModel):
         return self
 
 
-class ContentUpdate(BaseModel):
+class ContentUpdate(Strict):
     title: Title | None = None
     body: Body | None = None
-    media_key: str | None = None
+    media_key: MediaKey | None = None
     creative_format: Literal["BANNER", "FULLSCREEN"] | None = None
     start_at: AwareDatetime | None = None
     end_at: AwareDatetime | None = None
     status: Literal["DRAFT", "SCHEDULED", "CANCELLED"] | None = None  # CANCELLED is final
 
 
-class NewsSubmit(BaseModel):
+class NewsSubmit(Strict):
     """Member news (POST /member/news); images from POST /member/news/media."""
     title: Title
     body: Body
-    media_key: str  # banner
-    extra_media_keys: list[str] = Field([], max_length=5)
+    media_key: MediaKey  # banner
+    extra_media_keys: list[MediaKey] = Field([], max_length=5)
     as_ad: bool = False  # member ad request: goes live as a BANNER ad after the same approval
     # the member's window; omitted = from approval for MEMBER_NEWS_DAYS
     start_at: AwareDatetime | None = None

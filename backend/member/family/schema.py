@@ -4,6 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
+from core.validation import Strict
 from member.auth.schema import Dob, Gender, Name
 
 # Relationship to the household head (DDD family_member.relationship).
@@ -13,7 +14,7 @@ Relationship = Literal[
 ]
 
 
-class FamilyRequestIn(BaseModel):
+class FamilyRequestIn(Strict):
     # FR-17: name, relationship, gender and date of birth
     full_name: Name
     relationship: Relationship

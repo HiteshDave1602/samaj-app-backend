@@ -185,6 +185,11 @@ def submit(db: Session, member: Member, data: NewsSubmit) -> dict:
     end = data.end_at or start + timedelta(days=MEMBER_NEWS_DAYS)
     if end <= start:
         raise HTTPException(400, "End date must be in the future")
+    # the same post sent twice (double tap, or resent while waiting); a soft rule, so no unique index
+    if db.scalar(select(ContentItem.content_id).where(
+            ContentItem.created_by_member_id == member.member_id, ContentItem.status == "PENDING",
+            ContentItem.title == data.title, ContentItem.body == data.body).limit(1)):
+        raise HTTPException(409, "You already sent this news; it is waiting for approval")
     item = ContentItem(content_type="AD" if data.as_ad else "NEWS", creative_format="BANNER" if data.as_ad else None,
                        city_id=member.city_id, title=data.title, body=data.body,
                        start_at=start, end_at=end, status="PENDING",

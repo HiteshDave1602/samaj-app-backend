@@ -1,6 +1,6 @@
 from sqlalchemy import (
     Boolean, CheckConstraint, Column, Date, DateTime, FetchedValue, ForeignKey, Index, Integer, LargeBinary, String,
-    UniqueConstraint, Uuid, event, inspect, text,
+    UniqueConstraint, Uuid, event, func, inspect, text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Session
@@ -143,6 +143,9 @@ class FamilyMember(Base):
         Index("ix_family_member_requested_by", "requested_by_member_id"),
         Index("ix_family_member_linked", "linked_member_id"),
         Index("ix_family_member_reviewed_by", "reviewed_by_admin_id"),
+        # one live entry per person per household (migration f8a1c3e5b7d9)
+        Index("ux_family_member_person", "household_id", func.lower(text("full_name")), "dob", unique=True,
+              postgresql_where=text("status <> 'REJECTED' AND dob IS NOT NULL")),
     )
 
     family_member_id = Column(Uuid, primary_key=True, server_default=_uuid)

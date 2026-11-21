@@ -17,10 +17,11 @@ from sqlalchemy import func, select, tuple_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from cityadmin.member_import.curd import MAX_BYTES, MAX_ROWS, _date, _job_out, _payload, _read
+from cityadmin.member_import.curd import MAX_BYTES, MAX_ROWS, _date, _job_out, _payload, _quality, _read
 from cityadmin.member_import.model import ImportJob, ImportRow
 from core import private_files
 from core.security import fernet
+from core.validation import person_name
 from member.auth.schema import to_e164
 from member.profile.model import FamilyMember, Household
 from superadmin.audit_log import curd as audit
@@ -94,6 +95,7 @@ def _clean(cells: list[str], cities: dict[str, UUID]) -> tuple[dict | None, str 
         if not v[k]:
             errors.append(f"{label} is required")
     errors += [f"{HEADERS[KEYS.index(k)]} is limited to {n} characters" for k, n in LIMITS.items() if len(v[k]) > n]
+    errors += _quality({"Name": (v["full_name"], person_name)})
     # a bad Date of Birth or Mobile doesn't drop the person (or, on a head row, their family): it's left blank
     notes = []
     dob = _date(v["dob"]) if v["dob"] else None

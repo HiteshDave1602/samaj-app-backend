@@ -8,6 +8,7 @@ import { Button, Field, Notice, OtpStatus, useCountdown } from '@/components/ui/
 import { api, saveSession, type OtpSent, type Session } from '@/lib/api';
 import { syncLang, useT } from '@/lib/i18n';
 import { usePalette } from '@/lib/theme';
+import { rules } from '@/lib/validate';
 
 type VerifyOut = { registered: boolean; session?: Session; registration_ticket?: string };
 // The samaj's name as written on its logo, the same in every app language
@@ -124,6 +125,7 @@ export default function Login() {
                   textContentType="telephoneNumber"
                   autoComplete="tel"
                   hint="Indian numbers need no +91"
+                  error={rules.mobile(mobile)}
                 />
                 {error && <Notice title="Could not send the code" body={error} tone={palette.rejected} />}
                 {unknown ? (
@@ -132,7 +134,7 @@ export default function Login() {
                     <Button title="Register now" onPress={register} />
                   </>
                 ) : (
-                  <Button title={busy ? 'Please wait…' : 'Send code'} disabled={busy || mobile.trim().length < 10} onPress={sendCode} />
+                  <Button title={busy ? 'Please wait…' : 'Send code'} disabled={busy || mobile.trim().length < 10 || !!rules.mobile(mobile)} onPress={sendCode} />
                 )}
                 <View className="mt-2 flex-row items-center justify-center gap-1">
                   <Text className="font-inter text-sm text-subtle">{t('New to the samaj app?')}</Text>

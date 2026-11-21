@@ -51,7 +51,7 @@ export default function Login({ role, label, onLogin, notice }) {
             <form onSubmit={login.onSubmit} className="flex flex-col gap-4">
               <h2 className="text-xl leading-7 font-semibold">Sign in</h2>
               {notice && <p className="rounded-lg bg-warning-container px-3 py-2 text-sm text-on-warning-container">{notice}</p>}
-              <Field label="Email"><input name="email" type="email" required autoComplete="username" autoFocus className={inputCls} /></Field>
+              <Field label="Email"><input name="email" type="email" required data-rule="none" autoComplete="username" autoFocus className={inputCls} /></Field>
               <Field label="Password"><input name="password" type="password" required autoComplete="current-password" className={inputCls} /></Field>
               <ErrorText>{login.error}</ErrorText>
               <Button type="submit" disabled={login.busy}>{login.busy ? 'Signing in…' : 'Continue'}</Button>

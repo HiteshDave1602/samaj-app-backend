@@ -9,7 +9,7 @@ class AuditFilter(BaseModel):
     date_from: date | None = None
     date_to: date | None = None
     actor_id: UUID | None = None
-    action: str | None = Field(None, max_length=40)
+    action: str | None = Field(None, max_length=40, pattern=r"^[A-Za-z_]*$")
     city_id: UUID | None = None
 
 

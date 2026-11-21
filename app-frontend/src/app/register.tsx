@@ -9,6 +9,7 @@ import { Button, Chips, DateField, Field, Notice, OtpStatus, useCountdown } from
 import { api, isoDate, parseDmy, saveSession, type OtpSent, type Session } from '@/lib/api';
 import { getLang, useLoc, useT } from '@/lib/i18n';
 import { usePalette } from '@/lib/theme';
+import { rules } from '@/lib/validate';
 
 // Must match NOTICE_VERSION in backend/member/auth/curd.py; bump both when the text below changes.
 // ponytail: placeholder wording, swap in the approved consent notice from the PRD
@@ -50,6 +51,13 @@ export default function Register() {
 
   // ponytail: city chips suit a handful of cities; switch to a searchable list once there are dozens
   const city = cities.find((c) => c.city_id === cityId);
+  const errors = {
+    mobile: params.ticket ? '' : rules.mobile(mobile),
+    name: rules.personName(form.name, { required: true }),
+    family: rules.personName(form.family, { required: true }),
+    native: rules.place(form.native),
+    address: rules.text(form.address, { required: true, max: 500, multiline: true }),
+  };
   const missing = [
     !params.ticket && mobile.trim().length < 10 && 'mobile number',
     !form.name.trim() && 'full name',
@@ -60,7 +68,7 @@ export default function Register() {
     !form.address.trim() && 'address',
     !consent && 'consent',
   ].filter((m): m is string => !!m);
-  const ready = missing.length === 0;
+  const ready = missing.length === 0 && !Object.values(errors).some(Boolean);
 
   async function submit() {
     setBusy(true);
@@ -136,9 +144,10 @@ export default function Register() {
                 keyboardType="phone-pad"
                 autoComplete="tel"
                 hint="Indian numbers need no +91"
+                error={errors.mobile}
               />
             )}
-            <Field label="Full name" value={form.name} onChangeText={set('name')} placeholder="As on your ID" autoComplete="name" />
+            <Field label="Full name" value={form.name} onChangeText={set('name')} placeholder="As on your ID" autoComplete="name" maxLength={120} error={errors.name} />
             <Chips label="Gender" options={Object.keys(GENDERS) as GenderLabel[]} value={gender} onChange={setGender} />
             <DateField label="Date of birth" value={form.dob} onChange={set('dob')} />
             <Chips
@@ -151,9 +160,9 @@ export default function Register() {
               value={cityId}
               onChange={setCityId}
             />
-            <Field label="Family name" value={form.family} onChangeText={set('family')} placeholder="e.g. Patel" />
-            <Field label="Native place (optional)" value={form.native} onChangeText={set('native')} placeholder="e.g. Visnagar" />
-            <Field label="Address" value={form.address} onChangeText={set('address')} placeholder="House, street, area" multiline maxLength={500} />
+            <Field label="Family name" value={form.family} onChangeText={set('family')} placeholder="e.g. Patel" maxLength={120} error={errors.family} />
+            <Field label="Native place (optional)" value={form.native} onChangeText={set('native')} placeholder="e.g. Visnagar" maxLength={120} error={errors.native} />
+            <Field label="Address" value={form.address} onChangeText={set('address')} placeholder="House, street, area" multiline maxLength={500} error={errors.address} />
 
             <Pressable
               onPress={() => setConsent(!consent)}

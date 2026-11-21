@@ -97,7 +97,7 @@ try:
     # who am I: role and city for the dashboard
     me = c.get("/admin/auth/me", headers=callers["CITY_ADMIN"]).json()
     assert me == {"admin_id": str(ca_id), "role": "CITY_ADMIN", "full_name": "CA", "email": f"pca-{tag}@t.local",
-                  "city_id": str(city_id), "city_name": f"Perm-{tag}"}, me
+                  "city_id": str(city_id), "city_name": f"Perm-{tag}", "mfa_enrolled_at": None}, me
     me = c.get("/admin/auth/me", headers=callers["SUPER_ADMIN"]).json()
     assert me["role"] == "SUPER_ADMIN" and me["city_id"] is None and me["city_name"] is None, me
     print(f"ok ({checked} calls)")

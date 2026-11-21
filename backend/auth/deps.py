@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from auth import curd
 from core import ratelimit
 from core.config import settings
+from core.guard import envelope
 from core.database import SessionLocal, get_db
 from superadmin.audit_log.curd import Actor, Denied
 from superadmin.audit_log.model import SecurityEvent
@@ -69,4 +70,4 @@ def log_denied(request: Request, exc: Denied) -> JSONResponse:
             source_ip=client_ip(request),
         ))
         db.commit()
-    return JSONResponse({"detail": exc.detail}, status_code=403)
+    return envelope(403, exc.detail)

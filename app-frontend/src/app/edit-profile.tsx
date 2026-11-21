@@ -8,6 +8,7 @@ import { Button, Chips, DateField, Field, Notice, ScreenHeader, UploadBox } from
 import { api, dmyDate, isoDate, mediaUrl, parseDmy, restoreSession, upload } from '@/lib/api';
 import { LANGUAGES, useLang, useT } from '@/lib/i18n';
 import { usePalette } from '@/lib/theme';
+import { rules } from '@/lib/validate';
 
 // backend member/profile/schema.py MemberOut (the editable part) and MemberUpdate
 type Me = {
@@ -78,8 +79,22 @@ export default function EditProfile() {
     }
   }
 
+  // only what changed is sent, so only what changed is judged: an older stored value never blocks saving the rest
+  const changed = (v: string, stored?: string | null) => v.trim() !== (stored ?? '');
+  const loc = (m?: Record<string, string>) => (lang && m?.[lang]) || '';
+  const errors = {
+    name: changed(form.name, me?.full_name) ? rules.personName(form.name, { required: true }) : '',
+    nameLoc: changed(form.nameLoc, loc(me?.full_name_i18n)) ? rules.personName(form.nameLoc) : '',
+    address: changed(form.address, me?.address) ? rules.text(form.address, { required: true, max: 500, multiline: true }) : '',
+    family: me?.is_household_head && changed(form.family, me.family_name) ? rules.personName(form.family, { required: true }) : '',
+    familyLoc: changed(form.familyLoc, loc(me?.family_name_i18n)) ? rules.personName(form.familyLoc) : '',
+    native: changed(form.native, me?.native_place) ? rules.place(form.native) : '',
+    nativeLoc: changed(form.nativeLoc, loc(me?.native_place_i18n)) ? rules.place(form.nativeLoc) : '',
+  };
+  const invalid = Object.values(errors).some(Boolean);
+
   async function save() {
-    if (!me) return;
+    if (!me || invalid) return;
     if (form.dob && !parseDmy(form.dob)) return setError(t('Not a valid date'));
     setBusy(true);
     setError(undefined);
@@ -162,34 +177,40 @@ export default function EditProfile() {
               )
             }
           />
-          <Field label="Full name" value={form.name} onChangeText={set('name')} autoComplete="name" />
+          <Field label="Full name" value={form.name} onChangeText={set('name')} autoComplete="name" maxLength={120} error={errors.name} />
           {lang && (
             <Field
               label={t('Full name in {language}', { language: LANGUAGES[lang] })}
               value={form.nameLoc}
               onChangeText={set('nameLoc')}
+              maxLength={120}
+              error={errors.nameLoc}
               hint="Filled in automatically. Fix the spelling if it's wrong."
             />
           )}
           <Chips label="Gender" options={Object.keys(GENDERS) as GenderLabel[]} value={gender} onChange={setGender} />
           <DateField label="Date of birth" value={form.dob} onChange={set('dob')} />
-          <Field label="Address" value={form.address} onChangeText={set('address')} multiline maxLength={500} />
+          <Field label="Address" value={form.address} onChangeText={set('address')} multiline maxLength={500} error={errors.address} />
           {me.is_household_head && (
             <>
-              <Field label="Family name" value={form.family} onChangeText={set('family')} />
+              <Field label="Family name" value={form.family} onChangeText={set('family')} maxLength={120} error={errors.family} />
               {lang && (
                 <Field
                   label={t('Family name in {language}', { language: LANGUAGES[lang] })}
                   value={form.familyLoc}
                   onChangeText={set('familyLoc')}
+                  maxLength={120}
+                  error={errors.familyLoc}
                 />
               )}
-              <Field label="Native place (optional)" value={form.native} onChangeText={set('native')} />
+              <Field label="Native place (optional)" value={form.native} onChangeText={set('native')} maxLength={120} error={errors.native} />
               {lang && form.native.trim() !== '' && (
                 <Field
                   label={t('Native place in {language}', { language: LANGUAGES[lang] })}
                   value={form.nativeLoc}
                   onChangeText={set('nativeLoc')}
+                  maxLength={120}
+                  error={errors.nativeLoc}
                 />
               )}
             </>
@@ -218,7 +239,7 @@ export default function EditProfile() {
 
           {error && <Notice title="Could not save" body={error} tone={palette.rejected} />}
           {saved && <Notice title={saved} body="Your changes are on the server." tone={palette.approved} />}
-          <Button title={busy ? 'Saving…' : 'Save changes'} disabled={busy} onPress={save} />
+          <Button title={busy ? 'Saving…' : 'Save changes'} disabled={busy || invalid} onPress={save} />
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

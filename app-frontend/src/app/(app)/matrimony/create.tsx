@@ -9,6 +9,7 @@ import { Button, Chips, Field, Notice, ScreenHeader, UploadBox } from '@/compone
 import { api, authedImage, upload } from '@/lib/api';
 import { label, useT } from '@/lib/i18n';
 import { usePalette } from '@/lib/theme';
+import { firstError, rules } from '@/lib/validate';
 
 // backend member/matrimony/schema.py ManagedBy / EducationLevel / FamilyBackground and MyProfileOut
 const MANAGED_BY = { Self: 'SELF', Parent: 'PARENT', Sibling: 'SIBLING', Relative: 'RELATIVE' } as const;
@@ -53,11 +54,15 @@ export default function MyMatrimonyProfile() {
   const [background, setBackground] = useState<keyof typeof BACKGROUND>();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
+  const [loaded, setLoaded] = useState(form); // as saved: a stored value the rules now refuse is flagged at once
   const set = (k: keyof typeof form) => (v: string) => setForm({ ...form, [k]: v });
+  const stale = (k: keyof typeof form) => !!loaded[k] && form[k] === loaded[k];
 
   const fill = useCallback((p: MyProfile) => {
     setProfile(p);
-    setForm({ educationDetail: p.education_detail ?? '', occupation: p.occupation ?? '', gotra: p.gotra ?? '', height: p.height_cm?.toString() ?? '', about: p.about ?? '' });
+    const f = { educationDetail: p.education_detail ?? '', occupation: p.occupation ?? '', gotra: p.gotra ?? '', height: p.height_cm?.toString() ?? '', about: p.about ?? '' };
+    setForm(f);
+    setLoaded(f);
     setManagedBy(key(MANAGED_BY, p.managed_by) ?? 'Self');
     setEducation(key(EDUCATION, p.education_level));
     setBackground(key(BACKGROUND, p.family_background));
@@ -92,6 +97,13 @@ export default function MyMatrimonyProfile() {
     height_cm: form.height.trim() ? Number(form.height) : null,
     about: form.about.trim() || null,
   };
+  const errors = {
+    educationDetail: rules.text(form.educationDetail, { max: 120 }),
+    occupation: rules.text(form.occupation, { max: 80 }),
+    gotra: rules.text(form.gotra, { max: 60 }),
+    height: rules.height(form.height),
+    about: rules.text(form.about, { max: 500, multiline: true }),
+  };
   const save = () =>
     run(api<MyProfile>('/member/matrimony/profile', { method: profile ? 'PUT' : 'POST', body }));
 
@@ -121,20 +133,20 @@ export default function MyMatrimonyProfile() {
           onChange={setManagedBy}
         />
         <Chips label="Education" options={Object.keys(EDUCATION) as (keyof typeof EDUCATION)[]} value={education} onChange={setEducation} />
-        <Field label="Degree / course" value={form.educationDetail} onChangeText={set('educationDetail')} placeholder="e.g. B.Tech, Computer Engineering" maxLength={120} />
-        <Field label="Occupation" value={form.occupation} onChangeText={set('occupation')} placeholder="e.g. Software Engineer" maxLength={80} />
-        <Field label="Gotra / Kula" value={form.gotra} onChangeText={set('gotra')} placeholder="e.g. Bharadwaja" maxLength={60} />
-        <Field label="Height (cm)" value={form.height} onChangeText={set('height')} placeholder="e.g. 168" keyboardType="number-pad" maxLength={3} />
+        <Field label="Degree / course" value={form.educationDetail} onChangeText={set('educationDetail')} placeholder="e.g. B.Tech, Computer Engineering" maxLength={120} error={errors.educationDetail} showError={stale('educationDetail')} />
+        <Field label="Occupation" value={form.occupation} onChangeText={set('occupation')} placeholder="e.g. Software Engineer" maxLength={80} error={errors.occupation} showError={stale('occupation')} />
+        <Field label="Gotra / Kula" value={form.gotra} onChangeText={set('gotra')} placeholder="e.g. Bharadwaja" maxLength={60} error={errors.gotra} showError={stale('gotra')} />
+        <Field label="Height (cm)" value={form.height} onChangeText={set('height')} placeholder="e.g. 168" keyboardType="number-pad" maxLength={3} error={errors.height} showError={stale('height')} />
         <Chips
           label="Family background"
           options={Object.keys(BACKGROUND) as (keyof typeof BACKGROUND)[]}
           value={background}
           onChange={setBackground}
         />
-        <Field label="About" value={form.about} onChangeText={set('about')} placeholder="A few lines about yourself" multiline maxLength={500} />
+        <Field label="About" value={form.about} onChangeText={set('about')} placeholder="A few lines about yourself" multiline maxLength={500} error={errors.about} showError={stale('about')} />
         <Button
           title={busy ? 'Saving…' : profile ? 'Save changes' : 'Create profile'}
-          disabled={busy || !education || !background}
+          disabled={busy || !education || !background || !!firstError(...Object.values(errors))}
           onPress={save}
         />
 

@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from core.database import get_db
+from core.validation import Search
 from member.auth.deps import get_active_member, get_searching_member
 from member.directory import curd, search as es_search
 from member.directory.schema import DirectoryPage, HouseholdView
@@ -15,9 +16,9 @@ router = APIRouter(prefix="/member/directory", tags=["Member Directory"])
 
 @router.get("", response_model=DirectoryPage)
 def search(
-    name: str | None = Query(None, min_length=2, max_length=120),
+    name: Search(120, 2) | None = None,
     city_id: UUID | None = None,
-    family_name: str | None = Query(None, min_length=2, max_length=120),
+    family_name: Search(120, 2) | None = None,
     offset: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=50),
     member: Member = Depends(get_searching_member),

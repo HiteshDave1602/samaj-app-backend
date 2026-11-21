@@ -9,6 +9,7 @@ import { Button, Chips, DateField, Field, Notice, ScreenHeader, StatusView, Uplo
 import { api, mediaUrl, parseDmy, toDmy, upload, type PickedFile } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 import { usePalette } from '@/lib/theme';
+import { rules } from '@/lib/validate';
 
 // backend cityadmin/content/schema.py MediaOut / NewsSubmit
 type Media = { media_key: string; media_url: string };
@@ -28,6 +29,8 @@ export default function CreateNews() {
   const start = parseDmy(from, true);
   const end = parseDmy(until, true);
   const badRange = !!start && !!end && end < start;
+  const titleError = rules.text(title, { required: true, max: 200 });
+  const bodyError = rules.text(body, { required: true, max: 10000, multiline: true });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const [sent, setSent] = useState(false);
@@ -82,7 +85,7 @@ export default function CreateNews() {
       <ScreenHeader title="Create news" back />
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 20, paddingTop: 4, gap: 18 }}>
         <Chips label="Show as" options={['News', 'Ad'] as const} value={kind} onChange={setKind} />
-        <Field label="Title" value={title} onChangeText={setTitle} placeholder="What's the news?" maxLength={200} />
+        <Field label="Title" value={title} onChangeText={setTitle} placeholder="What's the news?" maxLength={200} error={titleError} />
         {banner ? (
           <Thumb uri={banner.media_url} wide onRemove={() => setBanner(undefined)} />
         ) : (
@@ -92,7 +95,7 @@ export default function CreateNews() {
             onPick={async (f) => setBanner(await send(f))}
           />
         )}
-        <Field label="Content" value={body} onChangeText={setBody} placeholder="Write the full news here" multiline maxLength={10000} />
+        <Field label="Content" value={body} onChangeText={setBody} placeholder="Write the full news here" multiline maxLength={10000} error={bodyError} />
         {extras.length > 0 && (
           <View className="flex-row flex-wrap gap-3">
             {extras.map((x) => (
@@ -131,7 +134,7 @@ export default function CreateNews() {
         {error && <Notice title="Something went wrong" body={error} tone={palette.rejected} />}
         <Button
           title={kind === 'Ad' ? 'Submit ad' : 'Submit news'}
-          disabled={busy || !title.trim() || !body.trim() || !banner || !start || !end || badRange}
+          disabled={busy || !!titleError || !!bodyError || !banner || !start || !end || badRange}
           onPress={submit}
         />
       </ScrollView>

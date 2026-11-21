@@ -3,6 +3,7 @@ Imports a sheet in the Super Admin's template, then checks the people in the app
 (audit_log rows stay: append-only)."""
 import csv
 import io
+import re
 import secrets
 from datetime import date, datetime, timedelta, timezone
 from uuid import uuid4
@@ -26,6 +27,8 @@ from superadmin.member_import.curd import HEADERS
 
 c = TestClient(app)
 tag = secrets.token_hex(4)
+# names take letters only (core/validation.py): the same tag spelt in letters, runs squeezed so it never repeats 4x
+name_tag = re.sub(r"(.)+", r"", tag.translate(str.maketrans("0123456789", "ghijklmnop")))
 now = datetime.now(timezone.utc)
 base = "/superadmin/imports"
 
@@ -70,7 +73,7 @@ with SessionLocal() as db:
     db.commit()
     city_ids, admin_ids, viewer_id = [city.city_id, other.city_id], [sa.admin_id, ca.admin_id], viewer.member_id
 
-fam = f"Zx{tag}"
+fam = f"Zx{name_tag}"
 head_mobile = f"9{secrets.randbelow(10**9):09d}"
 try:
     # template is the Super Admin's sheet; City Admins can't use these endpoints
@@ -119,7 +122,7 @@ try:
     head = c.get(f"{base}/{r.json()['import_job_id']}/rows", headers=sa_h).json()["items"][0]
     assert head["mobile_last4"] is None and all(s in head["error_message"] for s in ("Date of Birth", "Mobile")), head
     # a city the app doesn't have yet: fine in the dry run, created (once) on commit
-    r = upload(sheet([[f"Nyu-{tag}", f"Nav N{tag}", "Self", *e, ""], [f"NYU-{tag}", f"Nita N{tag}", "Wife", *e, ""]]))
+    r = upload(sheet([[f"Nyu-{tag}", f"Nav N{name_tag}", "Self", *e, ""], [f"NYU-{tag}", f"Nita N{name_tag}", "Wife", *e, ""]]))
     assert (r.json()["new_count"], r.json()["error_count"]) == (2, 0), r.json()
     with SessionLocal() as db:
         assert db.scalar(select(City).where(City.name == f"Nyu-{tag}")) is None  # dry run made nothing
@@ -128,7 +131,7 @@ try:
         nyu = db.scalars(select(City).where(func.lower(City.name) == f"nyu-{tag}")).all()
         assert len(nyu) == 1, nyu
         city_ids.append(nyu[0].city_id)
-        nav = db.scalar(select(FamilyMember).where(FamilyMember.full_name == f"Nita N{tag}"))
+        nav = db.scalar(select(FamilyMember).where(FamilyMember.full_name == f"Nita N{name_tag}"))
         assert db.get(Household, nav.household_id).city_id == nyu[0].city_id
     assert c.get(f"{base}/{jid}", headers=ca_h).status_code == 403
     assert c.get("/cityadmin/imports", headers=ca_h).json()["total"] == 0  # not in the City Admin's list

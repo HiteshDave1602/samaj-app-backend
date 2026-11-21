@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from cityadmin.member_import.model import ImportJob, ImportRow
 from core import private_files
 from core.security import fernet
+from core.validation import clean, person_name, place
 from member.auth.curd import NOTICE_VERSION, mobile_hash
 from member.auth.schema import to_e164
 from member.profile.model import Consent, Household, Member
@@ -53,7 +54,7 @@ def _text(v) -> str:
         return (v.date() if isinstance(v, datetime) else v).isoformat()
     if isinstance(v, float) and v.is_integer():  # a mobile number typed into a number cell
         return str(int(v))
-    return str(v).strip()
+    return clean(str(v))  # same tidy-up as the API: NFC, no control characters, single spaces
 
 
 def _read(filename: str, data: bytes) -> tuple[str, list[list[str]]]:
@@ -63,7 +64,7 @@ def _read(filename: str, data: bytes) -> tuple[str, list[list[str]]]:
             text = data.decode("utf-8-sig")
         except UnicodeDecodeError:
             raise HTTPException(400, "Save the CSV as UTF-8 and upload it again")
-        return "CSV", [[c.strip() for c in r] for r in csv.reader(io.StringIO(text))]
+        return "CSV", [[clean(c) for c in r] for r in csv.reader(io.StringIO(text))]
     if ext == ".xlsx":
         try:
             wb = openpyxl.load_workbook(io.BytesIO(data), read_only=True, data_only=True)
@@ -102,6 +103,8 @@ def _clean(cells: list[str]) -> tuple[dict | None, str | None]:
         errors.append("dob must be a past date like 1975-08-15")
     if not 1 <= len(family) <= 120:
         errors.append("family_name is required (max 120 characters)")
+    errors += _quality({"full_name": (name, person_name), "family_name": (family, person_name),
+                        "native_place": (v["native_place"], place)})
     if len(v["native_place"]) > 120 or len(v["address"]) > 500:
         errors.append("native_place is limited to 120 characters and address to 500")
     if any(cells[len(HEADERS):]):
@@ -110,6 +113,17 @@ def _clean(cells: list[str]) -> tuple[dict | None, str | None]:
         return None, "; ".join(errors)
     return {"full_name": name, "mobile": mobile, "gender": gender, "dob": dob.isoformat(), "family_name": family,
             "native_place": v["native_place"] or None, "address": v["address"] or None}, None
+
+
+def _quality(fields: dict) -> list[str]:
+    """The API's data-quality rules (core/validation.py) on filled-in cells: "full_name: Use letters only in a name"."""
+    out = []
+    for key, (value, rule) in fields.items():
+        try:
+            value and rule(value)
+        except ValueError as e:
+            out.append(f"{key}: {e}")
+    return out
 
 
 def _same_name(a: str | None, b: str) -> bool:

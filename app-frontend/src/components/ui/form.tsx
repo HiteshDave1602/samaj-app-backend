@@ -73,21 +73,41 @@ export function Button({
   );
 }
 
-export function Field({ label, hint, multiline, placeholder, ...props }: TextInputProps & { label: string; hint?: string }) {
+/** error: a message from lib/validate.ts ('' = fine). Shown once the person has left the field, never on first load;
+ * showError shows it at once (a saved value from the server that today's rules refuse, so Save isn't disabled silently). */
+export function Field({
+  label,
+  hint,
+  error,
+  showError,
+  multiline,
+  placeholder,
+  onBlur,
+  ...props
+}: TextInputProps & { label: string; hint?: string; error?: string; showError?: boolean }) {
   const palette = usePalette();
   const t = useT();
+  const [left, setLeft] = useState(false);
+  const shown = (left || !!showError) && !!error;
   return (
     <View>
       <Text className="mb-1.5 font-inter-medium text-sm text-ink">{t(label)}</Text>
       <TextInput
         {...props}
+        onBlur={(e) => (setLeft(true), onBlur?.(e))}
         placeholder={placeholder && t(placeholder)}
         multiline={multiline}
         placeholderTextColor={palette.muted}
         textAlignVertical={multiline ? 'top' : 'center'}
-        className={`rounded-2xl border border-line bg-card px-4 font-inter text-base text-ink ${multiline ? 'min-h-32 py-3' : 'h-12'}`}
+        accessibilityLabel={t(label)}
+        accessibilityHint={shown ? t(error!) : undefined}
+        className={`rounded-2xl border ${shown ? 'border-rejected' : 'border-line'} bg-card px-4 font-inter text-base text-ink ${multiline ? 'min-h-32 py-3' : 'h-12'}`}
       />
-      {hint && <Text className="mt-1 font-inter text-xs text-muted">{t(hint)}</Text>}
+      {shown ? (
+        <Text accessibilityLiveRegion="polite" className="mt-1 font-inter text-xs text-rejected">{t(error!)}</Text>
+      ) : (
+        hint && <Text className="mt-1 font-inter text-xs text-muted">{t(hint)}</Text>
+      )}
     </View>
   );
 }

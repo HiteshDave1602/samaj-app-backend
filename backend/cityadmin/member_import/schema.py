@@ -4,6 +4,8 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
+from core.validation import Strict
+
 
 class ImportJobOut(BaseModel):
     import_job_id: UUID
@@ -41,6 +43,6 @@ class ImportRowPage(BaseModel):
     items: list[ImportRowOut]
 
 
-class ResolveIn(BaseModel):
+class ResolveIn(Strict):
     # APPLY: the file is right; overwrite the member's name, DOB and details. SKIP: keep the member as is.
     action: Literal["APPLY", "SKIP"]

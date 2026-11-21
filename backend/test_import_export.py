@@ -111,7 +111,8 @@ try:
         ["", "123", "X", "31/02/1990", "", "", ""],  # 6 ERROR: everything wrong
         ["Dup", f"+91 {N1[:5]} {N1[5:]}", "MALE", "1985-03-03", "D", "", ""],  # 7 ERROR: same number as row 2
         ["", "", "", "", "", "", ""],  # 8 blank: ignored
-        ["=HYPERLINK(\"x\")", N2, "OTHER", "15/08/1975", "Desai", "Vadodara", ""],  # 9 NEW, DD/MM/YYYY
+        # 9 NEW, DD/MM/YYYY. The formula sits in the address: a name like that is refused (core/validation.py)
+        ["Hari Desai", N2, "OTHER", "15/08/1975", "Desai", "Vadodara", "=HYPERLINK(\"x\")"],
     ]))
     assert r.status_code == 201, r.text
     job = r.json()
@@ -211,8 +212,8 @@ try:
     sheet = opened(r.content)
     assert list(sheet[0]) == ALL_COLUMNS and int(r.headers["x-row-count"]) == len(sheet) - 1, sheet
     names = {row[0] for row in sheet[1:]}  # own city only, ACTIVE by default
-    assert names == {"Kiran Shah", "Meena Iyer", "Nikhil Joshi", "=HYPERLINK(\"x\")", "Raced In"}, names
-    formula_like = [row[0] for row in opened(r.content, cells=True) if str(row[0].value).startswith("=")]
+    assert names == {"Kiran Shah", "Meena Iyer", "Nikhil Joshi", "Hari Desai", "Raced In"}, names
+    formula_like = [cell for row in opened(r.content, cells=True) for cell in row if str(cell.value).startswith("=")]
     assert [cell.data_type for cell in formula_like] == ["s"]  # stored as text, never run as a formula
 
     # filters and columns
@@ -242,7 +243,7 @@ try:
 
     # FR-80: 10,000 rows validated, deduplicated and committed within 2 minutes
     prefix = f"7{secrets.randbelow(10**4):04d}"
-    big = csv_file([[f"Bulk {i}", f"{prefix}{i:05d}", "MALE", "1990-01-01", "Bulk", "", ""] for i in range(10_000)])
+    big = csv_file([["Bulk Member", f"{prefix}{i:05d}", "MALE", "1990-01-01", "Bulk", "", ""] for i in range(10_000)])
     started = time.monotonic()
     r = upload(big)
     assert r.status_code == 201 and r.json()["new_count"] == 10_000, r.text[:300]

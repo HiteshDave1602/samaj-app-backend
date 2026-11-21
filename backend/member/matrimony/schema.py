@@ -4,8 +4,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator
 
+from core.validation import Email, PersonName, Place, Strict, Text
 from member.auth.schema import Mobile
-from superadmin.city_admin.schema import Email
 
 ManagedBy = Literal["SELF", "PARENT", "SIBLING", "RELATIVE"]  # FR-21
 EducationLevel = Literal["SCHOOL", "DIPLOMA", "GRADUATE", "POSTGRADUATE", "DOCTORATE", "OTHER"]
@@ -13,11 +13,11 @@ EducationLevel = Literal["SCHOOL", "DIPLOMA", "GRADUATE", "POSTGRADUATE", "DOCTO
 FamilyBackground = Literal["JOINT", "NUCLEAR", "OTHER"]
 
 
-def _text(n: int):
-    return Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=n)]
+def _text(n: int, multiline: bool = False):
+    return Text(n, multiline=multiline)
 
 
-class ProfileCreate(BaseModel):
+class ProfileCreate(Strict):
     location_city_id: UUID | None = None  # defaults to the member's city
     managed_by: ManagedBy = "SELF"
     education_level: EducationLevel
@@ -26,10 +26,10 @@ class ProfileCreate(BaseModel):
     gotra: _text(60) | None = None
     height_cm: int | None = Field(None, ge=100, le=250)
     family_background: FamilyBackground
-    about: _text(500) | None = None  # public, so the City Admin reviews it with the photos
+    about: _text(500, multiline=True) | None = None  # public, so the City Admin reviews it with the photos
 
 
-class ProfileUpdate(BaseModel):
+class ProfileUpdate(Strict):
     """Send only the fields that change; null clears an optional one."""
     location_city_id: UUID | None = None
     managed_by: ManagedBy | None = None
@@ -39,7 +39,7 @@ class ProfileUpdate(BaseModel):
     gotra: _text(60) | None = None
     height_cm: int | None = Field(None, ge=100, le=250)
     family_background: FamilyBackground | None = None
-    about: _text(500) | None = None
+    about: _text(500, multiline=True) | None = None
 
     @field_validator("location_city_id", "managed_by", "education_level", "family_background", mode="before")
     @classmethod
@@ -132,28 +132,27 @@ class PublicProfileOut(ProfileCard):
 
 # ponytail: field set v1 is a guess at a typical Samaj biodata; the DDD leaves it open (OQ-12).
 # Bump BIODATA_SCHEMA_VERSION when it changes.
-class BiodataIn(BaseModel):
+class BiodataIn(Strict):
     """PUT replaces the whole biodata; omitted fields are cleared."""
-    model_config = ConfigDict(extra="forbid")
 
     height_cm: int | None = Field(None, ge=100, le=250)
     diet: Literal["VEG", "NON_VEG", "EGGETARIAN", "JAIN", "VEGAN"] | None = None
     birth_time: Annotated[str, StringConstraints(pattern=r"^([01]\d|2[0-3]):[0-5]\d$")] | None = None  # HH:MM
-    birth_place: _text(120) | None = None
+    birth_place: Place(120) | None = None
     rashi: _text(40) | None = None
     nakshatra: _text(40) | None = None
     gotra: _text(60) | None = None
     manglik: Literal["YES", "NO", "ANSHIK", "DONT_KNOW"] | None = None
-    father_name: _text(120) | None = None
+    father_name: PersonName | None = None
     father_occupation: _text(120) | None = None
-    mother_name: _text(120) | None = None
+    mother_name: PersonName | None = None
     mother_occupation: _text(120) | None = None
-    siblings: _text(300) | None = None
+    siblings: _text(300, multiline=True) | None = None
     annual_income: _text(60) | None = None
-    residence_address: _text(500) | None = None
+    residence_address: _text(500, multiline=True) | None = None
     contact_phone: Mobile | None = None
     contact_email: Email | None = None
-    expectations: _text(1000) | None = None
+    expectations: _text(1000, multiline=True) | None = None
 
 
 class BiodataOut(BiodataIn):

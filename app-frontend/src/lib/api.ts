@@ -91,7 +91,15 @@ export async function logout() {
   if (refresh_token) await api('/member/auth/logout', { method: 'POST', body: { refresh_token } }, false).catch(() => {});
 }
 
+const fieldLabel = (k: string) => {
+  const last = k.split('.').pop()!.replace(/_/g, ' ');
+  return last.charAt(0).toUpperCase() + last.slice(1);
+};
+
 function detail(json: any, fallback: string): string {
+  // 422s name each field: "Full name: Enter a real name"
+  const fields: Record<string, string> | undefined = json?.error?.fields;
+  if (fields) return Object.entries(fields).map(([k, m]) => (k === 'body' ? m : `${fieldLabel(k)}: ${m}`)).join('; ');
   const d = json?.detail;
   if (typeof d === 'string') return d;
   if (Array.isArray(d)) return d.map((e) => e.msg.replace(/^Value error, /, '')).join('; ');
@@ -126,8 +134,10 @@ export async function api<T = any>(
     clearTimeout(timer);
   }
   if (res.status === 401 && retry && access && (await restoreSession())) return api(path, { method, body }, false);
-  if (!res.ok)
-    throw Object.assign(new Error(detail(await res.json().catch(() => null), `${res.status} ${res.statusText}`)), { status: res.status });
+  if (!res.ok) {
+    const json = await res.json().catch(() => null);
+    throw Object.assign(new Error(detail(json, `${res.status} ${res.statusText}`)), { status: res.status, fields: json?.error?.fields });
+  }
   return res.status === 204 ? (null as T) : res.json();
 }
 
