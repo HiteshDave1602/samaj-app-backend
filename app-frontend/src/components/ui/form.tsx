@@ -4,7 +4,7 @@ import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import { SymbolView, type SymbolViewProps } from 'expo-symbols';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { ActivityIndicator, Platform, Pressable, Text, TextInput, View, type TextInputProps } from 'react-native';
 
 import { mediaUrl, parseDmy, toDmy, type PickedFile } from '@/lib/api';
@@ -266,6 +266,41 @@ export function Notice({ title, body, tone: given }: { title: string; body: stri
     <View className="rounded-2xl p-4" style={{ backgroundColor: tone.container }}>
       <Text className="font-inter-semibold text-sm" style={{ color: tone.DEFAULT }}>{t(title)}</Text>
       <Text className="mt-0.5 font-inter text-sm" style={{ color: tone.DEFAULT }}>{t(body)}</Text>
+    </View>
+  );
+}
+
+/** Seconds left until a deadline; start(s) sets it s seconds from now. Wall-clock based, so a backgrounded app stays right. */
+export function useCountdown() {
+  const [{ now, end }, setTimes] = useState({ now: 0, end: 0 });
+  const left = Math.max(0, Math.ceil((end - now) / 1000));
+  useEffect(() => {
+    if (!left) return;
+    const id = setTimeout(() => setTimes((x) => ({ ...x, now: Date.now() })), 1000);
+    return () => clearTimeout(id);
+  }, [left, now]);
+  const start = (seconds: number) => {
+    const t = Date.now();
+    setTimes({ now: t, end: t + seconds * 1000 });
+  };
+  return [left, start] as const;
+}
+
+/** After an OTP send: the code itself (demo backend only, OTP_SHOW_CODE) and its time left. */
+export function OtpStatus({ code, left }: { code?: string; left: number }) {
+  const palette = usePalette();
+  const t = useT();
+  if (!left) return <Notice title="Code expired" body="Tap Resend code to get a new one." tone={palette.rejected} />;
+  const tone = palette.info;
+  return (
+    <View className="items-center rounded-2xl p-4" style={{ backgroundColor: tone.container }}>
+      {code && (
+        <>
+          <Text className="font-inter text-sm" style={{ color: tone.DEFAULT }}>{t('Your code')}</Text>
+          <Text selectable className="font-inter-semibold text-3xl tracking-[8px]" style={{ color: tone.DEFAULT }}>{code}</Text>
+        </>
+      )}
+      <Text className="mt-1 font-inter text-sm" style={{ color: tone.DEFAULT }}>{t('Expires in {s}s', { s: String(left) })}</Text>
     </View>
   );
 }

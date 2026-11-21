@@ -1,16 +1,15 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { KeyboardAvoidingView, ScrollView, Text, View } from 'react-native';
+import { KeyboardAvoidingView, LayoutAnimation, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BrandHeader, Credits, useKeyboardOpen } from '@/components/brand';
-import { Button, Field, Notice } from '@/components/ui/form';
-import { api, saveSession, type Session } from '@/lib/api';
+import { Button, Field, Notice, OtpStatus, useCountdown } from '@/components/ui/form';
+import { api, saveSession, type OtpSent, type Session } from '@/lib/api';
 import { syncLang, useT } from '@/lib/i18n';
 import { usePalette } from '@/lib/theme';
 
 type VerifyOut = { registered: boolean; session?: Session; registration_ticket?: string };
-
 // The samaj's name as written on its logo, the same in every app language
 const ORG = 'શ્રી સુરત અઠ્ઠાવીશી મોઢ ચાતુર્વેદી બ્રાહ્મણ પરિવાર';
 const MANDAL = 'પ્રગતિ મંડળ';
@@ -27,6 +26,8 @@ export default function Login() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const [unknown, setUnknown] = useState(false); // no account for this number
+  const [shownCode, setShownCode] = useState<string>();
+  const [left, startCountdown] = useCountdown();
 
   async function run(step: () => Promise<void>) {
     setBusy(true);
@@ -43,12 +44,16 @@ export default function Login() {
 
   const sendCode = () =>
     run(async () => {
+      let r: OtpSent;
       try {
-        await api('/member/auth/otp/send', { method: 'POST', body: { mobile, intent: 'login' } });
+        r = await api<OtpSent>('/member/auth/otp/send', { method: 'POST', body: { mobile, intent: 'login' } });
       } catch (e) {
         if ((e as { status?: number }).status === 404) return setUnknown(true);
         throw e;
       }
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut); // number form -> code form
+      setShownCode(r.code);
+      startCountdown(r.expires_in_seconds);
       setCode('');
       setSent(true);
     });
@@ -98,10 +103,12 @@ export default function Login() {
                   maxLength={6}
                   autoFocus
                 />
+                <OtpStatus code={shownCode} left={left} />
                 {error && <Notice title="Could not log in" body={error} tone={palette.rejected} />}
-                <Button title={busy ? 'Please wait…' : 'Verify'} disabled={busy || code.length !== 6} onPress={verify} />
+                <Button title={busy ? 'Please wait…' : 'Verify'} disabled={busy || !left || code.length !== 6} onPress={verify} />
                 <View className="flex-row justify-between">
-                  <Button title="Change number" variant="outlined" small onPress={() => (setSent(false), setError(undefined))} />
+                  {/* the number stays locked while its code is live */}
+                  {!left && <Button title="Change number" variant="outlined" small onPress={() => (setSent(false), setError(undefined))} />}
                   <Button title="Resend code" variant="outlined" small disabled={busy} onPress={sendCode} />
                 </View>
               </>

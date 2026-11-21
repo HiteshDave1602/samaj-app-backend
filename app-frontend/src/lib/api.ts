@@ -12,6 +12,9 @@ export type Session = {
   member_status: 'PENDING' | 'ACTIVE' | 'REJECTED' | 'ARCHIVED';
 };
 
+/** POST /member/auth/otp/send. code: only from a demo backend (OTP_SHOW_CODE), which shows it instead of an SMS. */
+export type OtpSent = { registered: boolean; expires_in_seconds: number; code?: string };
+
 // Keychain/Keystore on device; SecureStore has no web build, so the web preview falls back to localStorage.
 export const store =
   Platform.OS === 'web'

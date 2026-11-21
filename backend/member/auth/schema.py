@@ -39,6 +39,7 @@ class OtpSendIn(BaseModel):
 class OtpSendOut(BaseModel):
     registered: bool  # true: the app shows login; false: it continues to the profile form after the OTP
     expires_in_seconds: int
+    code: str | None = None  # only with settings.otp_show_code (demo, no SMS gateway yet)
 
 
 class OtpVerifyIn(BaseModel):

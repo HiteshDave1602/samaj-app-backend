@@ -15,7 +15,7 @@ from superadmin.city.schema import CityOut
 router = APIRouter(prefix="/member/auth", tags=["Member Auth"])
 
 
-@router.post("/otp/send", response_model=OtpSendOut)
+@router.post("/otp/send", response_model=OtpSendOut, response_model_exclude_none=True)
 def send_otp(data: OtpSendIn, request: Request, db: Session = Depends(get_db)):
     return curd.send_otp(db, data.mobile, client_ip(request), data.intent)
 

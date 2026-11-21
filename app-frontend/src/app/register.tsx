@@ -1,12 +1,12 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Pressable, ScrollView, Text, View } from 'react-native';
+import { KeyboardAvoidingView, LayoutAnimation, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BrandHeader, Credits } from '@/components/brand';
-import { Button, Chips, DateField, Field, Notice } from '@/components/ui/form';
-import { api, isoDate, parseDmy, saveSession, type Session } from '@/lib/api';
+import { Button, Chips, DateField, Field, Notice, OtpStatus, useCountdown } from '@/components/ui/form';
+import { api, isoDate, parseDmy, saveSession, type OtpSent, type Session } from '@/lib/api';
 import { getLang, useLoc, useT } from '@/lib/i18n';
 import { usePalette } from '@/lib/theme';
 
@@ -31,6 +31,9 @@ export default function Register() {
   const [mobile, setMobile] = useState(params.mobile ?? '');
   const [code, setCode] = useState('');
   const [codeSent, setCodeSent] = useState(false);
+  const [shownCode, setShownCode] = useState<string>();
+  const [left, startCountdown] = useCountdown();
+  const expired = codeSent && !left; // the submit button resends instead
   const [taken, setTaken] = useState(false); // the number already has an account
   const [cities, setCities] = useState<City[]>([]);
   const [form, setForm] = useState({ name: '', dob: '', family: '', native: '', address: '' });
@@ -65,13 +68,18 @@ export default function Register() {
     try {
       let ticket = params.ticket;
       if (!ticket) {
-        if (!codeSent) {
+        if (!codeSent || expired) {
+          let r: OtpSent;
           try {
-            await api('/member/auth/otp/send', { method: 'POST', body: { mobile, intent: 'register' } });
+            r = await api<OtpSent>('/member/auth/otp/send', { method: 'POST', body: { mobile, intent: 'register' } });
           } catch (e) {
             if ((e as { status?: number }).status === 409) return setTaken(true);
             throw e;
           }
+          LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut); // code field slides in
+          setShownCode(r.code);
+          startCountdown(r.expires_in_seconds);
+          setCode('');
           return setCodeSent(true);
         }
         const r = await api<{ session?: Session; registration_ticket?: string }>('/member/auth/otp/verify', {
@@ -122,6 +130,8 @@ export default function Register() {
                 label="Mobile number"
                 value={mobile}
                 onChangeText={(v) => (setMobile(v), setCodeSent(false), setTaken(false))}
+                editable={!codeSent || expired} // locked while its code is live
+                style={codeSent && !expired ? { opacity: 0.6 } : undefined}
                 placeholder="98765 43210"
                 keyboardType="phone-pad"
                 autoComplete="tel"
@@ -182,11 +192,12 @@ export default function Register() {
                 autoFocus
               />
             )}
+            {codeSent && <OtpStatus code={shownCode} left={left} />}
             {error && <Notice title="Could not register" body={error} tone={palette.rejected} />}
             {!ready && <Text className="font-inter text-sm text-subtle">{t('Still needed: {fields}', { fields: missing.map((m) => t(m)).join(', ') })}</Text>}
             <Button
-              title={busy ? 'Submitting…' : codeSent ? 'Verify and submit' : 'Submit for approval'}
-              disabled={busy || !ready || taken || (codeSent && code.length !== 6)}
+              title={busy ? 'Submitting…' : expired ? 'Resend code' : codeSent ? 'Verify and submit' : 'Submit for approval'}
+              disabled={busy || !ready || taken || (codeSent && !expired && code.length !== 6)}
               onPress={submit}
             />
             <View className="h-4" />

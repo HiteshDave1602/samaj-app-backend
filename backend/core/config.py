@@ -15,6 +15,10 @@ class Settings(BaseSettings):
     admin_mfa: bool = True
     # True: member OTP verify accepts any 6-digit code. ponytail: dev-only until the SMS gateway lands; never in prod.
     otp_bypass: bool = False
+    # True: /member/auth/otp/send returns the code so the app shows it on screen. Demo-only until the SMS gateway
+    # lands: with it on, anyone who types a number can log in as that member. Never in prod.
+    otp_show_code: bool = False
+    otp_ttl_seconds: int = 60  # how long a member OTP stays valid
     media_dir: str = "media"  # uploaded news/ad images
     private_dir: str = "private"  # ID documents, matrimony photos, import files; encrypted, never served directly
     # Optional contact email for the free translation service; raises its daily allowance from 5,000 to 50,000 characters.
