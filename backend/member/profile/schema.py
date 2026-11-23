@@ -4,8 +4,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, field_validator
 
-from core.validation import Strict
-from member.auth.schema import Address, Dob, Gender, Language, Name, NativePlace
+from core.validation import Strict, Text
+from member.auth.schema import Address, BloodGroup, Dob, Gender, Language, MaritalStatus, Name, NativePlace
 
 OtherLanguage = Literal["gu", "hi"]
 
@@ -34,6 +34,12 @@ class MemberOut(BaseModel):
     family_name_i18n: dict[str, str]
     native_place: str | None
     native_place_i18n: dict[str, str]
+    gotra: str | None = None
+    education: str | None = None
+    marital_status: str | None = None
+    occupation: str | None = None
+    hobby: str | None = None
+    blood_group: str | None = None
     is_household_head: bool
     status: str  # PENDING: the app shows only Panchang and News (FR-08)
     rejection_reason: str | None
@@ -53,6 +59,13 @@ class MemberUpdate(Strict):
     address: Address | None = None
     family_name: Name | None = None  # household head only
     native_place: NativePlace | None = None  # household head only; null clears it
+    # optional details; null clears them
+    gotra: Text(120) | None = None
+    education: Text(120) | None = None
+    marital_status: MaritalStatus | None = None
+    occupation: Text(120) | None = None
+    hobby: Text(200) | None = None
+    blood_group: BloodGroup | None = None
     hide_phone: bool | None = None
     hide_address: bool | None = None
     notify_news: bool | None = None

@@ -9,7 +9,7 @@ import { Button, Chips, DateField, Field, Notice, OtpStatus, useCountdown } from
 import { api, isoDate, parseDmy, saveSession, type OtpSent, type Session } from '@/lib/api';
 import { getLang, useLoc, useT } from '@/lib/i18n';
 import { usePalette } from '@/lib/theme';
-import { rules } from '@/lib/validate';
+import { BLOOD, MARITAL, rules, type Blood, type Marital } from '@/lib/validate';
 
 // Must match NOTICE_VERSION in backend/member/auth/curd.py; bump both when the text below changes.
 // ponytail: placeholder wording, swap in the approved consent notice from the PRD
@@ -29,7 +29,8 @@ export default function Register() {
   // ticket: number already verified (older login flow); otherwise mobile comes pre-filled from login and the code is
   // asked once, at submit, after the form is filled
   const params = useLocalSearchParams<{ ticket?: string; mobile?: string }>();
-  const [mobile, setMobile] = useState(params.mobile ?? '');
+  // 10 digits only; a number carried over from login may have spaces or +91, so keep its last 10 digits
+  const [mobile, setMobile] = useState((params.mobile ?? '').replace(/\D/g, '').slice(-10));
   const [code, setCode] = useState('');
   const [codeSent, setCodeSent] = useState(false);
   const [shownCode, setShownCode] = useState<string>();
@@ -37,9 +38,14 @@ export default function Register() {
   const expired = codeSent && !left; // the submit button resends instead
   const [taken, setTaken] = useState(false); // the number already has an account
   const [cities, setCities] = useState<City[]>([]);
-  const [form, setForm] = useState({ name: '', dob: '', family: '', native: '', address: '' });
+  const [form, setForm] = useState({
+    name: '', dob: '', family: '', native: '', address: '', gotra: '', education: '', occupation: '', hobby: '',
+  });
   const [gender, setGender] = useState<GenderLabel>();
+  const [marital, setMarital] = useState<Marital>();
+  const [blood, setBlood] = useState<Blood>();
   const [cityId, setCityId] = useState<string>(); // by id: the name changes with the language
+  const [cityText, setCityText] = useState('');
   const [consent, setConsent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
@@ -49,14 +55,24 @@ export default function Register() {
     api<City[]>('/member/auth/cities').then(setCities, (e) => setError(e.message));
   }, []);
 
-  // ponytail: city chips suit a handful of cities; switch to a searchable list once there are dozens
   const city = cities.find((c) => c.city_id === cityId);
+  const cityName = (c: City) => place(c.name, c.name_i18n)!;
+  const q = cityText.trim().toLowerCase();
+  // matches the English or the shown (Gujarati/Hindi) name, so either script works
+  const citySuggestions = !q || city ? [] : cities
+    .filter((c) => c.name.toLowerCase().includes(q) || cityName(c).toLowerCase().includes(q))
+    .slice(0, 6);
+  const optional = (v: string) => v.trim() || null;
   const errors = {
     mobile: params.ticket ? '' : rules.mobile(mobile),
     name: rules.personName(form.name, { required: true }),
     family: rules.personName(form.family, { required: true }),
     native: rules.place(form.native),
     address: rules.text(form.address, { required: true, max: 500, multiline: true }),
+    gotra: rules.text(form.gotra, { max: 120 }),
+    education: rules.text(form.education, { max: 120 }),
+    occupation: rules.text(form.occupation, { max: 120 }),
+    hobby: rules.text(form.hobby, { max: 200 }),
   };
   const missing = [
     !params.ticket && mobile.trim().length < 10 && 'mobile number',
@@ -110,8 +126,14 @@ export default function Register() {
           dob: isoDate(form.dob),
           city_id: city!.city_id,
           family_name: form.family,
-          native_place: form.native.trim() || null,
+          native_place: optional(form.native),
           address: form.address,
+          gotra: optional(form.gotra),
+          education: optional(form.education),
+          marital_status: marital ?? null,
+          occupation: optional(form.occupation),
+          hobby: optional(form.hobby),
+          blood_group: blood ?? null,
           language: getLang(),
           consent: true,
           notice_version: NOTICE_VERSION,
@@ -137,11 +159,12 @@ export default function Register() {
               <Field
                 label="Mobile number"
                 value={mobile}
-                onChangeText={(v) => (setMobile(v), setCodeSent(false), setTaken(false))}
+                onChangeText={(v) => (setMobile(v.replace(/\D/g, '').slice(0, 10)), setCodeSent(false), setTaken(false))}
+                maxLength={10}
                 editable={!codeSent || expired} // locked while its code is live
                 style={codeSent && !expired ? { opacity: 0.6 } : undefined}
-                placeholder="98765 43210"
-                keyboardType="phone-pad"
+                placeholder="9876543210"
+                keyboardType="number-pad"
                 autoComplete="tel"
                 hint="Indian numbers need no +91"
                 error={errors.mobile}
@@ -150,19 +173,40 @@ export default function Register() {
             <Field label="Full name" value={form.name} onChangeText={set('name')} placeholder="As on your ID" autoComplete="name" maxLength={120} error={errors.name} />
             <Chips label="Gender" options={Object.keys(GENDERS) as GenderLabel[]} value={gender} onChange={setGender} />
             <DateField label="Date of birth" value={form.dob} onChange={set('dob')} />
-            <Chips
-              label="City"
-              options={cities.map((c) => c.city_id)}
-              display={(id) => {
-                const c = cities.find((x) => x.city_id === id)!;
-                return place(c.name, c.name_i18n)!;
-              }}
-              value={cityId}
-              onChange={setCityId}
-            />
+            <View>
+              <Field
+                label="City"
+                value={city ? cityName(city) : cityText}
+                onChangeText={(v) => (setCityText(v), setCityId(undefined))} // typing again reopens the list
+                placeholder="Start typing your city"
+                maxLength={120}
+                autoCorrect={false}
+                hint={q && !city && !citySuggestions.length ? 'No matching city' : undefined}
+              />
+              {citySuggestions.length > 0 && (
+                <View className="mt-1 overflow-hidden rounded-2xl border border-line bg-card">
+                  {citySuggestions.map((c) => (
+                    <Pressable
+                      key={c.city_id}
+                      onPress={() => (setCityId(c.city_id), setCityText(cityName(c)))}
+                      accessibilityRole="button"
+                      className="border-b border-line px-4 py-3 active:opacity-60">
+                      <Text className="font-inter text-base text-ink">{cityName(c)}</Text>
+                      <Text className="font-inter text-xs text-muted">{c.state}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              )}
+            </View>
             <Field label="Family name" value={form.family} onChangeText={set('family')} placeholder="e.g. Patel" maxLength={120} error={errors.family} />
             <Field label="Native place (optional)" value={form.native} onChangeText={set('native')} placeholder="e.g. Visnagar" maxLength={120} error={errors.native} />
             <Field label="Address" value={form.address} onChangeText={set('address')} placeholder="House, street, area" multiline maxLength={500} error={errors.address} />
+            <Field label="Gotra / Vatan (optional)" value={form.gotra} onChangeText={set('gotra')} maxLength={120} error={errors.gotra} />
+            <Chips label="Marital status (optional)" options={MARITAL} value={marital} onChange={setMarital} />
+            <Field label="Education (optional)" value={form.education} onChangeText={set('education')} placeholder="e.g. B.Com" maxLength={120} error={errors.education} />
+            <Field label="Occupation (optional)" value={form.occupation} onChangeText={set('occupation')} placeholder="e.g. Business" maxLength={120} error={errors.occupation} />
+            <Chips label="Blood group (optional)" options={BLOOD} value={blood} onChange={setBlood} display={(b) => b} />
+            <Field label="Hobby (optional)" value={form.hobby} onChangeText={set('hobby')} placeholder="e.g. Reading, cricket" maxLength={200} error={errors.hobby} />
 
             <Pressable
               onPress={() => setConsent(!consent)}

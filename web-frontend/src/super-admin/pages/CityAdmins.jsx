@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { api, fmtDate, fmtDateTime, qs, useLoad, useSubmit, useToast } from '../../shared/api'
-import { Badge, Button, ErrorText, Field, FormActions, Modal, PageHeader, StatusBadge, Table, Toolbar, inputCls } from '../../shared/ui'
+import { Badge, Button, Combobox, ErrorText, Field, FormActions, Modal, PageHeader, StatusBadge, Table, Toolbar, inputCls } from '../../shared/ui'
 
 export default function CityAdmins() {
   const [filters, setFilters] = useState({ city_id: '', status: '' })
-  const [modal, setModal] = useState(null) // { kind: 'new' | 'edit' | 'password' | 'mfa', admin }
+  const [modal, setModal] = useState(null) // { kind: 'new' | 'edit' | 'mfa', admin }
   const cities = useLoad('/superadmin/cities')
   const list = useLoad(`/superadmin/city-admins${qs(filters)}`)
   const cityName = Object.fromEntries(cities.data?.map((c) => [c.city_id, c.name]) ?? [])
@@ -48,7 +48,6 @@ export default function CityAdmins() {
               {a.status !== 'DEACTIVATED' && (
                 <>
                   <Button variant="text" className="h-8 px-3" onClick={() => setModal({ kind: 'edit', admin: a })}>Edit</Button>
-                  <Button variant="text" className="h-8 px-3" onClick={() => setModal({ kind: 'password', admin: a })}>Reset password</Button>
                   {a.mfa_enrolled_at && <Button variant="text" className="h-8 px-3" onClick={() => setModal({ kind: 'mfa', admin: a })}>Reset two-step</Button>}
                 </>
               )}
@@ -59,14 +58,13 @@ export default function CityAdmins() {
 
       {modal?.kind === 'new' && <NewAdmin cities={cities.data?.filter((c) => c.is_active) ?? []} onClose={close} onSaved={saved} />}
       {modal?.kind === 'edit' && <EditAdmin admin={modal.admin} onClose={close} onSaved={saved} />}
-      {modal?.kind === 'password' && <ResetPassword admin={modal.admin} onClose={close} onSaved={saved} />}
       {modal?.kind === 'mfa' && <ResetMfa admin={modal.admin} onClose={close} onSaved={saved} />}
     </>
   )
 }
 
-const Password = ({ label = 'Password' }) => (
-  <Field label={label} hint="At least 12 characters. Share it with the admin privately.">
+const Password = () => (
+  <Field label="Password" hint="At least 12 characters. Share it with the admin privately.">
     <input name="password" type="password" required minLength={12} maxLength={128} autoComplete="new-password" className={inputCls} />
   </Field>
 )
@@ -82,10 +80,10 @@ function NewAdmin({ cities, onClose, onSaved }) {
     <Modal title="Add City Admin" onClose={onClose}>
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
         <Field label="City">
-          <select name="city_id" required className={inputCls} defaultValue="">
-            <option value="" disabled>Choose a city</option>
-            {cities.map((c) => <option key={c.city_id} value={c.city_id}>{c.name}, {c.state}</option>)}
-          </select>
+          <Combobox
+            name="city_id" required placeholder="Type to search cities"
+            options={cities.map((c) => ({ value: c.city_id, label: c.state ? `${c.name}, ${c.state}` : c.name }))}
+          />
         </Field>
         <Field label="Full name"><input name="full_name" required maxLength={120} className={inputCls} /></Field>
         <Field label="Email"><input name="email" type="email" required maxLength={254} autoComplete="off" className={inputCls} /></Field>
@@ -120,25 +118,6 @@ function EditAdmin({ admin, onClose, onSaved }) {
         </Field>
         <ErrorText>{error}</ErrorText>
         <FormActions busy={busy} onCancel={onClose} />
-      </form>
-    </Modal>
-  )
-}
-
-function ResetPassword({ admin, onClose, onSaved }) {
-  const toast = useToast()
-  const { onSubmit, busy, error } = useSubmit(async ({ password }) => {
-    await api(`/superadmin/city-admins/${admin.admin_id}/reset-password`, { method: 'POST', body: { new_password: password } })
-    toast(`Password reset for ${admin.full_name}`)
-    onSaved()
-  })
-  return (
-    <Modal title="Reset password" onClose={onClose}>
-      <form onSubmit={onSubmit} className="flex flex-col gap-4">
-        <p className="text-on-surface-variant">Set a new password for <b className="text-on-surface">{admin.full_name}</b>. They'll be signed out of every device.</p>
-        <Password label="New password" />
-        <ErrorText>{error}</ErrorText>
-        <FormActions busy={busy} label="Reset password" onCancel={onClose} />
       </form>
     </Modal>
   )

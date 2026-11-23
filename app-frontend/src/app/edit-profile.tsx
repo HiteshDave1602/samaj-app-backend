@@ -8,7 +8,7 @@ import { Button, Chips, DateField, Field, Notice, ScreenHeader, UploadBox } from
 import { api, dmyDate, isoDate, mediaUrl, parseDmy, restoreSession, upload } from '@/lib/api';
 import { LANGUAGES, useLang, useT } from '@/lib/i18n';
 import { usePalette } from '@/lib/theme';
-import { rules } from '@/lib/validate';
+import { BLOOD, MARITAL, rules, type Blood, type Marital } from '@/lib/validate';
 
 // backend member/profile/schema.py MemberOut (the editable part) and MemberUpdate
 type Me = {
@@ -21,6 +21,12 @@ type Me = {
   family_name_i18n: Record<string, string>;
   native_place: string | null;
   native_place_i18n: Record<string, string>;
+  gotra: string | null;
+  education: string | null;
+  marital_status: string | null;
+  occupation: string | null;
+  hobby: string | null;
+  blood_group: string | null;
   is_household_head: boolean;
   status: 'PENDING' | 'ACTIVE' | 'REJECTED' | 'ARCHIVED';
   hide_phone: boolean;
@@ -38,7 +44,12 @@ export default function EditProfile() {
   const palette = usePalette();
   const t = useT();
   const [me, setMe] = useState<Me>();
-  const [form, setForm] = useState({ name: '', dob: '', address: '', family: '', native: '', nameLoc: '', familyLoc: '', nativeLoc: '' });
+  const [form, setForm] = useState({
+    name: '', dob: '', address: '', family: '', native: '', nameLoc: '', familyLoc: '', nativeLoc: '',
+    gotra: '', education: '', occupation: '', hobby: '',
+  });
+  const [marital, setMarital] = useState<Marital>();
+  const [blood, setBlood] = useState<Blood>();
   // English has no spellings to correct; gu/hi edit the auto-transliterated ones
   const current = useLang();
   const lang = current === 'en' ? undefined : current;
@@ -60,7 +71,14 @@ export default function EditProfile() {
       nameLoc: (lang && m.full_name_i18n[lang]) ?? '',
       familyLoc: (lang && m.family_name_i18n[lang]) ?? '',
       nativeLoc: (lang && m.native_place_i18n[lang]) ?? '',
+      gotra: m.gotra ?? '',
+      education: m.education ?? '',
+      occupation: m.occupation ?? '',
+      hobby: m.hobby ?? '',
     });
+    // a value the app doesn't offer (e.g. from an import) shows as unselected
+    setMarital(MARITAL.find((v) => v === m.marital_status));
+    setBlood(BLOOD.find((v) => v === m.blood_group));
     setGender(genderLabel(m.gender));
     setFlags({ hide_phone: m.hide_phone, hide_address: m.hide_address, notify_news: m.notify_news });
   }
@@ -90,6 +108,10 @@ export default function EditProfile() {
     familyLoc: changed(form.familyLoc, loc(me?.family_name_i18n)) ? rules.personName(form.familyLoc) : '',
     native: changed(form.native, me?.native_place) ? rules.place(form.native) : '',
     nativeLoc: changed(form.nativeLoc, loc(me?.native_place_i18n)) ? rules.place(form.nativeLoc) : '',
+    gotra: changed(form.gotra, me?.gotra) ? rules.text(form.gotra, { max: 120 }) : '',
+    education: changed(form.education, me?.education) ? rules.text(form.education, { max: 120 }) : '',
+    occupation: changed(form.occupation, me?.occupation) ? rules.text(form.occupation, { max: 120 }) : '',
+    hobby: changed(form.hobby, me?.hobby) ? rules.text(form.hobby, { max: 200 }) : '',
   };
   const invalid = Object.values(errors).some(Boolean);
 
@@ -109,6 +131,10 @@ export default function EditProfile() {
       if (form.family.trim() !== (me.family_name ?? '')) body.family_name = form.family;
       if (form.native.trim() !== (me.native_place ?? '')) body.native_place = form.native.trim() || null;
     }
+    for (const k of ['gotra', 'education', 'occupation', 'hobby'] as const)
+      if (changed(form[k], me[k])) body[k] = form[k].trim() || null; // blank clears it
+    if (marital && marital !== me.marital_status) body.marital_status = marital;
+    if (blood && blood !== me.blood_group) body.blood_group = blood;
     if (lang) {
       const fix = (v: string, stored: Record<string, string>) => (v.trim() && v.trim() !== stored[lang] ? { [lang]: v } : undefined);
       body.full_name_i18n = fix(form.nameLoc, me.full_name_i18n);
@@ -215,6 +241,12 @@ export default function EditProfile() {
               )}
             </>
           )}
+          <Field label="Gotra / Vatan (optional)" value={form.gotra} onChangeText={set('gotra')} maxLength={120} error={errors.gotra} />
+          <Chips label="Marital status (optional)" options={MARITAL} value={marital} onChange={setMarital} />
+          <Field label="Education (optional)" value={form.education} onChangeText={set('education')} placeholder="e.g. B.Com" maxLength={120} error={errors.education} />
+          <Field label="Occupation (optional)" value={form.occupation} onChangeText={set('occupation')} placeholder="e.g. Business" maxLength={120} error={errors.occupation} />
+          <Chips label="Blood group (optional)" options={BLOOD} value={blood} onChange={setBlood} display={(b) => b} />
+          <Field label="Hobby (optional)" value={form.hobby} onChangeText={set('hobby')} placeholder="e.g. Reading, cricket" maxLength={200} error={errors.hobby} />
 
           <View className="rounded-3xl border border-line bg-card p-4">
             {toggle('hide_phone', 'Hide my phone in the directory')}

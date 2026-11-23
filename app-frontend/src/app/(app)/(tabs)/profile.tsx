@@ -23,6 +23,12 @@ type Me = {
   family_name_i18n: Record<string, string>;
   native_place: string | null;
   native_place_i18n: Record<string, string>;
+  gotra: string | null;
+  education: string | null;
+  marital_status: string | null;
+  occupation: string | null;
+  hobby: string | null;
+  blood_group: string | null;
 };
 
 function age(dob: string) {
@@ -52,6 +58,12 @@ export default function ProfileScreen() {
         ['Native place', loc(me.native_place, me.native_place_i18n) ?? '—'],
         ['City', loc(me.city_name, me.city_name_i18n)!],
         ['Mobile', me.mobile ?? '—'],
+        ['Gotra / Vatan', me.gotra ?? '—'],
+        ['Marital status', me.marital_status ? t(me.marital_status) : '—'],
+        ['Education', me.education ?? '—'],
+        ['Occupation', me.occupation ?? '—'],
+        ['Blood group', me.blood_group ?? '—'],
+        ['Hobby', me.hobby ?? '—'],
       ]
     : [];
 

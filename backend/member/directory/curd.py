@@ -11,7 +11,7 @@ from search import es
 from superadmin.city.model import City
 
 _listed = (Member.status == "ACTIVE", Member.deleted_at.is_(None))  # pending, rejected, archived never appear
-EXTRA = ("gotra", "education", "marital_status", "occupation", "hobby", "blood_group")  # directory-import details; members have none
+EXTRA = ("gotra", "education", "marital_status", "occupation", "hobby", "blood_group")  # profile details
 
 
 def _live(household_id):
@@ -28,7 +28,7 @@ def _members(name: str | None, city_id: UUID | None, family_name: str | None):
                 City.name.label("city_name"), City.name_i18n.label("city_name_i18n"), Member.mobile_enc,
                 Member.address_enc,
                 Member.hide_phone, Member.hide_address, Member.photo_key, Member.city_id,
-                *(null().label(c) for c in EXTRA))
+                *(getattr(Member, c) for c in EXTRA))
          .join(City, City.city_id == Member.city_id)
          .outerjoin(Household, Household.household_id == Member.household_id)
          .where(*_listed))

@@ -72,7 +72,6 @@ export default function Content({ me }) {
                 <div className="min-w-0">
                   <div className="mb-1 flex flex-wrap gap-1.5">
                     <Badge tone={c.content_type === 'AD' ? 'accent' : 'secondary'}>{c.content_type === 'AD' ? 'Ad' : 'News'}</Badge>
-                    {c.creative_format && <Badge>{c.creative_format === 'FULLSCREEN' ? 'Full screen' : 'Banner'}</Badge>}
                     {c.created_by_member_id && <Badge>From a member</Badge>}
                   </div>
                   <div className="font-semibold">{c.title}</div>
@@ -141,7 +140,8 @@ function ContentForm({ item, base, cities, onClose, onSaved }) {
       start_at: toIso(f.start_at),
       end_at: toIso(f.end_at),
       status: f.status,
-      ...(type === 'NEWS' ? { body: f.body } : { creative_format: f.creative_format }),
+      body: f.body || null,
+      ...(type === 'AD' ? { creative_format: 'BANNER' } : {}), // ads only show as home-page banners
       ...(media && media.media_key !== item.media_key ? { media_key: media.media_key } : {}),
     }
     if (isNew) {
@@ -166,11 +166,9 @@ function ContentForm({ item, base, cities, onClose, onSaved }) {
           </div>
         )}
         <Field label="Title" className="sm:col-span-2"><input name="title" required maxLength={200} defaultValue={item.title} className={inputCls} /></Field>
-        {type === 'NEWS' && (
-          <Field label="Body" className="sm:col-span-2">
-            <textarea name="body" required maxLength={10000} rows={6} defaultValue={item.body ?? ''} className={`${inputCls} h-auto py-2`} />
-          </Field>
-        )}
+        <Field label={type === 'NEWS' ? 'Body' : 'Body (optional)'} className="sm:col-span-2">
+          <textarea name="body" required={type === 'NEWS'} maxLength={10000} rows={6} defaultValue={item.body ?? ''} className={`${inputCls} h-auto py-2`} />
+        </Field>
         {isNew && cities ? (
           <Field label="Audience">
             <select name="city_id" defaultValue="" className={inputCls}>
@@ -179,14 +177,6 @@ function ContentForm({ item, base, cities, onClose, onSaved }) {
             </select>
           </Field>
         ) : <div className="hidden sm:block" />}
-        {type === 'AD' && (
-          <Field label="Format" hint="Full screen ads must be exactly 1080×1920 px.">
-            <select name="creative_format" defaultValue={item.creative_format ?? 'BANNER'} className={inputCls}>
-              <option value="BANNER">Banner</option>
-              <option value="FULLSCREEN">Full screen</option>
-            </select>
-          </Field>
-        )}
         <Field label="Starts"><input name="start_at" type="datetime-local" required defaultValue={toLocalInput(item.start_at)} className={inputCls} /></Field>
         <Field label="Ends"><input name="end_at" type="datetime-local" required defaultValue={toLocalInput(item.end_at ?? weekLater)} className={inputCls} /></Field>
 

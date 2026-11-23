@@ -16,7 +16,7 @@ from core import sms
 from core.config import settings
 from core.security import fernet, hash_password, verify_password
 from member.auth.model import OtpChallenge
-from member.auth.schema import RegisterIn
+from member.auth.schema import DETAILS, RegisterIn
 from member.profile.model import Consent, Household, Member
 from superadmin.city.model import City
 
@@ -158,6 +158,7 @@ def register(db: Session, data: RegisterIn) -> dict:
         dob=data.dob,
         address_enc=fernet.encrypt(data.address.encode()),
         language=data.language,
+        **{k: getattr(data, k) for k in DETAILS},
     )
     try:
         # Flushed one by one: without relationship()s SQLAlchemy doesn't order inserts by FK.
