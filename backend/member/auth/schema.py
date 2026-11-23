@@ -33,6 +33,9 @@ Address = Text(500, multiline=True)  # free form: house numbers, "/", "#", comma
 Dob = Annotated[date, AfterValidator(dob_in_past)]
 Gender = Literal["MALE", "FEMALE", "OTHER"]
 Language = Literal["en", "gu", "hi"]  # the app's UI languages
+MaritalStatus = Literal["Single", "Married", "Widowed", "Divorced"]
+BloodGroup = Literal["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"]
+DETAILS = ("gotra", "education", "marital_status", "occupation", "hobby", "blood_group")  # optional profile details
 
 
 class OtpSendIn(Strict):
@@ -74,6 +77,12 @@ class RegisterIn(Strict):
     address: Address
     family_name: Name
     native_place: NativePlace | None = None
+    gotra: Text(120) | None = None
+    education: Text(120) | None = None
+    marital_status: MaritalStatus | None = None
+    occupation: Text(120) | None = None
+    hobby: Text(200) | None = None
+    blood_group: BloodGroup | None = None
     language: Language = "en"
     consent: Literal[True]  # FR-07: the app enables Submit only once the box is ticked
     notice_version: str = Field(max_length=20)  # the consent notice the member was shown

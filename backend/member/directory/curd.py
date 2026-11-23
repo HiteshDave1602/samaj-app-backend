@@ -1,3 +1,5 @@
+from calendar import isleap
+from datetime import date, timedelta
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -11,7 +13,7 @@ from search import es
 from superadmin.city.model import City
 
 _listed = (Member.status == "ACTIVE", Member.deleted_at.is_(None))  # pending, rejected, archived never appear
-EXTRA = ("gotra", "education", "marital_status", "occupation", "hobby", "blood_group")  # directory-import details; members have none
+EXTRA = ("gotra", "education", "marital_status", "occupation", "hobby", "blood_group")  # profile details
 
 
 def _live(household_id):
@@ -28,7 +30,7 @@ def _members(name: str | None, city_id: UUID | None, family_name: str | None):
                 City.name.label("city_name"), City.name_i18n.label("city_name_i18n"), Member.mobile_enc,
                 Member.address_enc,
                 Member.hide_phone, Member.hide_address, Member.photo_key, Member.city_id,
-                *(null().label(c) for c in EXTRA))
+                *(getattr(Member, c) for c in EXTRA))
          .join(City, City.city_id == Member.city_id)
          .outerjoin(Household, Household.household_id == Member.household_id)
          .where(*_listed))
@@ -103,6 +105,26 @@ def _closest(db: Session, viewer: Member, *, name, city_id, family_name, limit: 
     rows = db.execute(select(u).where(*(s > es.CLOSEST_SIMILARITY for s in scores))  # each term close, like AND
                       .order_by(sum(scores).desc(), u.c.id).limit(limit)).all()
     return {"items": [_entry(r, viewer) for r in rows], "next_offset": None, "suggested": True}
+
+
+def birthdays(db: Session, viewer: Member, days: int, limit: int, city_id: UUID | None = None) -> list[dict]:
+    """Listed people (all cities, or one) whose birthday falls today or in the next `days` days, soonest first.
+    Only the upcoming date goes out, never the year of birth (FR-66). A 29 Feb birthday shows on 1 Mar off leap years."""
+    today = date.today()
+    on = {}  # "MM-DD" -> the upcoming date it falls on
+    for i in range(days + 1):
+        d = today + timedelta(days=i)
+        on[d.strftime("%m-%d")] = d
+        if (d.month, d.day) == (3, 1) and not isleap(d.year):
+            on["02-29"] = d
+    u = union_all(_members(None, city_id, None).add_columns(Member.dob),
+                  _relatives(None, city_id, None).add_columns(FamilyMember.dob)).subquery()
+    mmdd = func.to_char(u.c.dob, "MM-DD")
+    # ponytail: sorts every match in Python (~1k/week at 50k people); order in SQL if the window or data grows
+    rows = db.execute(select(u, mmdd.label("mmdd")).where(mmdd.in_(on))).all()
+    rows.sort(key=lambda r: (on[r.mmdd], r.full_name or ""))
+    return [_entry(r, viewer) | {"birthday": on[r.mmdd], "days_away": (on[r.mmdd] - today).days}
+            for r in rows[:limit]]
 
 
 def household(db: Session, viewer: Member, household_id: UUID) -> dict:

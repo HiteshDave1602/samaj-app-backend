@@ -32,7 +32,69 @@ export function Field({ label, hint, children, className = '' }) {
   )
 }
 
-export const ErrorText = ({ children }) =>
+/**
+ * Type-to-filter picker. Submits the chosen option's value under `name` (hidden input);
+ * the visible box is only valid once a listed option is picked (native `pattern`).
+ */
+export function Combobox({ name, options, placeholder, required }) {
+  const [text, setText] = useState('')
+  const [picked, setPicked] = useState(null)
+  const [open, setOpen] = useState(false)
+  const [active, setActive] = useState(0)
+  const listRef = useRef(null)
+  const q = text.trim().toLowerCase()
+  const shown = (picked && picked.label === text ? options : options.filter((o) => o.label.toLowerCase().includes(q))).slice(0, 50)
+
+  useEffect(() => { listRef.current?.children[active]?.scrollIntoView({ block: 'nearest' }) }, [active])
+
+  const pick = (o) => { setPicked(o); setText(o.label); setOpen(false) }
+  const onKeyDown = (e) => {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault()
+      if (!open) return setOpen(true)
+      const step = e.key === 'ArrowDown' ? 1 : -1
+      setActive((i) => (i + step + shown.length) % Math.max(shown.length, 1))
+    } else if (e.key === 'Enter' && open && shown[active]) {
+      e.preventDefault() // pick, don't submit
+      pick(shown[active])
+    } else if (e.key === 'Escape' && open) {
+      e.preventDefault() // close the list, not the modal
+      setOpen(false)
+    }
+  }
+
+  return (
+    <div className="relative">
+      <input
+        role="combobox" aria-expanded={open} aria-autocomplete="list" autoComplete="off" spellCheck={false}
+        value={text} placeholder={placeholder} required={required}
+        pattern={picked ? picked.label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') : '(?!)'}
+        title="Pick one from the list"
+        onChange={(e) => { setText(e.target.value); setOpen(true); setActive(0) }}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setOpen(false)}
+        onKeyDown={onKeyDown}
+        className={`${inputCls} pr-9`}
+      />
+      <span aria-hidden className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-xs text-on-surface-variant">▾</span>
+      <input type="hidden" name={name} value={picked?.label === text ? picked.value : ''} />
+      {open && (
+        <ul ref={listRef} role="listbox" className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-lg border border-outline-variant bg-surface py-1 text-sm shadow-xl">
+          {shown.length ? shown.map((o, i) => (
+            <li
+              key={o.value} role="option" aria-selected={i === active}
+              onMouseDown={(e) => { e.preventDefault(); pick(o) }}
+              onMouseEnter={() => setActive(i)}
+              className={`cursor-pointer px-3 py-2 ${i === active ? 'bg-primary-container text-on-primary-container' : ''} ${picked?.value === o.value ? 'font-semibold' : ''}`}
+            >{o.label}</li>
+          )) : <li className="px-3 py-2 text-on-surface-variant">No match</li>}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+export const ErrorText =({ children }) =>
   children ? <p role="alert" className="rounded-lg bg-error-container px-3 py-2 text-sm text-on-error-container">{children}</p> : null
 
 const TONES = {
@@ -146,6 +208,10 @@ export function Modal({ title, onClose, children, wide }) {
     <dialog
       ref={ref}
       onClose={onClose}
+      // Backdrop clicks hit the <dialog> itself (content fills it, p-0). Check mousedown too,
+      // so dragging a text selection out of an input doesn't close the form.
+      onMouseDown={(e) => { ref.current.downOnBackdrop = e.target === e.currentTarget }}
+      onClick={(e) => { if (e.target === e.currentTarget && ref.current.downOnBackdrop) ref.current.close() }}
       className={`m-auto w-[calc(100%-32px)] ${wide ? 'max-w-2xl' : 'max-w-md'} rounded-2xl border border-outline-variant bg-surface p-0 text-on-surface shadow-2xl backdrop:bg-inverse-surface/50`}
     >
       <div className="flex items-center justify-between border-b border-outline-variant px-6 py-4">

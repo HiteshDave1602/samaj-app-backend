@@ -34,6 +34,12 @@ const text = (check: (v: string) => string): Rule => (raw, { required = false, m
   return check(v);
 };
 
+// must match MaritalStatus / BloodGroup in backend member/auth/schema.py
+export const MARITAL = ['Single', 'Married', 'Widowed', 'Divorced'] as const;
+export const BLOOD = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'] as const;
+export type Marital = (typeof MARITAL)[number];
+export type Blood = (typeof BLOOD)[number];
+
 export const rules = {
   personName: text((v) => {
     if (!NAME_CHARS.test(v)) return 'Use letters only in a name';

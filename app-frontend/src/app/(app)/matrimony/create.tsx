@@ -5,7 +5,7 @@ import { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Button, Chips, Field, Notice, ScreenHeader, UploadBox } from '@/components/ui/form';
+import { Button, Chips, Field, Notice, ScreenHeader, StatusView, UploadBox } from '@/components/ui/form';
 import { api, authedImage, upload } from '@/lib/api';
 import { label, useT } from '@/lib/i18n';
 import { usePalette } from '@/lib/theme';
@@ -54,6 +54,7 @@ export default function MyMatrimonyProfile() {
   const [background, setBackground] = useState<keyof typeof BACKGROUND>();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
+  const [sent, setSent] = useState(false); // just submitted: show the waiting screen
   const [loaded, setLoaded] = useState(form); // as saved: a stored value the rules now refuse is flagged at once
   const set = (k: keyof typeof form) => (v: string) => setForm({ ...form, [k]: v });
   const stale = (k: keyof typeof form) => !!loaded[k] && form[k] === loaded[k];
@@ -79,7 +80,9 @@ export default function MyMatrimonyProfile() {
     setBusy(true);
     setError(undefined);
     try {
-      fill(await p);
+      const saved = await p;
+      fill(saved);
+      return saved;
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -115,6 +118,19 @@ export default function MyMatrimonyProfile() {
       </SafeAreaView>
     );
 
+  if (sent)
+    return (
+      <SafeAreaView className="flex-1 bg-cream">
+        <StatusView
+          icon={{ ios: 'checkmark.seal.fill', android: 'verified', web: 'verified' }}
+          title="Profile sent for approval"
+          body="Your city admin will review it. Once approved, other members can find your profile."
+          action="Back to matrimony"
+          onAction={() => router.back()}
+        />
+      </SafeAreaView>
+    );
+
   const status = profile && STATUS[profile.status];
   const canSubmit = profile && (profile.status === 'DRAFT' || profile.status === 'REJECTED');
 
@@ -145,7 +161,7 @@ export default function MyMatrimonyProfile() {
         />
         <Field label="About" value={form.about} onChangeText={set('about')} placeholder="A few lines about yourself" multiline maxLength={500} error={errors.about} showError={stale('about')} />
         <Button
-          title={busy ? 'Saving…' : profile ? 'Save changes' : 'Create profile'}
+          title={busy ? 'Saving…' : profile ? 'Save changes' : 'Next'} // first save: photos, biodata and submit follow below
           disabled={busy || !education || !background || !!firstError(...Object.values(errors))}
           onPress={save}
         />
@@ -197,7 +213,7 @@ export default function MyMatrimonyProfile() {
               <Button
                 title="Submit for review"
                 disabled={busy}
-                onPress={() => run(api<MyProfile>('/member/matrimony/profile/submit', { method: 'POST' }))}
+                onPress={() => run(api<MyProfile>('/member/matrimony/profile/submit', { method: 'POST' })).then((p) => p && setSent(true))}
               />
             )}
           </>

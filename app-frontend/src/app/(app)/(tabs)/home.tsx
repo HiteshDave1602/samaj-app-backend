@@ -5,9 +5,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Avatar } from '@/components/ui/form';
 import { api } from '@/lib/api';
 import { Cover, formatDate, useFeed, ViewAdBar } from '@/lib/feed';
-import { tWords, useLoc, useT } from '@/lib/i18n';
+import { locale, tWords, useLoc, useT } from '@/lib/i18n';
 import { Cover as ProfileCover, title, useReceivedRequests } from '@/lib/matrimony';
 import { usePalette } from '@/lib/theme';
 
@@ -15,6 +16,16 @@ type Icon = SymbolViewProps['name'];
 
 // backend member/panchang/api.py PanchangOut
 type Panchang = { panchang_date: string; tithi: string; nakshatra: string; yoga: string };
+// backend member/directory/schema.py BirthdayEntry (the fields used here)
+type Birthday = {
+  id: string;
+  full_name: string | null;
+  full_name_i18n: Record<string, string>;
+  household_id: string | null;
+  photo_url: string | null;
+  birthday: string; // upcoming birthday, YYYY-MM-DD
+  days_away: number;
+};
 
 const MODULES: { title: string; sub: string; tag: string; icon: Icon; color: 'primary' | 'secondary' | 'brand' | 'accent'; href: Href }[] = [
   {
@@ -107,6 +118,15 @@ export default function HomeScreen() {
     return () => (clearInterval(id), clearTimeout(jump));
   }, [news.length, step]);
   const { requests } = useReceivedRequests();
+  const [birthdays, setBirthdays] = useState<Birthday[]>([]);
+  // on focus, not once: a failed fetch (server restarting, network blip) would otherwise hide the row until app restart
+  useFocusEffect(
+    useCallback(() => {
+      // optional section: hide on error. The row scrolls sideways through them all (~150/week now).
+      // ponytail: 200 is the server's cap; past that, page it or add a "See all" screen
+      api<Birthday[]>('/member/directory/birthdays?limit=200').then(setBirthdays, () => {});
+    }, []),
+  );
   const [panchang, setPanchang] = useState<Panchang | string>(); // string: why it isn't available
   useEffect(() => {
     api<Panchang>('/member/panchang').then(setPanchang, (e) => setPanchang(e.message));
@@ -231,6 +251,40 @@ export default function HomeScreen() {
                   </Text>
                 </Pressable>
               ))}
+            </ScrollView>
+          </View>
+        )}
+
+        {birthdays.length > 0 && (
+          <View className="mt-6">
+            <SectionTitle title="Upcoming birthdays" />
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ paddingHorizontal: 20, gap: 16 }}>
+              {birthdays.map((b) => {
+                const name = loc(b.full_name, b.full_name_i18n) ?? t('Member');
+                const [y, mo, d] = b.birthday.split('-').map(Number); // local date: new Date('YYYY-MM-DD') is UTC
+                const date = new Date(y, mo - 1, d).toLocaleDateString(locale(), { day: 'numeric', month: 'short' });
+                const when =
+                  b.days_away === 0 ? t('Today') : b.days_away === 1 ? t('Tomorrow') : t('In {n} days', { n: b.days_away });
+                return (
+                  <Pressable
+                    key={b.id}
+                    onPress={() => router.push({ pathname: '/directory/[id]', params: { id: b.household_id! } })}
+                    disabled={!b.household_id}
+                    accessibilityRole="button"
+                    accessibilityLabel={t("{name}'s birthday, {when}", { name, when: `${when}, ${date}` })}
+                    className="w-20 items-center">
+                    <Avatar name={name} size={64} tone={b.days_away === 0 ? palette.accent : palette.primary} photo={b.photo_url} />
+                    <Text numberOfLines={1} className="mt-1 font-inter-medium text-xs text-ink">{name}</Text>
+                    {/* today: "Today" says it all; later days: the date, which tells more than "In 5 days" */}
+                    <Text className={`font-inter text-[11px] ${b.days_away === 0 ? 'text-accent' : 'text-subtle'}`}>
+                      {b.days_away === 0 ? when : date}
+                    </Text>
+                  </Pressable>
+                );
+              })}
             </ScrollView>
           </View>
         )}

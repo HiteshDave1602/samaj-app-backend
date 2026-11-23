@@ -3,8 +3,8 @@ import { useState } from 'react';
 import { ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Button, Chips, Field, Notice, ScreenHeader, StatusView } from '@/components/ui/form';
-import { api, isoDate } from '@/lib/api';
+import { Button, Chips, DateField, Field, Notice, ScreenHeader, StatusView } from '@/components/ui/form';
+import { api, isoDate, parseDmy } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 import { usePalette } from '@/lib/theme';
 import { rules } from '@/lib/validate';
@@ -27,7 +27,7 @@ export default function AddMember() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const [sent, setSent] = useState(false);
-  const dobOk = /^\d{2}\/\d{2}\/\d{4}$/.test(dob);
+  const dobOk = !!parseDmy(dob); // a real past date, not just the DD/MM/YYYY shape
   const nameError = rules.personName(name, { required: true });
 
   async function send() {
@@ -68,15 +68,7 @@ export default function AddMember() {
               onChange={setRelation}
             />
             <Chips label="Gender" options={Object.keys(GENDERS) as (keyof typeof GENDERS)[]} value={gender} onChange={setGender} />
-            <Field
-              label="Date of birth"
-              value={dob}
-              onChangeText={setDob}
-              placeholder="DD/MM/YYYY"
-              keyboardType="numbers-and-punctuation"
-              maxLength={10}
-              hint={!dob || dobOk ? undefined : 'Use DD/MM/YYYY'}
-            />
+            <DateField label="Date of birth" value={dob} onChange={setDob} />
             <Notice title="Needs approval" body="Your city admin will review before it appears in the family tree." />
             {error && <Notice title="Could not send request" body={error} tone={palette.rejected} />}
             <Button

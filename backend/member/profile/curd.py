@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from core import media, private_files
 from core.security import fernet
 from core.translit import localized
+from member.auth.schema import DETAILS
 from member.profile.model import Household, IdentityDocument, Member
 from member.profile.schema import MemberUpdate
 from superadmin.city.model import City
@@ -63,7 +64,7 @@ def to_profile(db: Session, member: Member) -> dict:
         "id_document": doc and {"document_id": doc.document_id, "mime_type": doc.mime_type,
                                 "size_bytes": doc.size_bytes, "created_at": doc.created_at},
         "created_at": member.created_at,
-    }
+    } | {k: getattr(member, k) for k in DETAILS}
 
 
 def _correct(obj, field: str, fix: dict):
