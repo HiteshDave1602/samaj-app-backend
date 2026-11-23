@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import { useEffect, useState } from 'react';
+import { type ComponentRef, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, Linking, Pressable, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -40,6 +40,7 @@ export default function DirectoryScreen() {
   const t = useT();
   const place = useLoc();
   const [query, setQuery] = useState('');
+  const searchInput = useRef<ComponentRef<typeof TextInput>>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [cities, setCities] = useState<City[]>([]);
   const [cityId, setCityId] = useState<string>(); // by id: the name changes with the language
@@ -81,6 +82,7 @@ export default function DirectoryScreen() {
         <View className="h-12 flex-1 flex-row items-center gap-2 rounded-full border border-line bg-card px-4">
           <SymbolView name={{ ios: 'magnifyingglass', android: 'search', web: 'search' }} size={20} tintColor={palette.muted} />
           <TextInput
+            ref={searchInput}
             value={query}
             onChangeText={setQuery}
             placeholder={t('Search by name')}
@@ -89,7 +91,7 @@ export default function DirectoryScreen() {
             returnKeyType="search"
             className="flex-1 font-inter text-base text-ink"
           />
-          <MicButton onText={setQuery} />
+          <MicButton onText={setQuery} input={searchInput} />
         </View>
         <Pressable
           onPress={() => setShowFilters(!showFilters)}

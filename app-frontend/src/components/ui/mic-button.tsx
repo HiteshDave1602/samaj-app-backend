@@ -1,7 +1,7 @@
 import { requireOptionalNativeModule } from 'expo';
 import { SymbolView } from 'expo-symbols';
-import { useState } from 'react';
-import { Alert, Pressable, View } from 'react-native';
+import { type RefObject, useState } from 'react';
+import { Alert, Pressable } from 'react-native';
 
 import { useT } from '@/lib/i18n';
 import { usePalette } from '@/lib/theme';
@@ -12,22 +12,28 @@ const speech: typeof import('expo-speech-recognition') | null = requireOptionalN
     require('expo-speech-recognition')
   : null;
 
-/** Mic toggle that streams what the user says into onText, live while they speak. Greyed out where speech isn't built in (Expo Go). */
-export function MicButton(props: { onText: (text: string) => void }) {
-  return speech ? <Mic {...props} speech={speech} /> : <MicUnavailable />;
+/**
+ * Mic toggle that streams what the user says into onText, live while they speak.
+ * Where speech isn't built in (Expo Go), tapping focuses `input` so the keyboard's own dictation mic fills it instead.
+ */
+export function MicButton({ input, ...props }: { onText: (text: string) => void; input?: RefObject<{ focus(): void } | null> }) {
+  return speech ? <Mic {...props} speech={speech} /> : <KeyboardDictation input={input} />;
 }
 
-function MicUnavailable() {
+function KeyboardDictation({ input }: { input?: RefObject<{ focus(): void } | null> }) {
   const palette = usePalette();
   const t = useT();
   return (
-    <View
-      accessible
-      accessibilityLabel={t('Voice search')}
-      accessibilityState={{ disabled: true }}
-      style={{ opacity: 0.4 }}>
-      <SymbolView name={{ ios: 'mic.slash', android: 'mic_off', web: 'mic_off' }} size={20} tintColor={palette.muted} />
-    </View>
+    <Pressable
+      onPress={() => {
+        input?.current?.focus();
+        Alert.alert(t('Voice search'), t('Tap the mic on your keyboard and speak the name'));
+      }}
+      hitSlop={8}
+      accessibilityRole="button"
+      accessibilityLabel={t('Voice search')}>
+      <SymbolView name={{ ios: 'mic', android: 'mic', web: 'mic' }} size={20} tintColor={palette.muted} />
+    </Pressable>
   );
 }
 
