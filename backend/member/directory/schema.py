@@ -1,3 +1,4 @@
+from datetime import date
 from uuid import UUID
 
 from pydantic import BaseModel
@@ -31,6 +32,11 @@ class DirectoryEntry(BaseModel):
     occupation: str | None = None
     hobby: str | None = None
     blood_group: str | None = None
+
+
+class BirthdayEntry(DirectoryEntry):
+    birthday: date  # the upcoming birthday (this year or next), not the date of birth
+    days_away: int  # 0 = today
 
 
 class DirectoryPage(BaseModel):

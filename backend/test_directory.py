@@ -1,7 +1,7 @@
 """End-to-end member directory (SF-10) against the dev DB: python test_directory.py
 Search by name / city / family, household view, hide phone/address. Cleans up after itself."""
 import secrets
-from datetime import date
+from datetime import date, timedelta
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
@@ -34,6 +34,11 @@ def new_member(db, city: City, household: Household, name: str, status: str, hea
     return m, bearer(_start_session(db, m)["access_token"])
 
 
+def born(days_away: int) -> date:  # a 2000 date of birth whose birthday is days_away from today
+    d = date.today() + timedelta(days=days_away)
+    return date(2000, d.month, d.day)
+
+
 with SessionLocal() as db:
     x, y = City(name=f"DirX-{tag}", state="T"), City(name=f"DirY-{tag}", state="T")
     db.add_all([x, y])
@@ -42,7 +47,8 @@ with SessionLocal() as db:
     hx = Household(household_id=uuid4(), city_id=x.city_id, family_name=f"{fam} Patel")
     hy = Household(household_id=uuid4(), city_id=y.city_id, family_name=f"{fam} Shah")
     gone = Household(household_id=uuid4(), city_id=x.city_id, family_name=f"{fam} Archived")
-    db.add_all([hx, hy, gone])
+    hb = Household(household_id=uuid4(), city_id=x.city_id, family_name=f"Bd{tag}", family_key=f"bd{tag}")  # import
+    db.add_all([hx, hy, gone, hb])
     db.flush()
     raj, raj_h = new_member(db, x, hx, f"{fam} Raj", "ACTIVE", head=True, hide_phone=True)
     new_member(db, x, hx, f"{fam} Pending", "PENDING")
@@ -57,7 +63,10 @@ with SessionLocal() as db:
         FamilyMember(household_id=hx.household_id, requested_by_member_id=raj.member_id, full_name=f"{fam} Linked",
                      relationship="BROTHER", status="APPROVED", linked_member_id=amit.member_id),
         FamilyMember(household_id=gone.household_id, requested_by_member_id=raj.member_id, full_name=f"{fam} Ghost",
-                     relationship="SON", status="APPROVED"),
+                     relationship="SON", status="APPROVED", dob=born(0)),
+        # birthdays: today, in 3 days, in 20 days (outside the default week)
+        *(FamilyMember(household_id=hb.household_id, requested_by_member_id=raj.member_id, full_name=f"B{n}",
+                       relationship="SON", status="APPROVED", dob=born(n)) for n in (3, 0, 20)),
     ])
     db.commit()
     city_ids = [x.city_id, y.city_id]
@@ -116,6 +125,20 @@ try:
         [("Raj", "MEMBER"), ("Son", "RELATIVE")], hv
     assert c.get(f"/member/directory/households/{ids['gone']}", headers=amit_h).status_code == 404
     assert c.get(f"/member/directory/households/{uuid4()}", headers=amit_h).status_code == 404
+
+    # birthdays: all cities by default (city_id here keeps other dev data out), soonest first,
+    # archived household left out, no year of birth
+    bd = lambda h=amit_h, **p: [(i["full_name"], i["days_away"])  # noqa: E731  (relatives: Raj's own dob is fixed)
+                                for i in c.get("/member/directory/birthdays", headers=h,
+                                               params={"city_id": str(city_ids[0]), **p}).json()
+                                if i["kind"] == "RELATIVE"]
+    assert bd() == [("B0", 0), ("B3", 3)], bd()  # Amit lives in city Y and still sees city X
+    assert bd(days=31) == [("B0", 0), ("B3", 3), ("B20", 20)]
+    assert bd(city_id=str(city_ids[1])) == []
+    assert c.get("/member/directory/birthdays", headers=raj_h, params={"days": 0}).status_code == 200
+    one = c.get("/member/directory/birthdays", headers=raj_h, params={"city_id": str(city_ids[0])}).json()[0]
+    assert "dob" not in one and one["birthday"] >= date.today().isoformat(), one
+    assert c.get("/member/directory/birthdays", headers=pend_h).status_code == 403
     print("ok")
 finally:
     with SessionLocal() as db:  # auth_session rows go via ON DELETE CASCADE

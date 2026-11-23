@@ -170,6 +170,11 @@ const T: Record<string, [string, string]> = {
   Daily: ['દૈનિક', 'दैनिक'],
   '{n} yrs': ['{n} વર્ષ', '{n} वर्ष'],
   Member: ['સભ્ય', 'सदस्य'],
+  'Upcoming birthdays': ['આગામી જન્મદિવસ', 'आगामी जन्मदिन'],
+  Today: ['આજે', 'आज'],
+  Tomorrow: ['કાલે', 'कल'],
+  'In {n} days': ['{n} દિવસમાં', '{n} दिन में'],
+  "{name}'s birthday, {when}": ['{name}નો જન્મદિવસ, {when}', '{name} का जन्मदिन, {when}'],
 
   // directory
   'Search by name': ['નામથી શોધો', 'नाम से खोजें'],
