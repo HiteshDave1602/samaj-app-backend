@@ -106,9 +106,9 @@ def email(v: str) -> str:
 
 
 def _str(max_length: int, min_length: int, multiline: bool, *rules):
-    return Annotated[str, BeforeValidator(lambda v: clean(v, multiline)),
-                     StringConstraints(min_length=min_length, max_length=max_length),
-                     *(AfterValidator(r) for r in rules)]
+    return Annotated[(str, BeforeValidator(lambda v: clean(v, multiline)),  # tuple form: py3.10 has no * in []
+                      StringConstraints(min_length=min_length, max_length=max_length),
+                      *(AfterValidator(r) for r in rules))]
 
 
 def Text(max_length: int, min_length: int = 1, multiline: bool = False):  # noqa: N802 (a type factory)

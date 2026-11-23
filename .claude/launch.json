@@ -1,0 +1,32 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "backend",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": [
+        "/c",
+        "cd backend && venv\\Scripts\\python.exe -m uvicorn main:app --reload --host 0.0.0.0 --port 8001"
+      ],
+      "port": 8001
+    },
+    {
+      "name": "web",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": [
+        "/c",
+        "cd web-frontend && npm run dev"
+      ],
+      "port": 5173
+    },
+    {
+      "name": "mobile",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": [
+        "/c",
+        "cd app-frontend && npx expo start --web --clear"
+      ],
+      "port": 8081
+    }
+  ]
+}
