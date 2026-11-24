@@ -72,11 +72,15 @@ def _translated(text: str, lang: str) -> str:
     return localized(text)[lang] if joined.casefold() == text.casefold() else joined
 
 
-def translate(texts: list[str]) -> dict[str, list[str]] | None:
-    """{lang: translations, in the order of texts} for each of LANGS; None when the service failed or the day's
-    allowance is used up, so callers keep the original text and try again later."""
+ALL_LANGS = ("en", *LANGS)  # English too: a post written in Gujarati must read in English for English readers
+
+
+def translate(texts: list[str], langs: tuple[str, ...] | list[str] = ALL_LANGS) -> dict[str, list[str]] | None:
+    """{lang: translations, in the order of texts} for each of langs; None when the service failed or the day's
+    allowance is used up, so callers keep the original text and try again later. Text already in a language is
+    kept as written, never sent."""
     try:
-        return {lang: [_translated(t, lang) for t in texts] for lang in LANGS}
+        return {lang: [_translated(t, lang) for t in texts] for lang in langs}
     except (httpx.HTTPError, KeyError, TypeError, ValueError) as exc:
         log.warning("Translation failed: %s", exc)
         return None
@@ -97,11 +101,13 @@ if __name__ == "__main__":  # self-check, no network, from backend/: python -m c
         calls.append(params)
         return reply(f"{params['langpair']}:{params['q']}")
     httpx.get = ok
-    assert translate(["a b"]) == {"gu": ["en|gu:a b"], "hi": ["en|hi:a b"]}
+    assert translate(["a b"]) == {"en": ["a b"], "gu": ["en|gu:a b"], "hi": ["en|hi:a b"]}
     assert "de" not in calls[0]  # no email goes out unless it is configured
-    # already in the target language: not sent; Gujarati text goes to Hindi only
+    # already in the target language: not sent; Gujarati text goes to English and Hindi
     calls.clear()
-    assert translate(["નમસ્તે"]) == {"gu": ["નમસ્તે"], "hi": ["gu|hi:નમસ્તે"]} and len(calls) == 1
+    assert translate(["નમસ્તે"]) == {"en": ["gu|en:નમસ્તે"], "gu": ["નમસ્તે"], "hi": ["gu|hi:નમસ્તે"]} and len(calls) == 2
+    calls.clear()
+    assert translate(["નમસ્તે"], ["en"]) == {"en": ["gu|en:નમસ્તે"]} and len(calls) == 1  # only the missing ones
     calls.clear()
     assert _translated("One.\n\nTwo.", "hi") == "en|hi:One.\n\nen|hi:Two."  # paragraphs survive
     assert [c["q"] for c in calls] == ["One.", "Two."]

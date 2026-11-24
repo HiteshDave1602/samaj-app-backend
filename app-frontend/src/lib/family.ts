@@ -24,10 +24,10 @@ export type Household = {
 /** Refetches on focus, so a relative added on the add-member screen shows up on return. */
 export function useHousehold() {
   const [household, setHousehold] = useState<Household>();
-  const [error, setError] = useState<string>();
+  const [error, setError] = useState<unknown>();
   useFocusEffect(
     useCallback(() => {
-      api<Household>('/member/family').then(setHousehold, (e) => setError(e.message));
+      api<Household>('/member/family').then(setHousehold, setError);
     }, []),
   );
   return { household, error };

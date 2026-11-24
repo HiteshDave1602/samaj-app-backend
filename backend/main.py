@@ -34,6 +34,7 @@ from superadmin.city.api import router as city_router
 from superadmin.city_admin.api import router as city_admin_router
 from superadmin.content.api import router as superadmin_content_router
 from superadmin.audit_log.curd import Denied
+from superadmin.family_addition.api import router as superadmin_family_addition_router
 from superadmin.matrimony.api import router as superadmin_matrimony_router
 from superadmin.member.api import router as superadmin_member_router
 from superadmin.member_import.api import router as superadmin_member_import_router
@@ -76,6 +77,7 @@ app.include_router(member_import_router)
 app.include_router(member_export_router)
 app.include_router(superadmin_content_router)
 app.include_router(superadmin_matrimony_router)
+app.include_router(superadmin_family_addition_router)
 app.include_router(superadmin_member_router)
 app.include_router(superadmin_member_import_router)
 app.include_router(member_feed_router)

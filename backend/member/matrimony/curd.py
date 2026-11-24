@@ -30,7 +30,7 @@ def own(db: Session, member: Member, lock: bool = False) -> MatrimonyProfile:
     q = select(MatrimonyProfile).where(MatrimonyProfile.member_id == member.member_id)
     profile = db.scalar(q.with_for_update() if lock else q)
     if profile is None:
-        raise HTTPException(404, "Create your matrimony profile first")
+        raise HTTPException(404, "ERR_NO_MATRIMONY_PROFILE: Create your matrimony profile first")  # app: a Create prompt
     if profile.deleted_at is not None:  # every own-profile route comes through here
         raise HTTPException(403, REMOVED)
     return profile
@@ -42,8 +42,10 @@ def _check_city(db: Session, city_id: UUID):
         raise HTTPException(400, "Select an active city")
 
 
-def my_profile(db: Session, member: Member) -> dict:
-    profile = own(db, member)
+def my_profile(db: Session, member: Member) -> dict | None:
+    if db.scalar(select(MatrimonyProfile.profile_id).where(MatrimonyProfile.member_id == member.member_id)) is None:
+        return None
+    profile = own(db, member)  # still 403 if an admin removed it
     photos = db.scalars(select(MatrimonyPhoto).where(MatrimonyPhoto.profile_id == profile.profile_id)
                         .order_by(MatrimonyPhoto.sort_order))
     return {c.name: getattr(profile, c.name) for c in MatrimonyProfile.__table__.columns} | {

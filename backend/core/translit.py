@@ -1,6 +1,7 @@
 import re
+import unicodedata
 
-from core.translit_words import SUFFIXES, WORDS
+from core.translit_words import INITIALS, SUFFIXES, WORDS
 
 # Names typed in English letters -> Devanagari: known words from translit_words.WORDS, the rest, then Gujarati by shifting code points: the two Unicode blocks are
 # laid out in parallel (क U+0915 -> ક U+0A95). Rule-based, so some spellings come out wrong ("vapi" -> वपी);
@@ -82,22 +83,134 @@ def _pair(w: str) -> tuple[str, str]:
     return v if isinstance(v, tuple) else (_gu(v), v)
 
 
+# ---- Gujarati/Hindi -> English letters, for names typed in either script. Transliteration only: a name is spelled
+# out, never translated, so "પટેલ" is Patel, not a dictionary word. Word-list spellings come back as listed.
+NUKTA = "़"
+R_CONS = {
+    "क": "k", "ख": "kh", "ग": "g", "घ": "gh", "ङ": "n", "च": "ch", "छ": "chh", "ज": "j", "झ": "jh", "ञ": "n",
+    "ट": "t", "ठ": "th", "ड": "d", "ढ": "dh", "ण": "n", "त": "t", "थ": "th", "द": "d", "ध": "dh", "न": "n",
+    "प": "p", "फ": "f", "ब": "b", "भ": "bh", "म": "m", "य": "y", "र": "r", "ल": "l", "ळ": "l", "व": "v",
+    "श": "sh", "ष": "sh", "स": "s", "ह": "h",
+}
+R_NUKTA = {"ज": "z", "फ": "f"}  # ज़ फ़; other nukta letters read as the plain one
+R_VOWELS = {"अ": "a", "आ": "a", "इ": "i", "ई": "i", "उ": "u", "ऊ": "u", "ऋ": "ru", "ए": "e", "ऐ": "ai", "ओ": "o",
+            "औ": "au", "ऍ": "e", "ऑ": "o"}
+R_SIGNS = {"ा": "a", "ि": "i", "ी": "i", "ु": "u", "ू": "u", "ृ": "ru", "े": "e", "ै": "ai", "ो": "o", "ौ": "au",
+           "ॅ": "e", "ॉ": "o"}
+
+
+def _key(deva: str) -> str:
+    """Devanagari compared without nukta: Gujarati has none, so જૂનાગઢ must still find जूनागढ़."""
+    return unicodedata.normalize("NFD", deva).replace(NUKTA, "")
+
+
+REVERSE: dict[str, str] = {}  # Devanagari spelling (Hindi, or the Gujarati one shifted) -> English, first listed wins
+for _en, _v in WORDS.items():
+    _g, _h = _v if isinstance(_v, tuple) else (_gu(_v), _v)
+    for _s in (_h, _shift(_g, 0x0A80, -0x180)):
+        REVERSE.setdefault(_key(_s), _en)
+R_SUFFIXES = [(_key(WORDS[s] if isinstance(WORDS[s], str) else WORDS[s][1]), s) for s in SUFFIXES]
+R_SUFFIXES += [(_key(_shift(WORDS[s][0], 0x0A80, -0x180)), s) for s in SUFFIXES if isinstance(WORDS[s], tuple)]
+R_INITIALS = {_key(_shift(g, 0x0A80, -0x180)): en for g, en in INITIALS.items()}
+
+
+def _roman(w: str, gujarati: bool = False) -> str:
+    """Letter rules for one Devanagari word: each consonant carries an 'a' unless a sign or virama replaces it; the
+    'a' is then dropped at the end of a word (रमेश Ramesh) and between syllables that keep theirs (कमला Kamla).
+    gujarati: the word was typed in Gujarati, where ઝ is z (Zala, zone) rather than Hindi's jh."""
+    units = []  # [letters, vowel, inherent]: inherent = the consonant's own 'a', which may be dropped
+    i = 0
+    while i < len(w):
+        c = w[i]
+        if c in R_CONS:
+            lat = "z" if gujarati and c == "झ" else R_CONS[c]
+            if w[i + 1:i + 2] == NUKTA:
+                lat, i = R_NUKTA.get(c, lat), i + 1
+            nxt = w[i + 1:i + 2]
+            if nxt == VIRAMA:
+                units.append([lat, "", False])
+                i += 1
+            elif nxt in R_SIGNS:
+                units.append([lat, R_SIGNS[nxt], False])
+                i += 1
+            else:
+                units.append([lat, "a", True])
+        elif c in R_VOWELS:
+            units.append(["", R_VOWELS[c], False])
+        elif c in (ANUSVARA, "ँ"):
+            units.append(["~", "", False])  # n, or m before p/b/m: decided below
+        elif c == "ः":
+            units.append(["h", "", False])
+        elif c in R_SIGNS:  # a sign with no consonant, typed after a vowel (અ + ા for આ): it is that vowel
+            if units and units[-1][0] == "":
+                units[-1][1] = R_SIGNS[c]
+            else:
+                units.append(["", R_SIGNS[c], False])
+        elif unicodedata.category(c) == "Nd":
+            units.append([str(unicodedata.digit(c)), "", False])
+        elif not "ऀ" <= c <= "ॿ":  # any other Devanagari mark is left out, never shown as is
+            units.append([c, "", False])
+        i += 1
+
+    def cons(u):
+        return u[0] not in ("", "~") and u[0].isalpha()
+
+    # the last consonant's 'a' goes, except in a one-letter word or a conjunct ending in r/y/l (मिश्र Mishra,
+    # सूर्य Surya, शुक्ल Shukla)
+    last = len(units) - 1
+    if last > 0 and units[last][2] and cons(units[last]) and not (
+            units[last][0] in ("r", "y", "l") and cons(units[last - 1]) and units[last - 1][1] == ""):
+        units[last][1] = ""
+    # inside the word, right to left: V C(a) C V -> drop the 'a' (कमला Kamla, धोरणपारडी Dhoranpardi, पंडया Pandya)
+    for k in range(last - 1, 0, -1):
+        u, prev, nxt = units[k], units[k - 1], units[k + 1]
+        if u[2] and u[1] and (prev[1] or prev[0] == "~") and cons(nxt) and nxt[1]:
+            u[1] = ""
+    out = []
+    for k, (letters, vowel, _) in enumerate(units):
+        if letters == "~":
+            nxt = units[k + 1][0] if k + 1 < len(units) else ""
+            letters = "m" if nxt[:1] in ("p", "b", "m") else "n"
+        out.append(letters + vowel)
+    return "".join(out)
+
+
+def _english(deva: str, gujarati: bool, words: bool = True) -> str:
+    """One Devanagari word in English letters: the word list, else a known ending split off, else the letter rules."""
+    k = _key(deva)
+    if words and k in REVERSE:
+        return REVERSE[k].capitalize()
+    for sk, s in R_SUFFIXES if words else ():
+        if k.endswith(sk) and len(k) > len(sk) + 1:  # રમેશભાઈ Rameshbhai
+            return _english(k[: -len(sk)], gujarati) + s
+    return _roman(k, gujarati).capitalize()
+
+
 def localized(text: str | None, words: bool = True) -> dict[str, str]:
-    """{"gu": ..., "hi": ...} for a name or place; {} for no text. Text already in one script is mirrored to the other.
-    words=False is the letter rules alone (what rows written before the word list hold)."""
+    """{"en": ..., "gu": ..., "hi": ...} for a name or place; {} for no text. Each language gets the same name in its
+    own script: English text stays as typed, Gujarati or Hindi text is mirrored to the other and spelled out in
+    English letters. words=False is the letter rules alone (what rows written before the word list hold)."""
     if not text:
         return {}
-    gu, hi = [], []
+    en, gu, hi = [], [], []
     for part in re.split(r"([A-Za-z]+)", text):
         if part.isascii() and part.isalpha():
             g, h = _pair(part) if words else (None, _word(part))
+            en.append(part)
             gu.append(g or _gu(h))
             hi.append(h)
         else:
             h = _shift(part, 0x0A80, -0x180)  # typed in Gujarati: Hindi gets the Devanagari letters
+            gujarati = bool(re.search(r"[઀-૿]", part))
+
+            def word(m):  # an initial is the English letter it names: બી. -> B.
+                if m.group(2) and _key(m.group(1)) in R_INITIALS:
+                    return R_INITIALS[_key(m.group(1))] + "."
+                return _english(m.group(1), gujarati, words) + m.group(2)
+            en.append(re.sub(r"([ऀ-ॿ]+)(\.?)", word, h))
             gu.append(_gu(h))
             hi.append(h)
-    return {"gu": "".join(gu), "hi": "".join(hi)}
+    return {"en": "".join(en), "gu": "".join(gu), "hi": "".join(hi)}
 
 
 if __name__ == "__main__":  # self-check, from backend/: python -m core.translit
@@ -116,7 +229,7 @@ if __name__ == "__main__":  # self-check, from backend/: python -m core.translit
         ("Mamta", "मम्ता", "મમ્તા"),  # word list has the usual ममता
         ("Champa", "चंपा", "ચંપા"),
     ]:
-        assert localized(en, words=False) == {"gu": gu, "hi": hi}, (en, localized(en, words=False))
+        assert localized(en, words=False) == {"en": en, "gu": gu, "hi": hi}, (en, localized(en, words=False))
     # word list, endings, Gujarati/Hindi differences, nukta letters
     for en, hi, gu in [
         ("Ahmedabad", "अहमदाबाद", "અમદાવાદ"),
@@ -128,8 +241,24 @@ if __name__ == "__main__":  # self-check, from backend/: python -m core.translit
         ("Junagadh", "जूनागढ़", "જૂનાગઢ"),
         ("Kavita Desai", "कविता देसाई", "કવિતા દેસાઈ"),
     ]:
-        assert localized(en) == {"gu": gu, "hi": hi}, (en, localized(en))
-    assert localized("દેસાઈ") == {"gu": "દેસાઈ", "hi": "देसाई"}
+        assert localized(en) == {"en": en, "gu": gu, "hi": hi}, (en, localized(en))
+    assert localized("દેસાઈ") == {"en": "Desai", "gu": "દેસાઈ", "hi": "देसाई"}
     assert localized("") == {} and localized(None) == {}
     assert localized("12 B-wing")["hi"] == "12 ब-विंग"
+    # typed in Gujarati or Hindi -> English letters: listed spellings exactly, the rest by the letter rules
+    for typed, en in [
+        ("અમદાવાદ", "Ahmedabad"), ("જૂનાગઢ", "Junagadh"), ("पटेल", "Patel"), ("શાંતાબેન મહેતા", "Shantaben Mehta"),
+        ("રમેશભાઈ", "Rameshbhai"), ("રમેશ", "Ramesh"), ("કમલા", "Kamla"), ("હસમુખ", "Hasmukh"), ("સુરતી", "Surti"),
+        ("ભરત", "Bharat"), ("જયેશ", "Jayesh"), ("અરવિંદ", "Arvind"), ("મિશ્ર", "Mishra"), ("ચંપા", "Champa"),
+        ("નવસારી", "Navsari"), ("ધર્મેશ", "Dharmesh"), ("કૃણાલ", "Krunal"), ("હેતલ", "Hetal"), ("ના", "Na"),
+        ("ફાલ્ગુની", "Falguni"), ("૧૨, પટેલ નગર", "12, Patel Nagar"), ("Asha પટેલ", "Asha Patel"),
+        ("ધોરણપારડી", "Dhoranpardi"), ("અમલસાડ", "Amalsad"), ("સુરત અઠવા ઝોન", "Surat Athva Zon"), ("झाँसी", "Jhansi"),
+        ("ડૉ. શ્લેષા વૈદ્ય", "Dr. Shlesha Vaidya"), ("સૂરજ બી. પાઠક", "Suraj B. Pathak"), ("ધરા શુક્લ", "Dhara Shukla"),
+        ("પંડયા", "Pandya"), ("દ્યુતિબહેન", "Dyutibahen"), ("સંદલપુર", "Sandalpur"), ("કંદર્પ", "Kandarp"),
+        ("એમ.કે. શાહ", "M.K. Shah"), ("બી", "Bi"), ("હોન્ડ", "Hond"), ("સૂર્ય", "Surya"), ("અામરી", "Amri"), ("સુવેણખૂર્દ", "Suvenkhurd"),
+    ]:
+        assert localized(typed)["en"] == en, (typed, localized(typed)["en"])
+    # nothing is lost going round: English typed -> Gujarati -> English gives the listed word back
+    for name in ("Patel", "Desai", "Ahmedabad", "Surat", "Mehta", "Rameshbhai", "Navsari"):
+        assert localized(localized(name)["gu"])["en"] == name, name
     print("ok")

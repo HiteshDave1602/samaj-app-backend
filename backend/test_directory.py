@@ -85,11 +85,13 @@ try:
     assert get(pend_h, name=fam).status_code == 403
     assert c.get("/member/directory").status_code == 401
 
-    # FR-65: active members + approved, unlinked relatives of live households; sorted by name
+    # FR-65: active members + approved, unlinked relatives of live households; sorted by name.
+    # Families, not people: a matched relative shows as the head of the family (Son -> Raj), once
     r = get(name=fam)
-    assert r.status_code == 200 and names(r) == ["Amit", "Raj", "Son"], r.json()
+    assert r.status_code == 200 and names(r) == ["Amit", "Raj"], r.json()
     assert names(get(name=fam.lower() + " r")) == ["Raj"]  # case-insensitive, matches anywhere
-    assert names(get(name=fam, city_id=str(city_ids[0]))) == ["Raj", "Son"]
+    assert names(get(name=f"{fam} Son")) == ["Raj"]
+    assert names(get(name=fam, city_id=str(city_ids[0]))) == ["Raj"]
     assert names(get(family_name=f"{fam} sha")) == ["Amit"]
     assert get(name="%_%" + tag).json()["suggested"]  # wildcards are literal: no exact match, closest shown
     # misspelt: closest names instead of nothing
@@ -101,15 +103,16 @@ try:
     # paging
     p1 = get(name=fam, limit=2).json()
     assert len(p1["items"]) == 2 and p1["next_offset"] == 2
-    p2 = get(name=fam, limit=2, offset=2).json()
-    assert [i["full_name"] for i in p2["items"]] == [f"{fam} Son"] and p2["next_offset"] is None
+    p2 = get(name=fam, limit=2, offset=2).json()  # Son is on page 2, shown as Raj again (per-page dedupe)
+    assert [i["full_name"] for i in p2["items"]] == [f"{fam} Raj"] and p2["next_offset"] is None
 
     # FR-66 / FR-68: directory fields only; Raj hid his phone from others but sees it himself
     items = {i["full_name"]: i for i in get(name=fam).json()["items"]}
     rj = items[f"{fam} Raj"]
     assert rj["phone"] is None and rj["phone_hidden"] and rj["address"] == f"{fam} Raj street", rj
     assert items[f"{fam} Amit"]["phone"].startswith("+919") and not items[f"{fam} Amit"]["phone_hidden"]
-    son = items[f"{fam} Son"]
+    son = next(p for p in c.get(f"/member/directory/households/{ids['hx']}", headers=amit_h).json()["people"]
+               if p["full_name"] == f"{fam} Son")
     assert son["kind"] == "RELATIVE" and son["relationship"] == "SON" and son["phone"] is None, son
     assert son["photo_url"] is None and "photo_url" in rj, (son, rj)
     assert not {"dob", "mobile_enc", "about", "biodata"} & set(rj), rj

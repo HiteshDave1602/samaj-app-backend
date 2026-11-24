@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Button, Chips, Field, Notice, ScreenHeader } from '@/components/ui/form';
+import { Button, Chips, Field, Notice, Problem, ScreenHeader } from '@/components/ui/form';
 import { api } from '@/lib/api';
 import { label, tWords, useT } from '@/lib/i18n';
 import { usePalette } from '@/lib/theme';
@@ -63,13 +63,13 @@ export default function BiodataScreen() {
   const [data, setData] = useState<Biodata>();
   const [saved, setSaved] = useState<Biodata>({}); // as loaded: a stored value the rules now refuse is flagged at once
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string>();
+  const [error, setError] = useState<unknown>();
 
   useEffect(() => {
     api<Biodata>(profile ? `/member/matrimony/profiles/${profile}/biodata` : '/member/matrimony/biodata').then(
       (b) => (setData(b), setSaved(b)),
       // my own: 404 until the first save, so start empty
-      (e) => (profile ? setError(e.message) : setData({})),
+      (e) => (profile ? setError(e) : setData({})),
     );
   }, [profile]);
 
@@ -86,7 +86,7 @@ export default function BiodataScreen() {
       await api('/member/matrimony/biodata', { method: 'PUT', body });
       router.back();
     } catch (e) {
-      setError((e as Error).message);
+      setError(e);
     } finally {
       setBusy(false);
     }
@@ -97,7 +97,7 @@ export default function BiodataScreen() {
       <SafeAreaView className="flex-1 bg-cream">
         <ScreenHeader title="Biodata" back />
         <View className="p-5">
-          {error ? <Notice title="Could not load biodata" body={error} tone={palette.rejected} /> : <ActivityIndicator />}
+          {error ? <Problem title="Could not load biodata" error={error} /> : <ActivityIndicator />}
         </View>
       </SafeAreaView>
     );
@@ -153,7 +153,7 @@ export default function BiodataScreen() {
               />
             ),
           )}
-          {error && <Notice title="Could not save" body={error} tone={palette.rejected} />}
+          <Problem title="Could not save" error={error} />
           <Button title={busy ? 'Saving…' : 'Save biodata'} disabled={busy || invalid} onPress={save} />
         </ScrollView>
       </KeyboardAvoidingView>

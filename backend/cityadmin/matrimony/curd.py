@@ -121,8 +121,9 @@ def decide_profile(db: Session, admin: AdminUser, actor: audit.Actor, profile_id
         after["photos_approved"] = db.execute(
             update(MatrimonyPhoto).where(MatrimonyPhoto.profile_id == profile_id, MatrimonyPhoto.status == "PENDING")
             .values(status="APPROVED", moderated_by_admin_id=admin.admin_id, moderated_at=now)).rowcount
+    # the member's city, not the admin's: the Super Admin has none, and the city's decision log reads it
     audit.log(db, actor, "MATRIMONY_APPROVE" if status == "APPROVED" else "MATRIMONY_REJECT", "matrimony_profile",
-              profile_id, admin.city_id, {"status": "PENDING_MODERATION"}, after)
+              profile_id, db.get(Member, profile.member_id).city_id, {"status": "PENDING_MODERATION"}, after)
     notification.add(db, profile.member_id, "PROFILE_DECISION", approved=status == "APPROVED", reason=reason)
     db.commit()
     # ponytail: search shows it once matrimony_search_mv exists (member-side matrimony).
@@ -139,10 +140,10 @@ def decide_photo(db: Session, admin: AdminUser, actor: audit.Actor, photo_id: UU
     photo.status, photo.rejection_reason = status, reason
     photo.moderated_by_admin_id, photo.moderated_at = admin.admin_id, datetime.now(timezone.utc)
     after = {"status": status} | ({"rejection_reason": reason} if reason else {})
+    member = db.get(Member, db.get(MatrimonyProfile, photo.profile_id).member_id)
     audit.log(db, actor, "PHOTO_APPROVE" if status == "APPROVED" else "PHOTO_REJECT", "matrimony_photo",
-              photo_id, admin.city_id, {"status": "PENDING"}, after)
-    notification.add(db, db.get(MatrimonyProfile, photo.profile_id).member_id, "PHOTO_DECISION",
-                     approved=status == "APPROVED", reason=reason)
+              photo_id, member.city_id, {"status": "PENDING"}, after)
+    notification.add(db, member.member_id, "PHOTO_DECISION", approved=status == "APPROVED", reason=reason)
     db.commit()
     return get_profile(db, admin, photo.profile_id)
 

@@ -26,8 +26,8 @@ def search(
 ):
     """FR-65: filters combine; name and family name match anywhere, case-insensitive. Sorted by name.
     With the search engine on, they also match small typos and Gujarati/Hindi spellings. 429 past the search rate."""
-    return es_search.search(db, member, name=name, city_id=city_id, family_name=family_name, offset=offset,
-                            limit=limit)
+    return curd.to_heads(db, member, es_search.search(db, member, name=name, city_id=city_id,
+                                                      family_name=family_name, offset=offset, limit=limit))
 
 
 @router.get("/birthdays", response_model=list[BirthdayEntry])

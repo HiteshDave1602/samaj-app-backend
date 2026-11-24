@@ -7,12 +7,13 @@ from sqlalchemy.orm import Session
 from auth.deps import get_actor, require_super_admin
 from cityadmin.matrimony import curd
 from cityadmin.matrimony.schema import DecisionPage, ProfileOut, ProfilePage
+from cityadmin.member_approval.schema import RejectIn
 from core.database import get_db
 from superadmin.audit_log.curd import Actor
 from superadmin.city_admin.model import AdminUser
 
-# Read-only view of every city's matrimony moderation (shared curd with /cityadmin/matrimony).
-# Approving and rejecting stay with each city's City Admin (FR-71). Biodata is never shown (FR-36).
+# Every city's matrimony moderation (shared curd with /cityadmin/matrimony). The Super Admin approves and rejects
+# alongside the City Admins; whoever decides first wins (the other gets 409). Biodata is never shown (FR-36).
 router = APIRouter(prefix="/superadmin/matrimony", tags=["Super Admin: Matrimony"])
 
 
@@ -51,6 +52,18 @@ def get_profile(profile_id: UUID, admin: AdminUser = Depends(require_super_admin
     return curd.get_profile(db, admin, profile_id)
 
 
+@router.post("/profiles/{profile_id}/approve", response_model=ProfileOut)
+def approve_profile(profile_id: UUID, admin: AdminUser = Depends(require_super_admin),
+                    actor: Actor = Depends(get_actor), db: Session = Depends(get_db)):
+    return curd.decide_profile(db, admin, actor, profile_id, "APPROVED")
+
+
+@router.post("/profiles/{profile_id}/reject", response_model=ProfileOut)
+def reject_profile(profile_id: UUID, data: RejectIn, admin: AdminUser = Depends(require_super_admin),
+                   actor: Actor = Depends(get_actor), db: Session = Depends(get_db)):
+    return curd.decide_profile(db, admin, actor, profile_id, "REJECTED", data.reason)
+
+
 @router.delete("/profiles/{profile_id}", status_code=204)
 def delete_profile(
     profile_id: UUID,
@@ -58,8 +71,20 @@ def delete_profile(
     actor: Actor = Depends(get_actor),
     db: Session = Depends(get_db),
 ):
-    """Removing is open to the Super Admin in any city; moderation stays with City Admins."""
+    """Any city's profile."""
     curd.delete_profile(db, admin, actor, profile_id)
+
+
+@router.post("/photos/{photo_id}/approve", response_model=ProfileOut)
+def approve_photo(photo_id: UUID, admin: AdminUser = Depends(require_super_admin),
+                  actor: Actor = Depends(get_actor), db: Session = Depends(get_db)):
+    return curd.decide_photo(db, admin, actor, photo_id, "APPROVED")
+
+
+@router.post("/photos/{photo_id}/reject", response_model=ProfileOut)
+def reject_photo(photo_id: UUID, data: RejectIn, admin: AdminUser = Depends(require_super_admin),
+                 actor: Actor = Depends(get_actor), db: Session = Depends(get_db)):
+    return curd.decide_photo(db, admin, actor, photo_id, "REJECTED", data.reason)
 
 
 @router.get("/photos/{photo_id}/file", response_class=Response,

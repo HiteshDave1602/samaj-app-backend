@@ -126,9 +126,10 @@ export default function Login() {
                   key="mobile"
                   label="Mobile number"
                   value={mobile}
-                  onChangeText={(v) => (setMobile(v), setUnknown(false))}
-                  placeholder="98765 43210"
-                  keyboardType="phone-pad"
+                  // digits only, at most 10; a pasted/autofilled +91 or leading 0 is dropped first
+                  onChangeText={(v) => (setMobile(v.replace(/\D/g, '').replace(/^(91|0)(?=\d{10}$)/, '').slice(0, 10)), setUnknown(false))}
+                  placeholder="9876543210"
+                  keyboardType="number-pad"
                   textContentType="telephoneNumber"
                   autoComplete="tel"
                   hint="Indian numbers need no +91"

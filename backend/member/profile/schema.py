@@ -7,7 +7,8 @@ from pydantic import BaseModel, field_validator
 from core.validation import Strict, Text
 from member.auth.schema import Address, BloodGroup, Dob, Gender, Language, MaritalStatus, Name, NativePlace
 
-OtherLanguage = Literal["gu", "hi"]
+# en: the English spelling of a name typed in Gujarati or Hindi
+OtherLanguage = Literal["en", "gu", "hi"]
 
 
 class IdDocumentOut(BaseModel):

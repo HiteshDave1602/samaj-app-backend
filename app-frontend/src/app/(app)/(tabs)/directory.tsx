@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Linking, Pressable, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Avatar, Chips, Field, Notice, ScreenHeader } from '@/components/ui/form';
+import { Avatar, CityChips, Field, FilterSheet, Notice, ScreenHeader } from '@/components/ui/form';
 import { MicButton } from '@/components/ui/mic-button';
 import { api } from '@/lib/api';
 import { label, useLoc, useT } from '@/lib/i18n';
@@ -42,8 +42,9 @@ export default function DirectoryScreen() {
   const [query, setQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [cities, setCities] = useState<City[]>([]);
-  const [cityId, setCityId] = useState<string>(); // by id: the name changes with the language
-  const [family, setFamily] = useState('');
+  // applied filters; the sheet edits `draft` and Apply copies it here. cityId by id: the name changes with the language
+  const [{ cityId, family }, setFilters] = useState<{ cityId?: string; family: string }>({ family: '' });
+  const [draft, setDraft] = useState({ cityId, family });
   const [results, setResults] = useState<Entry[]>();
   const [error, setError] = useState<string>();
   const [suggested, setSuggested] = useState(false); // no exact match: the server sent the closest names
@@ -89,18 +90,22 @@ export default function DirectoryScreen() {
             returnKeyType="search"
             className="flex-1 font-inter text-base text-ink"
           />
+          {query !== '' && (
+            <Pressable onPress={() => setQuery('')} hitSlop={8} accessibilityRole="button" accessibilityLabel={t('Clear search')}>
+              <SymbolView name={{ ios: 'xmark.circle.fill', android: 'cancel', web: 'cancel' }} size={20} tintColor={palette.muted} />
+            </Pressable>
+          )}
           <MicButton onText={setQuery} />
         </View>
         <Pressable
-          onPress={() => setShowFilters(!showFilters)}
+          onPress={() => (setDraft({ cityId, family }), setShowFilters(true))}
           accessibilityRole="button"
           accessibilityLabel={t('Filters')}
-          accessibilityState={{ expanded: showFilters }}
-          className={`h-12 w-12 items-center justify-center rounded-full ${showFilters || activeFilters ? 'bg-primary' : 'border border-line bg-card'}`}>
+          className={`h-12 w-12 items-center justify-center rounded-full ${activeFilters ? 'bg-primary' : 'border border-line bg-card'}`}>
           <SymbolView
             name={{ ios: 'line.3.horizontal.decrease', android: 'tune', web: 'tune' }}
             size={20}
-            tintColor={showFilters || activeFilters ? palette['on-primary'] : palette.ink}
+            tintColor={activeFilters ? palette['on-primary'] : palette.ink}
           />
           {activeFilters > 0 && (
             <View className="absolute -right-0.5 -top-0.5 h-5 w-5 items-center justify-center rounded-full border-2 border-cream bg-accent">
@@ -110,33 +115,14 @@ export default function DirectoryScreen() {
         </Pressable>
       </View>
 
-      {showFilters && (
-        <View className="mx-5 mt-3 gap-4 rounded-3xl border border-line bg-card p-4">
-          {/* tapping the selected chip again clears it */}
-          <Chips
-            label="City"
-            options={cities.map((c) => c.city_id)}
-            display={(id) => {
-              const c = cities.find((x) => x.city_id === id)!;
-              return place(c.name, c.name_i18n)!;
-            }}
-            value={cityId}
-            onChange={(v) => setCityId(v === cityId ? undefined : v)}
-          />
-          <Field label="Family name" value={family} onChangeText={setFamily} placeholder="e.g. Patel" />
-          {activeFilters > 0 && (
-            <Pressable
-              onPress={() => {
-                setCityId(undefined);
-                setFamily('');
-              }}
-              accessibilityRole="button"
-              className="self-start">
-              <Text className="font-inter-semibold text-sm text-primary">{t('Clear filters')}</Text>
-            </Pressable>
-          )}
-        </View>
-      )}
+      <FilterSheet
+        visible={showFilters}
+        onClose={() => setShowFilters(false)}
+        onReset={() => setDraft({ cityId: undefined, family: '' })}
+        onApply={() => (setFilters(draft), setShowFilters(false))}>
+        <CityChips cities={cities} value={draft.cityId} onChange={(id) => setDraft((d) => ({ ...d, cityId: id }))} />
+        <Field label="Family name" value={draft.family} onChangeText={(v) => setDraft((d) => ({ ...d, family: v }))} placeholder="e.g. Patel" />
+      </FilterSheet>
 
       <FlatList
         data={results}
@@ -150,7 +136,7 @@ export default function DirectoryScreen() {
             <Text className="font-inter text-sm text-muted">
               {suggested && results.length
                 ? t('No exact match. Showing the closest names.')
-                : t(results.length === 1 ? '{n} person' : '{n} people', { n: results.length })}
+                : t(results.length === 1 ? '{n} family' : '{n} families', { n: results.length })}
             </Text>
           ) : (
             <ActivityIndicator color={palette.primary.DEFAULT} />

@@ -96,6 +96,26 @@ def search(db: Session, viewer: Member, *, name: str | None, city_id: UUID | Non
             "next_offset": offset + limit if len(rows) > limit else None}
 
 
+def to_heads(db: Session, viewer: Member, page: dict) -> dict:
+    """The directory lists families: whoever matched shows as their household's head, once per family.
+    ponytail: deduped per page, so a family can repeat across pages; group in the query if deep paging matters."""
+    hids = {i["household_id"] for i in page["items"] if i["household_id"] and not i["is_household_head"]}
+    heads = {}
+    if hids:
+        u = union_all(_members(None, None, None).where(Member.household_id.in_(hids), Member.is_household_head),
+                      _relatives(None, None, None).where(FamilyMember.household_id.in_(hids),
+                                                         FamilyMember.relationship == "SELF")).subquery()
+        for r in db.execute(select(u)):
+            heads.setdefault(r.household_id, _entry(r, viewer))
+    seen, items = set(), []
+    for i in page["items"]:
+        i = heads.get(i["household_id"], i)  # no head listed: keep the person who matched
+        if (k := i["household_id"] or i["id"]) not in seen:
+            seen.add(k)
+            items.append(i)
+    return page | {"items": items}
+
+
 def _closest(db: Session, viewer: Member, *, name, city_id, family_name, limit: int) -> dict:
     """Nothing contained the text (a misspelling): the most similar names instead, one page, best first.
     ponytail: scores every listed person in the city; fine as the fallback at 50k, ES answers this normally."""

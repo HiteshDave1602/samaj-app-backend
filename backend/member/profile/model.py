@@ -53,6 +53,8 @@ class Member(Base):
         Index("ix_member_city_status", "city_id", "status", "created_at"),
         Index("ix_member_household", "household_id"),
         Index("ux_member_one_head", "household_id", unique=True, postgresql_where=text("is_household_head")),
+        # one live account per number; a deleted account keeps its row (audit) but frees the number
+        Index("ux_member_mobile_live", "mobile_hash", unique=True, postgresql_where=text("deleted_at IS NULL")),
         Index("ix_member_reviewed_by", "reviewed_by_admin_id"),
         Index("ix_member_name_trgm", "full_name", postgresql_using="gin", postgresql_ops={"full_name": "gin_trgm_ops"},
               postgresql_where=text("status = 'ACTIVE' AND deleted_at IS NULL")),  # directory name search (FR-65)
@@ -66,7 +68,7 @@ class Member(Base):
     is_household_head = Column(Boolean, nullable=False, server_default=text("false"))
     # The number is never stored in clear: Fernet-encrypted copy, HMAC for lookups, last 4 for display.
     mobile_enc = Column(LargeBinary)
-    mobile_hash = Column(LargeBinary, nullable=False, unique=True)
+    mobile_hash = Column(LargeBinary, nullable=False)  # unique among live members only: ux_member_mobile_live
     mobile_last4 = Column(String(4))
     full_name = Column(String(120))
     full_name_i18n = Column(JSONB, nullable=False, server_default=_i18n)

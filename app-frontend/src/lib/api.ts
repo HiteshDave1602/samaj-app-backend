@@ -101,7 +101,8 @@ function detail(json: any, fallback: string): string {
   const fields: Record<string, string> | undefined = json?.error?.fields;
   if (fields) return Object.entries(fields).map(([k, m]) => (k === 'body' ? m : `${fieldLabel(k)}: ${m}`)).join('; ');
   const d = json?.detail;
-  if (typeof d === 'string') return d;
+  // error.message is the detail without its SOP code ("ERR_X: text" -> "text"); the code is on the error as `code`
+  if (typeof d === 'string') return typeof json?.error?.message === 'string' ? json.error.message : d;
   if (Array.isArray(d)) return d.map((e) => e.msg.replace(/^Value error, /, '')).join('; ');
   return fallback;
 }
@@ -136,12 +137,23 @@ export async function api<T = any>(
   if (res.status === 401 && retry && access && (await restoreSession())) return api(path, { method, body }, false);
   if (!res.ok) {
     const json = await res.json().catch(() => null);
-    throw Object.assign(new Error(detail(json, `${res.status} ${res.statusText}`)), { status: res.status, fields: json?.error?.fields });
+    throw Object.assign(new Error(detail(json, `${res.status} ${res.statusText}`)), {
+      status: res.status,
+      code: json?.error?.code as string | undefined,
+      fields: json?.error?.fields,
+    });
   }
   return res.status === 204 ? (null as T) : res.json();
 }
 
-export type PickedFile = { uri: string; name: string; mimeType: string };
+/** A 4xx is the server saying what to do next (no profile yet, already sent, daily limit, not shared yet), not a
+ * failure: shown as information. Network and server errors (no status, 5xx) are real failures. */
+export const isGuidance = (e: unknown) => {
+  const s = (e as { status?: number } | undefined)?.status ?? 0;
+  return s >= 400 && s < 500;
+};
+
+export type PickedFile ={ uri: string; name: string; mimeType: string };
 
 /** Sends one file as the multipart field `file`, which is what every backend upload expects. */
 export async function upload<T = any>(path: string, method: string, file: PickedFile): Promise<T> {

@@ -1,17 +1,19 @@
 import hashlib
-from datetime import date
+from datetime import date, datetime, timezone
 from uuid import UUID
 
 from fastapi import HTTPException
-from sqlalchemy import inspect, select
+from sqlalchemy import inspect, select, update
 from sqlalchemy.orm import Session
 
+from auth.model import AuthSession
 from core import media, private_files
 from core.security import fernet
 from core.translit import localized
 from member.auth.schema import DETAILS
 from member.profile.model import Household, IdentityDocument, Member
 from member.profile.schema import MemberUpdate
+from superadmin.audit_log.model import AuditLog
 from superadmin.city.model import City
 
 ID_MAX_BYTES = 2 * 1024 * 1024  # FR-09
@@ -25,6 +27,25 @@ def age(dob: date | None) -> int | None:
         return None
     today = date.today()
     return today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+
+
+def soft_delete(db: Session, member: Member):
+    """An admin's delete or the member's own (caller audits and commits). Soft (deleted_at): the member vanishes from
+    every list, directory and search, their matrimony profile with them, and every session ends now rather than when
+    its access token runs out. The number is free again: login and registration only see live members."""
+    now = datetime.now(timezone.utc)
+    member.deleted_at = now  # ORM, not bulk UPDATE: the search outbox must see it
+    db.execute(update(AuthSession).where(AuthSession.member_id == member.member_id, AuthSession.revoked_at.is_(None))
+               .values(revoked_at=now))
+
+
+def delete_me(db: Session, member: Member, ip: str | None):
+    """A member deletes their own account."""
+    soft_delete(db, member)
+    db.add(AuditLog(actor_type="MEMBER", actor_id=member.member_id, action="MEMBER_SELF_DELETE",
+                    target_table="member", target_id=str(member.member_id), city_id=member.city_id,
+                    before_state={"status": member.status}, after_state={"deleted": True}, source_ip=ip))
+    db.commit()
 
 
 def latest_document(db: Session, member_id: UUID) -> IdentityDocument | None:

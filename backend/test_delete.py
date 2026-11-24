@@ -16,7 +16,7 @@ from core.security import fernet, hash_password
 from main import app
 from member.auth.curd import NOTICE_VERSION, _start_session, mobile_hash
 from member.matrimony.model import MatrimonyProfile
-from member.profile.model import Member
+from member.profile.model import Consent, Household, Member
 from superadmin.city.model import City
 from superadmin.city_admin.model import AdminUser
 
@@ -94,20 +94,38 @@ try:
     # the Super Admin removes in any city
     assert c.delete(f"/superadmin/matrimony/profiles/{prof['y']}", headers=sa_h).status_code == 204
 
-    # member: City Admin X deletes Asha; her live token, refresh, OTP and registering again all stop
+    # member: City Admin X deletes Asha; her live token and refresh stop, and the number is free again
     assert c.delete(f"/cityadmin/members/{ids['a']}", headers=x_h).status_code == 204
     assert c.get("/member/me", headers=a_h).status_code == 401
     assert c.post("/member/auth/refresh", json={"refresh_token": a_s["refresh_token"]}).status_code == 401
-    r = c.post("/member/auth/otp/send", json={"mobile": a_mobile, "intent": "login"})
-    assert r.status_code == 403 and "deleted" in r.text, r.text
-    r = c.post("/member/auth/register", json={
-        "mobile": a_mobile, "full_name": "Asha Patel", "gender": "FEMALE", "dob": "1996-01-01",
-        "city_id": str(x.city_id), "address": "1 Lane", "family_name": "Patel", "consent": True,
-        "notice_version": NOTICE_VERSION})
-    assert r.status_code == 403, r.text
+    assert c.post("/member/auth/otp/send", json={"mobile": a_mobile, "intent": "login"}).status_code == 404
     assert ids["a"] not in {m["member_id"] for m in c.get("/cityadmin/members", headers=x_h).json()["items"]}
     assert c.get(f"/superadmin/members/{ids['a']}", headers=sa_h).status_code == 404
     assert c.delete(f"/superadmin/members/{ids['a']}", headers=sa_h).status_code == 404
+    register = lambda mobile: c.post("/member/auth/register", json={  # noqa: E731
+        "mobile": mobile, "full_name": "Asha Patel", "gender": "FEMALE", "dob": "1996-01-01",
+        "city_id": str(x.city_id), "address": "1 Lane", "family_name": "Patel", "consent": True,
+        "notice_version": NOTICE_VERSION})
+    r = register(a_mobile)  # same number, a new account that waits for approval like anyone new
+    assert r.status_code == 201 and r.json()["member_status"] == "PENDING", r.text
+    assert register(a_mobile).status_code == 409  # but only one live account per number
+    with SessionLocal() as db:
+        again = db.scalar(select(Member).where(Member.mobile_hash == mobile_hash(a_mobile), Member.deleted_at.is_(None)))
+        assert str(again.member_id) != ids["a"]
+        again.status, again.reviewed_at = "ACTIVE", datetime.now(timezone.utc)
+        db.commit()
+        a2_s = _start_session(db, again)
+    a2_h = bearer(a2_s["access_token"])
+
+    # the member deletes their own account: same effect, audited as the member, and they can come back
+    assert c.delete("/member/me").status_code == 401
+    assert c.delete("/member/me", headers=a2_h).status_code == 204
+    assert c.get("/member/me", headers=a2_h).status_code == 401
+    assert c.post("/member/auth/refresh", json={"refresh_token": a2_s["refresh_token"]}).status_code == 401
+    assert c.get(f"/superadmin/members/{again.member_id}", headers=sa_h).status_code == 404
+    own = c.get("/superadmin/audit-logs", headers=sa_h, params={"actor_id": str(again.member_id)}).json()["items"]
+    assert [e["action"] for e in own] == ["MEMBER_SELF_DELETE"], own
+    assert register(a_mobile).status_code == 201
 
     # the Super Admin deletes a member of any city; a deleted member's matrimony profile leaves search too
     assert prof["b"] in {p["profile_id"] for p in c.get("/superadmin/matrimony/profiles", headers=sa_h,
@@ -124,8 +142,11 @@ try:
 finally:
     with SessionLocal() as db:  # auth_session rows go via ON DELETE CASCADE
         mids = list(db.scalars(select(Member.member_id).where(Member.city_id.in_(city_ids))))
+        hids = list(db.scalars(select(Member.household_id).where(Member.member_id.in_(mids))))
         db.execute(delete(MatrimonyProfile).where(MatrimonyProfile.member_id.in_(mids)))
+        db.execute(delete(Consent).where(Consent.member_id.in_(mids)))  # the re-registrations made these
         db.execute(delete(Member).where(Member.member_id.in_(mids)))
+        db.execute(delete(Household).where(Household.household_id.in_(hids)))
         db.execute(delete(AdminUser).where(AdminUser.admin_id.in_(admin_ids)))
         db.execute(delete(City).where(City.city_id.in_(city_ids)))
         db.commit()

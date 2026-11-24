@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from cityadmin.content.model import ContentItem, effective_status
 from core import media
 from core.database import SessionLocal, get_db
-from core.translate import translate
+from core.translate import ALL_LANGS, translate
 from member.auth.deps import get_current_member
 from member.profile.model import Member
 
@@ -46,17 +46,19 @@ def _translate_new(content_ids: list[UUID]):
         with SessionLocal() as db:
             for content_id in content_ids:
                 x = db.get(ContentItem, content_id)
-                if x is None or x.title_i18n:
+                # items translated before English was added get just that one
+                missing = [lang for lang in ALL_LANGS if x is not None and lang not in x.title_i18n]
+                if not missing:
                     continue
-                done = translate([x.title, x.body] if x.body else [x.title])
+                done = translate([x.title, x.body] if x.body else [x.title], missing)
                 if not done:
                     return  # down or over the allowance: the next feed load tries again
                 # an admin may have edited the text while the service was working: then this translation is stale
                 db.execute(update(ContentItem)
                            .where(ContentItem.content_id == content_id, ContentItem.title == x.title,
                                   ContentItem.body.is_not_distinct_from(x.body))
-                           .values(title_i18n={lang: texts[0] for lang, texts in done.items()},
-                                   body_i18n={lang: texts[1] for lang, texts in done.items()} if x.body else {}))
+                           .values(title_i18n=x.title_i18n | {lang: texts[0] for lang, texts in done.items()},
+                                   body_i18n=x.body_i18n | {lang: texts[1] for lang, texts in done.items()} if x.body else {}))
                 db.commit()
     finally:
         _translating.release()
@@ -75,7 +77,7 @@ def feed(background: BackgroundTasks, member: Member = Depends(get_current_membe
     news = db.scalars(q.where(ContentItem.content_type == "NEWS").limit(NEWS_LIMIT)).all()
     ads = db.scalars(q.where(ContentItem.content_type == "AD")).all()
     # shortest first: one long post can't use up the day's allowance before the others get their turn
-    untranslated = sorted((x for x in [*news, *ads] if not x.title_i18n), key=lambda x: len(x.title) + len(x.body or ""))
+    untranslated = sorted((x for x in [*news, *ads] if not all(lang in x.title_i18n for lang in ALL_LANGS)), key=lambda x: len(x.title) + len(x.body or ""))
     if untranslated:
         background.add_task(_translate_new, [x.content_id for x in untranslated])
     items = []

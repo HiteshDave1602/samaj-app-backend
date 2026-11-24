@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Button, Chips, DateField, Field, Notice, ScreenHeader, StatusView, UploadBox } from '@/components/ui/form';
+import { Button, Chips, DateField, Field, Notice, Problem, ScreenHeader, StatusView, UploadBox } from '@/components/ui/form';
 import { api, mediaUrl, parseDmy, toDmy, upload, type PickedFile } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 import { usePalette } from '@/lib/theme';
@@ -32,14 +32,14 @@ export default function CreateNews() {
   const titleError = rules.text(title, { required: true, max: 200 });
   const bodyError = rules.text(body, { required: true, max: 10000, multiline: true });
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string>();
+  const [error, setError] = useState<unknown>();
   const [sent, setSent] = useState(false);
 
   // UploadBox shows its own spinner; a failed upload lands in the error notice
   const send = (f: PickedFile) =>
     upload<Media>('/member/news/media', 'POST', f).then(
       (m) => (setError(undefined), m),
-      (e) => (setError(e.message), undefined),
+      (e) => (setError(e), undefined),
     );
 
   async function submit() {
@@ -60,8 +60,8 @@ export default function CreateNews() {
         },
       });
       setSent(true);
-    } catch (e: any) {
-      setError(e.message);
+    } catch (e) {
+      setError(e);
     } finally {
       setBusy(false);
     }
@@ -131,7 +131,7 @@ export default function CreateNews() {
               : 'Your city admin reviews news before it is published.'
           }
         />
-        {error && <Notice title="Something went wrong" body={error} tone={palette.rejected} />}
+        <Problem title="Something went wrong" error={error} />
         <Button
           title={kind === 'Ad' ? 'Submit ad' : 'Submit news'}
           disabled={busy || !!titleError || !!bodyError || !banner || !start || !end || badRange}

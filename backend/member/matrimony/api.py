@@ -22,8 +22,9 @@ from member.profile.model import Member
 router = APIRouter(prefix="/member/matrimony", tags=["Member Matrimony"])
 
 
-@router.get("/profile", response_model=MyProfileOut)
+@router.get("/profile", response_model=MyProfileOut | None)
 def get_profile(member: Member = Depends(get_active_member), db: Session = Depends(get_db)):
+    """null: no profile yet (the app shows Create). Not a 404: having none is normal, not an error."""
     return curd.my_profile(db, member)
 
 

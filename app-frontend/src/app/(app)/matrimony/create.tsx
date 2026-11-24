@@ -5,7 +5,7 @@ import { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Button, Chips, Field, Notice, ScreenHeader, StatusView, UploadBox } from '@/components/ui/form';
+import { Button, Chips, Field, Notice, Problem, ScreenHeader, StatusView, UploadBox } from '@/components/ui/form';
 import { api, authedImage, upload } from '@/lib/api';
 import { label, useT } from '@/lib/i18n';
 import { usePalette } from '@/lib/theme';
@@ -53,7 +53,7 @@ export default function MyMatrimonyProfile() {
   const [education, setEducation] = useState<keyof typeof EDUCATION>();
   const [background, setBackground] = useState<keyof typeof BACKGROUND>();
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string>();
+  const [error, setError] = useState<unknown>();
   const [sent, setSent] = useState(false); // just submitted: show the waiting screen
   const [loaded, setLoaded] = useState(form); // as saved: a stored value the rules now refuse is flagged at once
   const set = (k: keyof typeof form) => (v: string) => setForm({ ...form, [k]: v });
@@ -71,8 +71,8 @@ export default function MyMatrimonyProfile() {
 
   useFocusEffect(
     useCallback(() => {
-      // 404 just means "no profile yet"
-      api<MyProfile>('/member/matrimony/profile').then(fill, () => setProfile(null));
+      // null: no profile yet
+      api<MyProfile | null>('/member/matrimony/profile').then((p) => (p ? fill(p) : setProfile(null)), () => setProfile(null));
     }, [fill]),
   );
 
@@ -84,7 +84,7 @@ export default function MyMatrimonyProfile() {
       fill(saved);
       return saved;
     } catch (e) {
-      setError((e as Error).message);
+      setError(e);
     } finally {
       setBusy(false);
     }
@@ -218,7 +218,7 @@ export default function MyMatrimonyProfile() {
             )}
           </>
         )}
-        {error && <Notice title="Something went wrong" body={error} tone={palette.rejected} />}
+        <Problem title="Something went wrong" error={error} />
       </ScrollView>
     </SafeAreaView>
   );

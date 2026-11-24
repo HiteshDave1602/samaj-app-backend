@@ -3,6 +3,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from core.security import fernet
 from member.family.schema import FamilyRequestIn
 from member.profile.model import FamilyMember, Household, Member
 
@@ -47,8 +48,11 @@ def request_addition(db: Session, member: Member, data: FamilyRequestIn) -> dict
             FamilyMember.household_id == household.household_id, FamilyMember.status != "REJECTED",
             func.lower(FamilyMember.full_name) == data.full_name.lower(), FamilyMember.dob == data.dob)):
         raise duplicate
+    fields = data.model_dump()
+    mobile, address = fields.pop("mobile"), fields.pop("address")
     fm = FamilyMember(household_id=household.household_id, requested_by_member_id=member.member_id,
-                      **data.model_dump())
+                      mobile_enc=fernet.encrypt(mobile.encode()) if mobile else None,
+                      address_enc=fernet.encrypt(address.encode()) if address else None, **fields)
     db.add(fm)
     try:
         db.commit()

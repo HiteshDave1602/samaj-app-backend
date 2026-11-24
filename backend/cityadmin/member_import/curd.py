@@ -161,10 +161,11 @@ def upload(db: Session, admin: AdminUser, filename: str, data: bytes) -> dict:
             first_row[mh] = n
         cleaned.append((n, payload, error, mh))
 
-    existing, hashes = {}, list(first_row)  # FR-77: match on mobile number, in batches
+    # FR-77: match on mobile number, in batches; a deleted account's number is free, so its row is NEW
+    existing, hashes = {}, list(first_row)
     for i in range(0, len(hashes), 1000):
-        for m in db.execute(select(Member.member_id, Member.mobile_hash, Member.city_id, Member.full_name,
-                                   Member.dob, Member.deleted_at).where(Member.mobile_hash.in_(hashes[i:i + 1000]))):
+        for m in db.execute(select(Member.member_id, Member.mobile_hash, Member.city_id, Member.full_name, Member.dob)
+                            .where(Member.mobile_hash.in_(hashes[i:i + 1000]), Member.deleted_at.is_(None))):
             existing[m.mobile_hash] = m
 
     job = ImportJob(import_job_id=uuid4(), city_id=admin.city_id, uploaded_by_admin_id=admin.admin_id,
@@ -177,7 +178,7 @@ def upload(db: Session, admin: AdminUser, filename: str, data: bytes) -> dict:
             outcome = "ERROR"
         elif match is None:
             outcome = "NEW"
-        elif match.city_id != admin.city_id or match.deleted_at is not None:  # FR-71: never another city's member
+        elif match.city_id != admin.city_id:  # FR-71: never another city's member
             outcome, error, payload, match = "ERROR", "This mobile number belongs to a member outside your city", None, None
         elif _same_name(match.full_name, payload["full_name"]) and match.dob == date.fromisoformat(payload["dob"]):
             outcome = "UPDATE"

@@ -4,8 +4,8 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
-from core.validation import Strict
-from member.auth.schema import Dob, Gender, Name
+from core.validation import Strict, Text
+from member.auth.schema import Address, BloodGroup, Dob, Gender, MaritalStatus, Mobile, Name
 
 # Relationship to the household head (DDD family_member.relationship).
 Relationship = Literal[
@@ -20,6 +20,15 @@ class FamilyRequestIn(Strict):
     relationship: Relationship
     gender: Gender
     dob: Dob
+    # optional, same as registration; shown in the directory once approved
+    mobile: Mobile | None = None
+    address: Address | None = None
+    gotra: Text(120) | None = None
+    education: Text(120) | None = None
+    marital_status: MaritalStatus | None = None
+    occupation: Text(120) | None = None
+    hobby: Text(200) | None = None
+    blood_group: BloodGroup | None = None
 
 
 class RelativeOut(BaseModel):
