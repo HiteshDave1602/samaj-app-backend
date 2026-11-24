@@ -38,6 +38,7 @@ class AdminUser(Base):
     mfa_enrolled_at = Column(DateTime(timezone=True))
     status = Column(String(20), nullable=False, server_default="ACTIVE")  # ACTIVE | SUSPENDED | DEACTIVATED
     last_login_at = Column(DateTime(timezone=True))
+    requests_seen_at = Column(DateTime(timezone=True))  # the bell (/admin/requests): newer requests are unread
     deactivated_at = Column(DateTime(timezone=True))
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=_now)
     # set by the trg_set_updated_at trigger in the DB

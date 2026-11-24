@@ -6,7 +6,8 @@ from sqlalchemy.orm import Session
 
 from auth.deps import get_actor, require_super_admin
 from cityadmin.content import curd
-from cityadmin.content.schema import ContentCreate, ContentOut, ContentPage, ContentUpdate, MediaOut
+from cityadmin.content.schema import ApproveIn, ContentCreate, ContentOut, ContentPage, ContentUpdate, MediaOut
+from cityadmin.member_approval.schema import RejectIn
 from core import media
 from core.database import get_db
 from superadmin.audit_log.curd import Actor
@@ -61,3 +62,27 @@ def update_content(
     db: Session = Depends(get_db),
 ):
     return curd.update(db, admin, actor, content_id, data)
+
+
+@router.post("/{content_id}/approve", response_model=ContentOut)
+def approve(
+    content_id: UUID,
+    data: ApproveIn | None = None,
+    admin: AdminUser = Depends(require_super_admin),
+    actor: Actor = Depends(get_actor),
+    db: Session = Depends(get_db),
+):
+    """Member news from any city; same rules as the City Admin's approve."""
+    data = data or ApproveIn()
+    return curd.decide(db, admin, actor, content_id, "SCHEDULED", start_at=data.start_at, end_at=data.end_at)
+
+
+@router.post("/{content_id}/reject", response_model=ContentOut)
+def reject(
+    content_id: UUID,
+    data: RejectIn,
+    admin: AdminUser = Depends(require_super_admin),
+    actor: Actor = Depends(get_actor),
+    db: Session = Depends(get_db),
+):
+    return curd.decide(db, admin, actor, content_id, "REJECTED", data.reason)

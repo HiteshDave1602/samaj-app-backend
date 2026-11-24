@@ -10,10 +10,12 @@ import Matrimony from './pages/Matrimony'
 import Panchang from './pages/Panchang'
 import Import from './pages/Import'
 import Profile from './pages/Profile'
+import Requests from '../shared/Requests'
 // import Export from './pages/Export'
 
 const PAGES = [
   { id: 'dashboard', label: 'Dashboard', icon: 'M3 12l9-8 9 8M5 10v10h14V10', el: Dashboard },
+  { id: 'notifications', label: 'Notifications', icon: 'M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0', el: Requests },
   { id: 'members', label: 'Members', icon: 'M15 19a4 4 0 0 0-8 0M11 12a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM16 11l2 2 4-4', el: Members },
   { id: 'family', label: 'Family Additions', icon: 'M9 19a4 4 0 0 0-8 0M5 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM23 19a4 4 0 0 0-8 0M19 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM12 9v6M9 12h6', el: FamilyAdditions },
   { id: 'matrimony', label: 'Matrimony', icon: 'M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.5-7 10-7 10Z', el: Matrimony },
