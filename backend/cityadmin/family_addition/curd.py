@@ -5,6 +5,7 @@ from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, aliased
 
+from core.security import fernet
 from member.notification import curd as notification
 from member.profile.model import FamilyMember, Household, Member
 from superadmin.audit_log import curd as audit
@@ -27,6 +28,8 @@ def _query(admin: AdminUser):
 def _out(fm: FamilyMember, family_name: str, requested_by_name: str | None, reviewed_by_name: str | None) -> dict:
     return {c.name: getattr(fm, c.name) for c in FamilyMember.__table__.columns} | {
         "family_name": family_name, "requested_by_name": requested_by_name, "reviewed_by_name": reviewed_by_name,
+        "mobile": fernet.decrypt(fm.mobile_enc).decode() if fm.mobile_enc else None,
+        "address": fernet.decrypt(fm.address_enc).decode() if fm.address_enc else None,
     }
 
 

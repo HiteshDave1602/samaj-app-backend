@@ -69,11 +69,16 @@ try:
     assert r.status_code == 201 and r.json()["status"] == "PENDING" and r.json()["requested_by_member_id"] == head_id
     rohan = r.json()["family_member_id"]
     assert add(full_name="rohan").status_code == 409  # same person, case-insensitive
-    priya = add(full_name="Priya", relationship="DAUGHTER", gender="FEMALE").json()["family_member_id"]
+    assert add(full_name="Priya", mobile="12345").status_code == 422
+    priya = add(full_name="Priya", relationship="DAUGHTER", gender="FEMALE", mobile="9876501234",
+                address="4 MG Road", gotra="Kashyap", blood_group="O+").json()["family_member_id"]
 
-    # it is in the City Admin's queue
+    # it is in the City Admin's queue, with the optional details (number normalised, decrypted for the admin)
     queue = c.get("/cityadmin/family-additions", headers=ca_h).json()["items"]
     assert [i["full_name"] for i in queue] == ["Rohan", "Priya"], queue
+    assert (queue[1]["mobile"], queue[1]["address"], queue[1]["gotra"], queue[1]["blood_group"]) == \
+        ("+919876501234", "4 MG Road", "Kashyap", "O+"), queue[1]
+    assert queue[0]["mobile"] is None
 
     # FR-18: approved shows as APPROVED in the household; rejected shows the reason
     assert c.post(f"/cityadmin/family-additions/{rohan}/approve", headers=ca_h).status_code == 200

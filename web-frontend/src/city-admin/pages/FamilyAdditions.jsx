@@ -41,6 +41,7 @@ export default function FamilyAdditions() {
             <td>
               <div className="font-semibold">{r.full_name}</div>
               <div className="text-xs text-on-surface-variant">{[title(r.relationship), title(r.gender), r.dob && fmtDate(r.dob)].filter(Boolean).join(' · ')}</div>
+              <div className="text-xs text-on-surface-variant">{[r.mobile, r.address, r.gotra, r.marital_status, r.education, r.occupation, r.blood_group, r.hobby].filter(Boolean).join(' · ')}</div>
             </td>
             <td>{r.family_name}</td>
             <td>
