@@ -136,7 +136,7 @@ export default function DirectoryScreen() {
             <Text className="font-inter text-sm text-muted">
               {suggested && results.length
                 ? t('No exact match. Showing the closest names.')
-                : t(results.length === 1 ? '{n} person' : '{n} people', { n: results.length })}
+                : t(results.length === 1 ? '{n} family' : '{n} families', { n: results.length })}
             </Text>
           ) : (
             <ActivityIndicator color={palette.primary.DEFAULT} />
