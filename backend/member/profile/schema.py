@@ -26,9 +26,11 @@ class MemberOut(BaseModel):
     mobile: str | None  # in full: the member themself and their City Admin
     photo_url: str | None
     address: str | None
-    city_id: UUID
+    city_id: UUID | None  # None: registered for a city not set up yet; city_name is the one they typed
     city_name: str
     city_name_i18n: dict[str, str]
+    requested_city: str | None = None
+    requested_state: str | None = None
     household_id: UUID | None
     family_name: str | None
     family_name_i18n: dict[str, str]

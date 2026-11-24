@@ -29,7 +29,7 @@ def policy(path: str) -> str:
         return "SUPER_ADMIN"
     if path.startswith("/cityadmin/"):
         return "CITY_ADMIN"
-    if path in ("/admin/auth/me", "/admin/auth/logout"):
+    if path in ("/admin/auth/me", "/admin/auth/logout", "/admin/requests", "/admin/requests/read"):
         return "ANY_ADMIN"
     if path == "/health" or path.startswith(("/admin/auth/", "/member/auth/")):
         return "PUBLIC"

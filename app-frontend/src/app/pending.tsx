@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -8,12 +8,19 @@ import { api, logout, restoreSession } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 import { usePalette } from '@/lib/theme';
 
-type Me = { status: 'PENDING' | 'ACTIVE' | 'REJECTED' | 'ARCHIVED'; rejection_reason: string | null };
+type Status = 'PENDING' | 'ACTIVE' | 'REJECTED' | 'ARCHIVED';
+// city_id null: registered for a city not set up yet, so the Super Admin (not a City Admin) reviews it
+type Me = { status: Status; rejection_reason: string | null; city_id: string | null };
 
-// Members land here until a City Admin approves them; "Check again" refreshes the session to pick up the new status.
+// Two ways in:
+// - with `status` param, no session: just registered (register.tsx) or login refused (login.tsx) because the
+//   membership isn't approved yet. Only approved members get a session, so the way on is logging in again later.
+// - logged in: an approved member whose name/DOB edit sent the profile back to review; "Check again" refreshes.
 export default function Pending() {
   const palette = usePalette();
-  useT();
+  const t = useT();
+  const params = useLocalSearchParams<{ status?: Status; reason?: string; newCity?: string }>();
+  const outside = !!params.status;
   const [me, setMe] = useState<Me>();
   const [error, setError] = useState<string>();
 
@@ -28,10 +35,12 @@ export default function Pending() {
   }, []);
 
   useEffect(() => {
-    check();
-  }, [check]);
+    if (!outside) check();
+  }, [check, outside]);
 
-  const rejected = me?.status === 'REJECTED';
+  const rejected = (outside ? params.status : me?.status) === 'REJECTED';
+  const reason = outside ? params.reason : me?.rejection_reason;
+  const newCity = outside ? !!params.newCity : !!me && !me.city_id;
   return (
     <SafeAreaView className="flex-1 bg-cream">
       <StatusView
@@ -44,22 +53,22 @@ export default function Pending() {
         title={rejected ? 'Membership not approved' : 'Awaiting approval'}
         body={
           rejected
-            ? me.rejection_reason ?? 'Please contact your city admin.'
-            : 'Your city admin will verify your details. You can use the app once they approve your membership.'
+            ? reason || t('Please contact your city admin.')
+            : t(newCity
+              ? 'Your city is not set up yet. The Super Admin will add it and verify your details. You can use the app once your membership is approved.'
+              : 'Your city admin will verify your details. You can use the app once they approve your membership.')
+            + (outside ? ' ' + t('Log in with your mobile number after approval.') : '')
         }
-        action="Check again"
-        onAction={check}
+        action={outside ? 'Go to login' : 'Check again'}
+        onAction={outside ? () => router.replace('/login') : check}
       />
-      <View className="gap-3 px-6 pb-6">
-        {error && <Notice title="Could not check your status" body={error} tone={palette.rejected} />}
-        {/* a rejected member's edit resubmits the profile; either status can upload the ID document */}
-        <Button
-          title={rejected ? 'Fix details & resubmit' : 'Edit details / upload ID'}
-          variant="outlined"
-          onPress={() => router.push('/edit-profile')}
-        />
-        <Button title="Log out" variant="tonal" onPress={() => logout().then(() => router.replace('/login'))} />
-      </View>
+      {!outside && (
+        <View className="gap-3 px-6 pb-6">
+          {error && <Notice title="Could not check your status" body={error} tone={palette.rejected} />}
+          <Button title="Edit details / upload ID" variant="outlined" onPress={() => router.push('/edit-profile')} />
+          <Button title="Log out" variant="tonal" onPress={() => logout().then(() => router.replace('/login'))} />
+        </View>
+      )}
     </SafeAreaView>
   );
 }

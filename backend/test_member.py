@@ -4,14 +4,14 @@ import secrets
 from datetime import date, timedelta
 
 from fastapi.testclient import TestClient
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, func, select, update
 
 from core import media, private_files, sms
 from core.config import settings
 from core.database import SessionLocal
 from core.security import fernet
 from main import app
-from member.auth.curd import NOTICE_VERSION, mobile_hash
+from member.auth.curd import NOTICE_VERSION, _seal, _start_session, mobile_hash
 from member.auth.model import OtpChallenge
 from member.profile.model import Consent, Household, IdentityDocument, Member
 from superadmin.city.model import City
@@ -39,6 +39,13 @@ def verify(mobile: str, code: str):
 def otp_for(mobile: str) -> str:
     assert send(mobile).status_code == 200
     return outbox["+91" + mobile[-10:]]
+
+
+def forget_otps(e164: str):
+    """Resets the 5-sends-per-hour count for one number (that limit is tested with flood_mobile)."""
+    with SessionLocal() as db:
+        db.execute(delete(OtpChallenge).where(OtpChallenge.mobile_hash == mobile_hash(e164)))
+        db.commit()
 
 
 def wrong(code: str) -> str:
@@ -86,15 +93,14 @@ try:
     r = verify(mobile, code)
     assert r.status_code == 400 and "expired" in r.text, r.text
 
-    # new number + right code -> registration ticket; a used code can't be replayed
+    # new number + right code -> "not registered", nothing else; a used code can't be replayed
     code = otp_for(mobile)
     r = verify(mobile, code)
-    assert r.status_code == 200 and r.json()["registered"] is False and "session" not in r.json(), r.text
-    ticket = r.json()["registration_ticket"]
+    assert r.status_code == 200 and r.json() == {"registered": False}, r.text
     assert verify(mobile, code).status_code == 400
 
     profile = {
-        "registration_ticket": ticket, "full_name": "Asha Patel", "gender": "FEMALE", "dob": "1998-04-12",
+        "mobile": mobile, "full_name": "Asha Patel", "gender": "FEMALE", "dob": "1998-04-12",
         "city_id": city_id, "address": "12 MG Road, Pune", "family_name": "Patel", "native_place": "Surat",
         "consent": True, "notice_version": NOTICE_VERSION,
     }
@@ -110,13 +116,19 @@ try:
     assert reg(dob=str(date.today() + timedelta(days=1))).status_code == 422
     assert reg(notice_version="v0").status_code == 409
     assert reg(city_id=closed_id).status_code == 400
-    assert reg(registration_ticket="junk").status_code == 401
+    assert reg(mobile="12345").status_code == 422 and reg(mobile=None).status_code == 422
 
-    # FR-08: registered as PENDING and logged in straight away
+    # registered as PENDING with no session (no OTP on the form); login waits for approval
     r = reg()
-    assert r.status_code == 201 and r.json()["member_status"] == "PENDING", r.text
-    tokens = r.json()
-    me_h = {"Authorization": f"Bearer {tokens['access_token']}"}
+    assert r.status_code == 201 and r.json() == {"member_status": "PENDING"}, r.text
+    r = verify(mobile, otp_for(mobile))
+    assert r.json() == {"registered": True, "member_status": "PENDING"}, r.text
+    forget_otps(e164)
+    # a session from before this rule (or any not-yet-approved one) can't be refreshed
+    with SessionLocal() as db:
+        tokens = _start_session(db, db.scalar(select(Member).where(Member.mobile_hash == mobile_hash(e164))))
+    assert c.post("/member/auth/refresh", json={"refresh_token": tokens["refresh_token"]}).status_code == 401
+    me_h = {"Authorization": f"Bearer {tokens['access_token']}"}  # the access token lives out its 15 min
     me = c.get("/member/me", headers=me_h).json()
     assert me["full_name"] == "Asha Patel" and me["status"] == "PENDING" and me["mobile_last4"] == mobile[-4:], me
     assert me["address"] == "12 MG Road, Pune" and me["family_name"] == "Patel" and me["is_household_head"], me
@@ -202,15 +214,23 @@ try:
     with SessionLocal() as db:
         m = db.scalar(select(Member).where(Member.mobile_hash == mobile_hash(e164)))
         assert fernet.decrypt(m.mobile_enc).decode() == e164 and mobile.encode() not in m.mobile_enc
-        assert m.source == "APP" and m.last_login_at is not None
+        assert m.source == "APP"
         consent = db.scalar(select(Consent).where(Consent.member_id == m.member_id))
         assert consent.purpose == "MEMBERSHIP" and consent.notice_version == NOTICE_VERSION
 
-    # FR-02: login with OTP
-    r = verify(mobile, outbox[e164])
+    # FR-02: login with OTP once approved; rejected members get the reason instead of a session
+    forget_otps(e164)
+    set_member(status="REJECTED", rejection_reason="Blurry ID")
+    r = verify(mobile, otp_for(mobile))
+    assert r.json() == {"registered": True, "member_status": "REJECTED", "rejection_reason": "Blurry ID"}, r.text
+    # once approved, back in review after an edit (ASM-10) still logs in
+    set_member(status="PENDING", rejection_reason=None, reviewed_at=func.now())
+    assert verify(mobile, otp_for(mobile)).json()["session"]["member_status"] == "PENDING"
+    set_member(status="ACTIVE")
+    r = verify(mobile, otp_for(mobile))
     assert r.status_code == 200 and r.json()["registered"] is True, r.text
     login = r.json()["session"]
-    assert login["member_status"] == "PENDING" and "registration_ticket" not in r.json()
+    assert login["member_status"] == "ACTIVE", login
 
     # NFR-16: refresh rotates; the old refresh token dies
     r = c.post("/member/auth/refresh", json={"refresh_token": login["refresh_token"]})
@@ -223,8 +243,8 @@ try:
     assert c.post("/member/auth/logout", json={"refresh_token": rotated["refresh_token"]}).status_code == 204
     assert c.post("/member/auth/refresh", json={"refresh_token": rotated["refresh_token"]}).status_code == 401
 
-    # token confusion: junk, a registration ticket, or an admin token are not member access tokens
-    for bad in ("junk", ticket, secrets.token_urlsafe(32)):
+    # token confusion: junk, another kind of sealed token, or an admin token are not member access tokens
+    for bad in ("junk", _seal("reg", m=e164), secrets.token_urlsafe(32)):
         assert c.get("/member/me", headers={"Authorization": f"Bearer {bad}"}).status_code == 401
     assert c.get("/member/me").status_code == 401
 

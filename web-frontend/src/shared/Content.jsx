@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { api, fmtDateTime, qs, useLoad, useSubmit, useToast } from './api'
+import { api, fmtDateTime, qs, useConfirm, useLoad, useSubmit, useToast } from './api'
 import { Badge, Button, ErrorText, Field, FormActions, Modal, PageHeader, Pager, StatusBadge, Table, Toolbar, inputCls } from './ui'
 import Decide from '../city-admin/Decide'
 
@@ -132,6 +132,7 @@ function ContentForm({ item, base, cities, onClose, onSaved }) {
   const [uploadError, setUploadError] = useState(null)
   const [uploading, setUploading] = useState(false)
   const toast = useToast()
+  const confirm = useConfirm()
 
   async function upload(e) {
     const file = e.target.files[0]
@@ -144,7 +145,11 @@ function ContentForm({ item, base, cities, onClose, onSaved }) {
   }
 
   async function cancelItem() {
-    if (!confirm(`Cancel "${item.title}"? Cancelled items can't be changed again.`)) return
+    if (!(await confirm({
+      title: `Cancel “${item.title}”?`,
+      body: "Cancelled items can't be changed again.",
+      action: 'Cancel item', danger: true,
+    }))) return
     try {
       await api(`${base}/${item.content_id}`, { method: 'PUT', body: { status: 'CANCELLED' } })
       toast('Cancelled')

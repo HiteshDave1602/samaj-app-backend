@@ -290,6 +290,32 @@ export function Notice({ title, body, tone: given }: { title: string; body: stri
   );
 }
 
+/** Floating info message that hides itself; render it last inside the screen's root view. */
+export function Toast({ message, action, onAction, onHide }: { message?: string; action?: string; onAction?: () => void; onHide: () => void }) {
+  const palette = usePalette();
+  const t = useT();
+  useEffect(() => {
+    if (!message) return;
+    const id = setTimeout(onHide, 4000);
+    return () => clearTimeout(id);
+  }, [message, onHide]);
+  if (!message) return null;
+  return (
+    <View
+      accessibilityLiveRegion="polite"
+      className="absolute inset-x-5 bottom-6 flex-row items-center gap-3 rounded-2xl p-4 shadow-lg"
+      style={{ backgroundColor: palette.info.container }}>
+      <SymbolView name={{ ios: 'info.circle.fill', android: 'info', web: 'info' }} size={20} tintColor={palette.info.DEFAULT} />
+      <Text className="flex-1 font-inter text-sm" style={{ color: palette.info.DEFAULT }}>{t(message)}</Text>
+      {action && (
+        <Pressable onPress={() => (onHide(), onAction?.())} accessibilityRole="button" hitSlop={8}>
+          <Text className="font-inter-semibold text-sm" style={{ color: palette.info.DEFAULT }}>{t(action)}</Text>
+        </Pressable>
+      )}
+    </View>
+  );
+}
+
 /** Seconds left until a deadline; start(s) sets it s seconds from now. Wall-clock based, so a backgrounded app stays right. */
 export function useCountdown() {
   const [{ now, end }, setTimes] = useState({ now: 0, end: 0 });

@@ -27,7 +27,7 @@ class Household(Base):
     )
 
     household_id = Column(Uuid, primary_key=True, server_default=_uuid)
-    city_id = Column(Uuid, ForeignKey("samaj.city.city_id", ondelete="RESTRICT"), nullable=False)
+    city_id = Column(Uuid, ForeignKey("samaj.city.city_id", ondelete="RESTRICT"))  # NULL: head awaits a new city
     family_name = Column(String(120), nullable=False)
     family_name_i18n = Column(JSONB, nullable=False, server_default=_i18n)
     native_place = Column(String(120))
@@ -47,6 +47,9 @@ class Member(Base):
         CheckConstraint("language IN ('en','gu','hi')", name="ck_member_language"),
         CheckConstraint("status <> 'REJECTED' OR rejection_reason IS NOT NULL", name="ck_member_1"),
         CheckConstraint("dob <= CURRENT_DATE", name="ck_member_2"),
+        # no city: registered for a city not set up yet; the Super Admin creates it and decides (approve sets city)
+        CheckConstraint("city_id IS NOT NULL OR (status IN ('PENDING','REJECTED') AND requested_city IS NOT NULL)",
+                        name="ck_member_3"),
         Index("ix_member_city_status", "city_id", "status", "created_at"),
         Index("ix_member_household", "household_id"),
         Index("ux_member_one_head", "household_id", unique=True, postgresql_where=text("is_household_head")),
@@ -56,7 +59,9 @@ class Member(Base):
     )
 
     member_id = Column(Uuid, primary_key=True, server_default=_uuid)
-    city_id = Column(Uuid, ForeignKey("samaj.city.city_id", ondelete="RESTRICT"), nullable=False)
+    city_id = Column(Uuid, ForeignKey("samaj.city.city_id", ondelete="RESTRICT"))  # see ck_member_3
+    requested_city = Column(String(80))  # typed at registration when no city matched
+    requested_state = Column(String(60))
     household_id = Column(Uuid, ForeignKey("samaj.household.household_id", ondelete="SET NULL"))
     is_household_head = Column(Boolean, nullable=False, server_default=text("false"))
     # The number is never stored in clear: Fernet-encrypted copy, HMAC for lookups, last 4 for display.

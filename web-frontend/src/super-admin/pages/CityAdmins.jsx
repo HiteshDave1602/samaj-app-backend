@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { api, fmtDate, fmtDateTime, qs, useLoad, useSubmit, useToast } from '../../shared/api'
+import { api, fmtDate, fmtDateTime, qs, useConfirm, useLoad, useSubmit, useToast } from '../../shared/api'
 import { Badge, Button, Combobox, ErrorText, Field, FormActions, Modal, PageHeader, StatusBadge, Table, Toolbar, inputCls } from '../../shared/ui'
 
 export default function CityAdmins() {
@@ -97,9 +97,13 @@ function NewAdmin({ cities, onClose, onSaved }) {
 
 function EditAdmin({ admin, onClose, onSaved }) {
   const toast = useToast()
+  const confirm = useConfirm()
   const { onSubmit, busy, error } = useSubmit(async (f) => {
-    if (f.status === 'DEACTIVATED' && admin.status !== 'DEACTIVATED' &&
-      !confirm(`Deactivate ${admin.full_name}? This is permanent; you'd add a new City Admin instead.`)) return
+    if (f.status === 'DEACTIVATED' && admin.status !== 'DEACTIVATED' && !(await confirm({
+      title: `Deactivate ${admin.full_name}?`,
+      body: "This is permanent; you'd add a new City Admin instead.",
+      action: 'Deactivate', danger: true,
+    }))) return
     await api(`/superadmin/city-admins/${admin.admin_id}`, { method: 'PUT', body: { ...f, email: f.email.trim() } })
     toast('City Admin updated')
     onSaved()

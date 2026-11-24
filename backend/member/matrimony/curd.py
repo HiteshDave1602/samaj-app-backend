@@ -23,11 +23,16 @@ BIODATA_KEY_ID = "fernet-v1"
 BIODATA_SCHEMA_VERSION = 1
 
 
+REMOVED = "Your matrimony profile was removed by an admin. Contact your city admin."
+
+
 def own(db: Session, member: Member, lock: bool = False) -> MatrimonyProfile:
     q = select(MatrimonyProfile).where(MatrimonyProfile.member_id == member.member_id)
     profile = db.scalar(q.with_for_update() if lock else q)
     if profile is None:
         raise HTTPException(404, "Create your matrimony profile first")
+    if profile.deleted_at is not None:  # every own-profile route comes through here
+        raise HTTPException(403, REMOVED)
     return profile
 
 
@@ -52,8 +57,9 @@ def my_profile(db: Session, member: Member) -> dict:
 
 def create_profile(db: Session, member: Member, data: ProfileCreate) -> dict:
     """FR-19: Active members only. Starts as DRAFT; POST /submit sends it to the City Admin."""
-    if db.scalar(select(MatrimonyProfile.profile_id).where(MatrimonyProfile.member_id == member.member_id)):
-        raise HTTPException(409, "You already have a matrimony profile")
+    existing = db.scalar(select(MatrimonyProfile).where(MatrimonyProfile.member_id == member.member_id))
+    if existing:
+        raise HTTPException(403, REMOVED) if existing.deleted_at else HTTPException(409, "You already have a matrimony profile")
     values = data.model_dump()
     values["location_city_id"] = values["location_city_id"] or member.city_id
     _check_city(db, values["location_city_id"])
@@ -114,7 +120,8 @@ def upload_photo(db: Session, member: Member, data: bytes) -> dict:
 def _searchable():
     # FR-22 / FR-27: approved profiles of active, non-deleted members only. Checked live on every query,
     # so a profile hidden or member archived disappears at once.
-    return MatrimonyProfile.status == "APPROVED", Member.status == "ACTIVE", Member.deleted_at.is_(None)
+    return (MatrimonyProfile.status == "APPROVED", MatrimonyProfile.deleted_at.is_(None),
+            Member.status == "ACTIVE", Member.deleted_at.is_(None))
 
 
 _cover = (select(MatrimonyPhoto.photo_id)
@@ -203,7 +210,8 @@ def public_profile(db: Session, profile_id: UUID) -> dict:
 
 def _own_photo(db: Session, member: Member, photo_id: UUID) -> MatrimonyPhoto:
     photo = db.scalar(select(MatrimonyPhoto).join(MatrimonyProfile)
-                      .where(MatrimonyPhoto.photo_id == photo_id, MatrimonyProfile.member_id == member.member_id))
+                      .where(MatrimonyPhoto.photo_id == photo_id, MatrimonyProfile.member_id == member.member_id,
+                             MatrimonyProfile.deleted_at.is_(None)))
     if photo is None:  # someone else's photo is a 404 too, so ids can't be probed
         raise HTTPException(404, "Photo not found")
     return photo
@@ -224,7 +232,7 @@ def photo_file(db: Session, member: Member, photo_id: UUID) -> tuple[bytes, str]
         select(MatrimonyPhoto)
         .join(MatrimonyProfile, MatrimonyProfile.profile_id == MatrimonyPhoto.profile_id)
         .join(Member, Member.member_id == MatrimonyProfile.member_id)
-        .where(MatrimonyPhoto.photo_id == photo_id,
+        .where(MatrimonyPhoto.photo_id == photo_id, MatrimonyProfile.deleted_at.is_(None),
                or_(MatrimonyProfile.member_id == member.member_id,
                    and_(MatrimonyPhoto.status == "APPROVED", *_searchable()))))
     if photo is None:
@@ -236,7 +244,10 @@ def photo_file(db: Session, member: Member, photo_id: UUID) -> tuple[bytes, str]
 
 
 def biodata_of(db: Session, profile_id: UUID) -> dict | None:
-    """Decrypted biodata. The only reader: callers must have done the owner / accepted-pair check (FR-35)."""
+    """Decrypted biodata. The only reader: callers must have done the owner / accepted-pair check (FR-35).
+    None for a profile an admin removed, so an accepted exchange stops sharing it too."""
+    if db.scalar(select(MatrimonyProfile.deleted_at).where(MatrimonyProfile.profile_id == profile_id)):
+        return None
     row = db.get(Biodata, profile_id)
     return row and json.loads(fernet.decrypt(row.payload_enc)) | {"updated_at": row.updated_at}
 

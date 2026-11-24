@@ -5,10 +5,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Button, Notice, ScreenHeader } from '@/components/ui/form';
+import { Button, Notice, ScreenHeader, Toast } from '@/components/ui/form';
 import { api, authedImage } from '@/lib/api';
 import { label, loc, tWords, useT } from '@/lib/i18n';
-import { Cover, education, height, summary, title, type ProfileCard } from '@/lib/matrimony';
+import { Cover, education, height, NEED_PROFILE, summary, title, type ProfileCard } from '@/lib/matrimony';
 import { usePalette } from '@/lib/theme';
 
 // backend member/matrimony/schema.py PublicProfileOut
@@ -37,6 +37,8 @@ export default function MatrimonyProfile() {
   const [p, setP] = useState<Profile>();
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
+  const [toast, setToast] = useState<string>();
+  const hideToast = useCallback(() => setToast(undefined), []);
 
   const load = useCallback(
     () => api<Profile>(`/member/matrimony/profiles/${id}`).then(setP, (e) => setError(e.message)),
@@ -53,7 +55,9 @@ export default function MatrimonyProfile() {
       await api(path, { method: 'POST' });
       await load();
     } catch (e) {
-      setError((e as Error).message);
+      // 404: no profile of my own yet; that's a next step, not an error
+      if ((e as { status?: number }).status === 404) setToast(NEED_PROFILE);
+      else setError((e as Error).message);
     } finally {
       setBusy(false);
     }
@@ -142,6 +146,7 @@ export default function MatrimonyProfile() {
           </>
         )}
       </ScrollView>
+      <Toast message={toast} action="Create" onAction={() => router.push('/matrimony/create')} onHide={hideToast} />
     </SafeAreaView>
   );
 }

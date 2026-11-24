@@ -68,6 +68,16 @@ def reject_profile(
     return curd.decide_profile(db, admin, actor, profile_id, "REJECTED", data.reason)
 
 
+@router.delete("/profiles/{profile_id}", status_code=204)
+def delete_profile(
+    profile_id: UUID,
+    admin: AdminUser = Depends(require_city_admin),
+    actor: Actor = Depends(get_actor),
+    db: Session = Depends(get_db),
+):
+    curd.delete_profile(db, admin, actor, profile_id)
+
+
 @router.get("/photos/{photo_id}/file", response_class=Response,
             responses={200: {"content": {"image/jpeg": {}, "image/png": {}}}})
 def photo_file(photo_id: UUID, admin: AdminUser = Depends(require_city_admin), db: Session = Depends(get_db)):

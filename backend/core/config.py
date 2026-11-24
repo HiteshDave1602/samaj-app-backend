@@ -46,6 +46,7 @@ class Settings(BaseSettings):
     otp_ip_rate_per_minute: int = 10  # OTP send and verify, per client IP (SRS)
     otp_ip_rate_per_hour: int = 30  # OTP sends per client IP: stops a bot rotating numbers under the minute limit
     auth_ip_rate_per_minute: int = 10  # admin login / MFA, per client IP: stops guessing across many emails
+    register_ip_rate_per_hour: int = 10  # registrations per client IP (no OTP in front): a family can share Wi-Fi
 
 
 settings = Settings()

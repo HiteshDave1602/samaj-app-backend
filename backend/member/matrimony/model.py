@@ -42,6 +42,8 @@ class MatrimonyProfile(Base):
     moderation_reason = Column(String(500))
     moderated_by_admin_id = Column(Uuid, ForeignKey("samaj.admin_user.admin_id", ondelete="SET NULL"))
     moderated_at = Column(DateTime(timezone=True))
+    # removed by an admin: hidden everywhere, and the member can't open, edit or recreate it (unique member_id)
+    deleted_at = Column(DateTime(timezone=True))
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=_now)
     updated_at = Column(DateTime(timezone=True), nullable=False, server_default=_now, server_onupdate=FetchedValue())
 

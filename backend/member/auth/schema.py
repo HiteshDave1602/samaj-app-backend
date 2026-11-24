@@ -3,7 +3,7 @@ from datetime import date
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import AfterValidator, BaseModel, Field
+from pydantic import AfterValidator, BaseModel, Field, model_validator
 
 from core.validation import PersonName, Place, Strict, Text
 
@@ -63,17 +63,27 @@ class TokenOut(BaseModel):
 
 
 class OtpVerifyOut(BaseModel):
-    registered: bool
-    session: TokenOut | None = None  # registered number: logged in
-    registration_ticket: str | None = None  # new number: pass to /register within 15 minutes
+    registered: bool  # false: no account for this number; the app offers to register
+    session: TokenOut | None = None  # approved member: logged in
+    # registered but not approved yet (PENDING) or REJECTED: no session; the app shows the waiting screen
+    member_status: str | None = None
+    rejection_reason: str | None = None
+
+
+class RegisterOut(BaseModel):
+    member_status: str  # PENDING: no session; the member logs in with an OTP once an admin approves
 
 
 class RegisterIn(Strict):
-    registration_ticket: str = Field(max_length=500)
+    # Not OTP-verified: the number is proven at the first login, and the admin calls it to verify before approving.
+    mobile: Mobile
     full_name: Name
     gender: Gender
     dob: Dob
-    city_id: UUID
+    # A listed city, or the name and state of one not set up yet: the Super Admin then creates it and decides.
+    city_id: UUID | None = None
+    requested_city: Place(80) | None = None
+    requested_state: Place(60) | None = None
     address: Address
     family_name: Name
     native_place: NativePlace | None = None
@@ -86,6 +96,13 @@ class RegisterIn(Strict):
     language: Language = "en"
     consent: Literal[True]  # FR-07: the app enables Submit only once the box is ticked
     notice_version: str = Field(max_length=20)  # the consent notice the member was shown
+
+    @model_validator(mode="after")
+    def one_city(self):
+        typed = (self.requested_city is not None, self.requested_state is not None)
+        if typed != ((False, False) if self.city_id else (True, True)):
+            raise ValueError("Select a city, or enter your city and state")
+        return self
 
 
 class RefreshIn(Strict):

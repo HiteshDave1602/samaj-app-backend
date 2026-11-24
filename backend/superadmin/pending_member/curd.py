@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import and_, select
+from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session
 
 from member.profile.model import Member
@@ -12,10 +12,11 @@ ESCALATE_AFTER = timedelta(hours=72)  # FR-16
 
 def list_overdue(db: Session) -> list[dict]:
     """Registrations pending > 72 h in any city, oldest first, with the city's active admin (None: city has none).
+    A registration for a city not set up yet has no city_id; city_name is then the city they typed.
     ponytail: a list only; the email in FR-16 comes with an email sender."""
     rows = db.execute(
-        select(Member, City.name, AdminUser.admin_id, AdminUser.full_name)
-        .join(City, City.city_id == Member.city_id)
+        select(Member, func.coalesce(City.name, Member.requested_city), AdminUser.admin_id, AdminUser.full_name)
+        .outerjoin(City, City.city_id == Member.city_id)
         .outerjoin(AdminUser, and_(AdminUser.city_id == Member.city_id, AdminUser.role == "CITY_ADMIN",
                                    AdminUser.status == "ACTIVE"))
         .where(Member.status == "PENDING", Member.deleted_at.is_(None),

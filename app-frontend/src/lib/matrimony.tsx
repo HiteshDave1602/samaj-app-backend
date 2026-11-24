@@ -36,6 +36,8 @@ export type BiodataRequest = {
 };
 
 /** '26 yrs · Surat' */
+export const NEED_PROFILE = 'Create your matrimony profile first to express interest.';
+
 export const summary = (p: ProfileCard) =>
   [p.age && t('{n} yrs', { n: p.age }), loc(p.location_city_name, p.location_city_name_i18n)].filter(Boolean).join(' · ');
 export const education = (p: ProfileCard) => [label(p.education_level), p.education_detail].filter(Boolean).join(' · ');

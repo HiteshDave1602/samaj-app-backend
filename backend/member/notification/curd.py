@@ -28,6 +28,17 @@ def _news(member: Member):
                    ContentItem.created_by_member_id.is_distinct_from(member.member_id)))
 
 
+def _ads_ended(member: Member):
+    """AD_ENDED: the member's own approved ads whose run is over, as of end_at. Read time like NEWS_LIVE, so a run
+    window an admin moves later moves this too, and it needs no job. Not behind notify_news: it's their own ad."""
+    return (select(ContentItem.content_id, literal("AD_ENDED", String),
+                   func.jsonb_build_object("content_id", ContentItem.content_id, "title", ContentItem.title,
+                                           "title_i18n", ContentItem.title_i18n, type_=JSONB),
+                   ContentItem.end_at)
+            .where(ContentItem.content_type == "AD", effective_status == "EXPIRED",
+                   ContentItem.created_by_member_id == member.member_id))
+
+
 def list_for(db: Session, member: Member, limit: int, offset: int) -> dict:
     """Newest first. Biodata kinds carry the other member's profile_id; its public card is attached at read time,
     so a name hidden or a profile unlisted since isn't shown."""
@@ -35,7 +46,8 @@ def list_for(db: Session, member: Member, limit: int, offset: int) -> dict:
 
     q = select(Notification.notification_id.label("id"), Notification.kind, Notification.payload,
                Notification.created_at).where(Notification.member_id == member.member_id)
-    u = (union_all(q, _news(member)) if member.notify_news else q).subquery()  # "Notify me about news" in the profile
+    news = [_news(member)] if member.notify_news else []  # "Notify me about news" in the profile
+    u = union_all(q, _ads_ended(member), *news).subquery()
     seen = member.notifications_seen_at
     total = db.scalar(select(func.count()).select_from(u))
     unread = db.scalar(select(func.count()).select_from(u).where(u.c.created_at > seen if seen else true()))

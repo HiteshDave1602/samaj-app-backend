@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
-import { ToastCtx } from './api'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { ConfirmCtx, ToastCtx } from './api'
 
 const BTN = {
   primary: 'bg-primary text-on-primary hover:bg-primary-hover border-transparent',
@@ -230,19 +230,64 @@ export const FormActions = ({ busy, label = 'Save', onCancel }) => (
   </div>
 )
 
+/** useConfirm()'s dialog (api.js). Resolves true on the action button, false on Cancel, Esc or a backdrop click. */
+function ConfirmDialog({ title, body, action = 'Confirm', danger, onAnswer }) {
+  const ref = useRef(null)
+  useEffect(() => { ref.current.showModal() }, [])
+  // Opened over a <Modal> it is still on top: showModal() stacks dialogs in the top layer.
+  return (
+    <dialog
+      ref={ref}
+      onClose={() => onAnswer(false)} // Esc
+      onMouseDown={(e) => { ref.current.downOnBackdrop = e.target === e.currentTarget }}
+      onClick={(e) => { if (e.target === e.currentTarget && ref.current.downOnBackdrop) onAnswer(false) }}
+      aria-labelledby="confirm-title" aria-describedby="confirm-body"
+      className="m-auto w-[calc(100%-32px)] max-w-sm rounded-2xl border border-outline-variant bg-surface p-0 text-on-surface shadow-2xl backdrop:bg-inverse-surface/60 backdrop:backdrop-blur-[2px]"
+    >
+      <div className="flex flex-col items-center gap-3 px-6 pt-6 pb-5 text-center">
+        <span className={`flex h-12 w-12 items-center justify-center rounded-full ${danger ? 'bg-error-container text-on-error-container' : 'bg-primary-container text-on-primary-container'}`}>
+          <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            {danger
+              ? <path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v6M14 11v6" />
+              : <path d="M12 8v5M12 16.5v.01M10.3 3.9 2.4 17.6A2 2 0 0 0 4.1 20.6h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />}
+          </svg>
+        </span>
+        <h2 id="confirm-title" className="text-lg leading-6 font-semibold">{title}</h2>
+        {body && <p id="confirm-body" className="text-sm text-on-surface-variant">{body}</p>}
+      </div>
+      <div className="flex gap-2 border-t border-outline-variant px-6 py-4">
+        {/* Cancel has focus: Enter on a destructive prompt must not be the destructive choice */}
+        <Button variant="outline" className="flex-1" autoFocus onClick={() => onAnswer(false)}>Cancel</Button>
+        <Button variant={danger ? 'danger' : 'primary'} className="flex-1" onClick={() => onAnswer(true)}>{action}</Button>
+      </div>
+    </dialog>
+  )
+}
+
 export function ToastProvider({ children }) {
   const [msg, setMsg] = useState(null)
+  const [ask, setAsk] = useState(null) // the open confirm: its options + resolve
   useEffect(() => {
     if (!msg) return
     const t = setTimeout(() => setMsg(null), 3500)
     return () => clearTimeout(t)
   }, [msg])
+  const confirm = useCallback((opts) => new Promise((resolve) => setAsk({ ...opts, resolve })), [])
+  const answer = (ok) => setAsk((a) => { a?.resolve(ok); return null }) // once: Esc fires close after a click too
   return (
     <ToastCtx.Provider value={setMsg}>
-      {children}
-      {msg && (
-        <div role="status" className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-lg bg-inverse-surface px-4 py-3 text-sm text-inverse-on-surface shadow-lg">{msg}</div>
-      )}
+      <ConfirmCtx.Provider value={confirm}>
+        {children}
+        {ask && <ConfirmDialog {...ask} onAnswer={answer} />}
+        {msg && (
+          <div role="status" className="fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2.5 rounded-xl bg-inverse-surface py-3 pr-5 pl-4 text-sm text-inverse-on-surface shadow-lg">
+            <svg viewBox="0 0 24 24" className="h-5 w-5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M20 6 9 17l-5-5" />
+            </svg>
+            {msg}
+          </div>
+        )}
+      </ConfirmCtx.Provider>
     </ToastCtx.Provider>
   )
 }

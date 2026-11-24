@@ -72,9 +72,14 @@ with SessionLocal() as db:
     own = ContentItem(content_type="NEWS", city_id=city.city_id, title="Nisha's own", body="b", status="SCHEDULED",
                       start_at=now - timedelta(minutes=5), end_at=now + timedelta(days=1),
                       created_by_member_id=nm.member_id)  # approved member news, already live
-    db.add(own)
+    ad = lambda title, end: ContentItem(  # noqa: E731  Nisha's approved ads
+        content_type="AD", creative_format="BANNER", media_key="k", city_id=city.city_id, title=title,
+        status="SCHEDULED", start_at=now - timedelta(days=2), end_at=end, created_by_member_id=nm.member_id)
+    ended, running = ad("Ended ad", now - timedelta(minutes=1)), ad("Running ad", now + timedelta(days=1))
+    db.add_all([own, ended, running])
     db.commit()
     city_id, admin_id, P_id, own_id = city.city_id, ca.admin_id, str(pm.member_id), str(own.content_id)
+    ended_id, running_id = str(ended.content_id), str(running.content_id)
 
 inbox = lambda h: c.get(N, headers=h).json()  # noqa: E731
 news = lambda title, start: c.post("/cityadmin/content", headers=ca_h, json={  # noqa: E731
@@ -120,6 +125,10 @@ try:
     assert not any(i["kind"] == "NEWS_LIVE" for i in inbox(a_h)["items"])
     c.post(f"{N}/read", headers=n_h)
     assert not {i["notification_id"]: i for i in inbox(n_h)["items"]}[live]["unread"]
+
+    # my own ad, once its run is over (not while it's running)
+    ads = {i["notification_id"]: i for i in inbox(n_h)["items"] if i["kind"] == "AD_ENDED"}
+    assert list(ads) == [ended_id] and running_id not in ads and ads[ended_id]["payload"]["title"] == "Ended ad", ads
     print("ok")
 finally:
     with SessionLocal() as db:  # requests go with the profiles, notifications with the members (CASCADE)

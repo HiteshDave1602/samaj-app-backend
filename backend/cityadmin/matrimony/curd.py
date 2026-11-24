@@ -27,18 +27,22 @@ def _summary(p: MatrimonyProfile, city_id: UUID, full_name: str | None, gender: 
     }
 
 
+# removed profiles, and profiles of deleted members, are gone from every admin list
+_live = (MatrimonyProfile.deleted_at.is_(None), Member.deleted_at.is_(None))
+
+
 def _query(admin: AdminUser, city_id: UUID | None = None):
     # FR-71: a profile belongs to its member's city; that City Admin moderates it. The Super Admin sees every city.
     return (select(MatrimonyProfile, Member.city_id, Member.full_name, Member.gender, Member.dob, _pending_count)
             .join(Member, Member.member_id == MatrimonyProfile.member_id)
-            .where(*city_filter(Member.city_id, admin, city_id)))
+            .where(*city_filter(Member.city_id, admin, city_id), *_live))
 
 
 def counts(db: Session, admin: AdminUser, city_id: UUID | None = None) -> dict:
     """Profiles per status; statuses with none are left out."""
     return dict(db.execute(select(MatrimonyProfile.status, func.count())
                            .join(Member, Member.member_id == MatrimonyProfile.member_id)
-                           .where(*city_filter(Member.city_id, admin, city_id))
+                           .where(*city_filter(Member.city_id, admin, city_id), *_live)
                            .group_by(MatrimonyProfile.status)).all())
 
 
@@ -57,11 +61,22 @@ def list_profiles(db: Session, admin: AdminUser, limit: int, offset: int, status
 
 def _get_profile(db: Session, admin: AdminUser, profile_id: UUID, lock: bool = False) -> MatrimonyProfile:
     profile = db.get(MatrimonyProfile, profile_id, with_for_update=lock)
-    if profile is None:
+    member = profile and db.get(Member, profile.member_id)
+    if profile is None or profile.deleted_at is not None or member.deleted_at is not None:
         raise HTTPException(404, "Matrimony profile not found")
-    if admin.role != "SUPER_ADMIN" and db.get(Member, profile.member_id).city_id != admin.city_id:
+    if admin.role != "SUPER_ADMIN" and member.city_id != admin.city_id:
         raise audit.Denied("CROSS_CITY_DENIED", "This profile belongs to another city", profile_id)
     return profile
+
+
+def delete_profile(db: Session, admin: AdminUser, actor: audit.Actor, profile_id: UUID):
+    """The member's City Admin, or the Super Admin, removes a profile: out of search and every queue at once, and
+    the member can no longer open, edit or recreate it. Kept as a row (deleted_at) for the audit trail."""
+    profile = _get_profile(db, admin, profile_id, lock=True)
+    profile.deleted_at = datetime.now(timezone.utc)  # ORM, not bulk UPDATE: the search outbox must see it
+    audit.log(db, actor, "MATRIMONY_DELETE", "matrimony_profile", profile_id,
+              db.get(Member, profile.member_id).city_id, {"status": profile.status}, {"deleted": True})
+    db.commit()
 
 
 def _get_photo(db: Session, admin: AdminUser, photo_id: UUID, lock: bool = False) -> MatrimonyPhoto:
