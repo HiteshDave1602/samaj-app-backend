@@ -5,11 +5,10 @@ from fastapi import HTTPException
 from sqlalchemy import func, or_, select, update
 from sqlalchemy.orm import Session
 
-from auth.model import AuthSession
 from core import private_files, sms
 from core.security import fernet
 from member.notification import curd as notification
-from member.profile.curd import latest_document, to_profile
+from member.profile.curd import latest_document, soft_delete, to_profile
 from member.profile.model import Household, IdentityDocument, Member
 from superadmin.audit_log import curd as audit
 from superadmin.city.model import City
@@ -176,14 +175,10 @@ def reject_new_city(db: Session, admin: AdminUser, actor: audit.Actor, member_id
 
 
 def delete_member(db: Session, admin: AdminUser, actor: audit.Actor, member_id: UUID):
-    """The member's City Admin, or the Super Admin, deletes a member in any status. Soft (deleted_at): they vanish
-    from every list, directory and search (their matrimony profile with them), their number can't log in or
-    register again, and every session ends now rather than when its access token runs out."""
+    """The member's City Admin, or the Super Admin, deletes a member in any status (member.profile.curd.soft_delete).
+    The number is not blocked: that person can register again, and an admin reviews them like anyone new."""
     member = _get_in_city(db, admin, member_id, lock=True)  # 404 if already deleted; 403 for another city
-    now = datetime.now(timezone.utc)
-    member.deleted_at = now  # ORM, not bulk UPDATE: the search outbox must see it
-    db.execute(update(AuthSession).where(AuthSession.member_id == member_id, AuthSession.revoked_at.is_(None))
-               .values(revoked_at=now))
+    soft_delete(db, member)
     audit.log(db, actor, "MEMBER_DELETE", "member", member_id, member.city_id, {"status": member.status},
               {"deleted": True})
     db.commit()

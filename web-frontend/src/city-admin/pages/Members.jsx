@@ -158,7 +158,7 @@ function Review({ id, base, readOnly, onClose }) {
     const name = m.data.full_name ?? 'this member'
     if (!(await confirm({
       title: `Delete ${name}?`,
-      body: 'They are removed from the directory and matrimony, and can no longer log in. This cannot be undone here.',
+      body: 'They are removed from the directory and matrimony and logged out everywhere. This cannot be undone here; they can register again with the same number, as a new member waiting for approval.',
       action: 'Delete member', danger: true,
     }))) return
     setDeleteError(null)

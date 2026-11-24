@@ -430,10 +430,18 @@ const T: Record<string, [string, string]> = {
     'તમારી લગ્ન પ્રોફાઇલ એડમિને દૂર કરી છે. તમારા શહેરના એડમિનનો સંપર્ક કરો.',
     'आपकी विवाह प्रोफ़ाइल एडमिन ने हटा दी है। अपने शहर के एडमिन से संपर्क करें।',
   ],
-  'This account was deleted by an admin. Contact your city admin.': [
-    'આ એકાઉન્ટ એડમિને કાઢી નાખ્યું છે. તમારા શહેરના એડમિનનો સંપર્ક કરો.',
-    'यह खाता एडमिन ने हटा दिया है। अपने शहर के एडमिन से संपर्क करें।',
+  Account: ['એકાઉન્ટ', 'खाता'],
+  'Your city admin approves it': ['તમારા શહેરના એડમિન તેને મંજૂર કરે છે', 'आपके शहर के एडमिन इसे मंज़ूर करते हैं'],
+  Cancel: ['રદ કરો', 'रद्द करें'],
+  Delete: ['કાઢી નાખો', 'हटाएँ'],
+  'Delete my account': ['મારું એકાઉન્ટ કાઢી નાખો', 'मेरा खाता हटाएँ'],
+  'Delete account?': ['એકાઉન્ટ કાઢી નાખવું છે?', 'खाता हटाना है?'],
+  'You will leave the directory and matrimony, and be logged out on every device. You can register again later with the same number; your city admin will review it like a new registration.': [
+    'તમે ડિરેક્ટરી અને લગ્ન વિભાગમાંથી નીકળી જશો અને દરેક ઉપકરણ પરથી લૉગ આઉટ થશો. પછીથી તમે આ જ નંબરથી ફરી નોંધણી કરી શકો છો; તમારા શહેરના એડમિન તેને નવી નોંધણીની જેમ તપાસશે.',
+    'आप डायरेक्टरी और विवाह से हट जाएँगे और हर डिवाइस से लॉग आउट हो जाएँगे। बाद में आप इसी नंबर से फिर से पंजीकरण कर सकते हैं; आपके शहर के एडमिन इसे नए पंजीकरण की तरह जाँचेंगे।',
   ],
+  'Deleting…': ['કાઢી રહ્યા છીએ…', 'हटा रहे हैं…'],
+  'Could not delete your account': ['તમારું એકાઉન્ટ કાઢી શકાયું નહીં', 'आपका खाता हटाया नहीं जा सका'],
   "You'll log in with this number once approved": ['મંજૂરી પછી તમે આ નંબરથી લૉગ ઇન કરશો', 'मंज़ूरी के बाद आप इसी नंबर से लॉग इन करेंगे'],
   'Your city is not set up yet. The Super Admin will add it and verify your details. You can use the app once your membership is approved.': [
     'તમારું શહેર હજી ઉમેરાયું નથી. સુપર એડમિન તેને ઉમેરીને તમારી વિગતો ચકાસશે. સભ્યપદ મંજૂર થયા પછી તમે એપ વાપરી શકશો.',
