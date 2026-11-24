@@ -98,6 +98,8 @@ def get_id_document(db: Session, admin: AdminUser, member_id: UUID) -> tuple[byt
 def _decide(db: Session, admin: AdminUser, actor: audit.Actor, member: Member, status: str, reason: str | None = None):
     if member.status != "PENDING":
         raise HTTPException(409, f"{member.full_name} is already {member.status}")
+    if status == "ACTIVE" and member.city_id is None:  # an active member must belong to a city
+        raise HTTPException(409, f"{member.full_name} registered for a city that isn't set up yet; choose the city")
     member.status = status
     member.rejection_reason = reason
     member.reviewed_by_admin_id = admin.admin_id
@@ -161,14 +163,6 @@ def approve_new_city(db: Session, admin: AdminUser, actor: audit.Actor, member_i
     if member.household_id and (household := db.get(Household, member.household_id)) and household.city_id is None:
         household.city_id = city.city_id  # ORM, not bulk UPDATE: the search outbox must see it
     _decide(db, admin, actor, member, "ACTIVE")
-    db.commit()
-    _notify(member)
-    return get_member(db, admin, member_id)
-
-
-def reject_new_city(db: Session, admin: AdminUser, actor: audit.Actor, member_id: UUID, reason: str) -> dict:
-    member = _get_cityless(db, admin, member_id)
-    _decide(db, admin, actor, member, "REJECTED", reason)
     db.commit()
     _notify(member)
     return get_member(db, admin, member_id)

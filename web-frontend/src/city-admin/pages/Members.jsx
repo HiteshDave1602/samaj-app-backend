@@ -6,7 +6,7 @@ import { Waiting } from './Dashboard'
 
 const LIMIT = 50
 
-// Both panels. The Super Admin sees every city (or one) read-only; approving stays with each City Admin.
+// Both panels. The Super Admin sees every city (or one) and decides alongside each City Admin.
 export default function Members({ me }) {
   const sa = me.role === 'SUPER_ADMIN'
   const base = sa ? '/superadmin/members' : '/cityadmin/members'
@@ -32,7 +32,9 @@ export default function Members({ me }) {
     : `${base}${qs({ status, q: query, ...scope, limit: LIMIT, offset })}`
   const list = useLoad(path)
   const items = list.data?.items ?? []
-  const pendingIds = sa ? [] : items.filter((m) => m.status === 'PENDING').map((m) => m.member_id)
+  // a registration for a city not set up yet needs its city chosen first, so it can't be bulk approved
+  const bulkable = (m) => m.status === 'PENDING' && m.city_id
+  const pendingIds = items.filter(bulkable).map((m) => m.member_id)
 
   const refilter = (fn) => (e) => { fn(e.target.value); setOffset(0); setPicked(new Set()) }
   const toggle = (id) => setPicked((s) => { const n = new Set(s); if (!n.delete(id)) n.add(id); return n })
@@ -45,7 +47,7 @@ export default function Members({ me }) {
     }))) return
     setError(null)
     try {
-      const r = await api('/cityadmin/members/bulk-approve', { method: 'POST', body: { member_ids: [...picked] } })
+      const r = await api(`${base}/bulk-approve`, { method: 'POST', body: { member_ids: [...picked] } })
       toast(`${r.approved} approved`)
       setPicked(new Set())
       list.reload()
@@ -55,7 +57,7 @@ export default function Members({ me }) {
   return (
     <>
       <PageHeader title="Members" subtitle={sa
-        ? "Every city's members and their profiles. Each city's City Admin approves or rejects registrations; you decide those for a new city that isn't set up yet."
+        ? "Every city's members. You can approve or reject any registration, as can its city's City Admin; for a new city that isn't set up yet, create the city first."
         : 'Approve new registrations after checking the ID document. Rejected members see your reason in the app.'}>
         {picked.size > 0 && <Button onClick={bulkApprove}>Approve {picked.size} selected</Button>}
       </PageHeader>
@@ -95,18 +97,16 @@ export default function Members({ me }) {
         )}
       </Toolbar>
       <div className="mb-3"><ErrorText>{error}</ErrorText></div>
-      <Table head={[...(sa ? [] : ['']), 'Member', ...(sa ? ['City'] : []), 'Family', 'Mobile', 'Status', 'Registered', '']} error={list.error} loading={list.loading}
+      <Table head={['', 'Member', ...(sa ? ['City'] : []), 'Family', 'Mobile', 'Status', 'Registered', '']} error={list.error} loading={list.loading}
         empty={status === 'PENDING' && !query ? 'No registrations waiting.' : 'No members match.'}>
         {items.map((m) => (
           <tr key={m.member_id}>
-            {!sa && (
-              <td className="w-8">
-                {m.status === 'PENDING' && (
-                  <input type="checkbox" checked={picked.has(m.member_id)} onChange={() => toggle(m.member_id)}
-                    aria-label={`Select ${m.full_name ?? 'member'}`} className="h-4 w-4 accent-primary" />
-                )}
-              </td>
-            )}
+            <td className="w-8">
+              {bulkable(m) && (
+                <input type="checkbox" checked={picked.has(m.member_id)} onChange={() => toggle(m.member_id)}
+                  aria-label={`Select ${m.full_name ?? 'member'}`} className="h-4 w-4 accent-primary" />
+              )}
+            </td>
             <td>
               <div className="font-semibold">{m.full_name ?? <span className="font-normal text-on-surface-variant italic">No name yet</span>}</div>
               <div className="text-xs text-on-surface-variant">{[gender(m.gender), m.dob && fmtDate(m.dob)].filter(Boolean).join(' · ')}</div>
@@ -129,20 +129,20 @@ export default function Members({ me }) {
               {m.status === 'PENDING' && <div className="mt-1"><Waiting since={m.created_at} /></div>}
             </td>
             <td className="text-right">
-              <Button variant="text" className="h-8 px-3" onClick={() => setOpen(m.member_id)}>{m.status === 'PENDING' && (!sa || !m.city_id) ? 'Review' : 'View'}</Button>
+              <Button variant="text" className="h-8 px-3" onClick={() => setOpen(m.member_id)}>{m.status === 'PENDING' ? 'Review' : 'View'}</Button>
             </td>
           </tr>
         ))}
       </Table>
       {list.data && <Pager total={list.data.total} limit={LIMIT} offset={offset} onChange={setOffset} />}
-      {open && <Review id={open} base={base} readOnly={sa} onClose={() => { setOpen(null); list.reload(); counts.reload() }} />}
+      {open && <Review id={open} base={base} sa={sa} onClose={() => { setOpen(null); list.reload(); counts.reload() }} />}
     </>
   )
 }
 
 const gender = (g) => g && g[0] + g.slice(1).toLowerCase()
 
-function Review({ id, base, readOnly, onClose }) {
+function Review({ id, base, sa, onClose }) {
   const m = useLoad(`${base}/${id}`)
   const toast = useToast()
 
@@ -179,7 +179,7 @@ function Review({ id, base, readOnly, onClose }) {
             <StatusBadge status={d.status} />
           </div>
           <dl className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
-            {readOnly && <Detail label="City">{d.city_id ? d.city_name : `${d.requested_city}, ${d.requested_state} (not set up yet)`}</Detail>}
+            {sa && <Detail label="City">{d.city_id ? d.city_name : `${d.requested_city}, ${d.requested_state} (not set up yet)`}</Detail>}
             <Detail label="Mobile">{d.mobile ? <a href={`tel:${d.mobile}`} className="font-mono text-primary">{d.mobile}</a> : '—'}</Detail>
             <Detail label="Gender">{gender(d.gender) ?? '—'}</Detail>
             <Detail label="Date of birth">{d.dob ? fmtDate(d.dob) : '—'}</Detail>
@@ -194,10 +194,10 @@ function Review({ id, base, readOnly, onClose }) {
             <h4 className="mb-2 text-xs font-semibold tracking-[.5px] text-on-surface-variant uppercase">ID document</h4>
             {d.id_document ? <IdDocument path={`${base}/${id}/id-document`} doc={d.id_document} /> : <p className="text-sm text-on-surface-variant">No ID document uploaded.</p>}
           </div>
-          {d.status === 'PENDING' && !readOnly && (
+          {d.status === 'PENDING' && d.city_id && (
             <Decide onApprove={() => decide('approve')} onReject={(reason) => decide('reject', { reason })} approveLabel="Approve member" />
           )}
-          {d.status === 'PENDING' && readOnly && !d.city_id && (
+          {d.status === 'PENDING' && sa && !d.city_id && (
             <NewCityDecide member={d} onApprove={(city_id) => decide('approve', { city_id })} onReject={(reason) => decide('reject', { reason })} />
           )}
           <div className="flex flex-col items-end gap-2 border-t border-outline-variant pt-4">

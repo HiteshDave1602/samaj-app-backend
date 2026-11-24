@@ -9,6 +9,7 @@ import CityAdmins from './pages/CityAdmins'
 import AuditLog from './pages/AuditLog'
 import Members from '../city-admin/pages/Members'
 import Matrimony from '../city-admin/pages/Matrimony'
+import FamilyAdditions from '../city-admin/pages/FamilyAdditions'
 import Import from './pages/Import'
 import Profile from '../city-admin/pages/Profile'
 import Requests from '../shared/Requests'
@@ -19,6 +20,7 @@ const PAGES = [
   { id: 'cities', label: 'Cities', icon: 'M4 21V8l6-4v17M10 21V4l10 5v12M2 21h20M14 12h2M14 16h2', el: Cities },
   { id: 'admins', label: 'City Admins', icon: 'M16 19a4 4 0 0 0-8 0M12 12a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM19 8v6M22 11h-6', el: CityAdmins },
   { id: 'members', label: 'Members', icon: 'M15 19a4 4 0 0 0-8 0M11 12a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM16 11l2 2 4-4', el: Members },
+  { id: 'family', label: 'Family Additions', icon: 'M9 19a4 4 0 0 0-8 0M5 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM23 19a4 4 0 0 0-8 0M19 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM12 9v6M9 12h6', el: FamilyAdditions },
   { id: 'matrimony', label: 'Matrimony', icon: 'M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.5-7 10-7 10Z', el: Matrimony },
   { id: 'import', label: 'Import', icon: 'M12 4v11M7 10l5 5 5-5M5 20h14', el: Import },
   { id: 'content', label: 'News & Ads', icon: 'M4 5h13v14H6a2 2 0 0 1-2-2V5ZM17 9h3v8a2 2 0 0 1-2 2M8 9h5M8 13h5', el: Content },

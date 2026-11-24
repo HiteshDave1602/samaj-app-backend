@@ -48,7 +48,8 @@ class RejectIn(Strict):
 
 
 class NewCityApproveIn(Strict):
-    city_id: UUID  # the city the Super Admin created (or picked) for the member's requested_city
+    # the city the Super Admin created (or picked) for the member's requested_city; omitted for a member with a city
+    city_id: UUID | None = None
 
 
 class BulkApproveIn(Strict):

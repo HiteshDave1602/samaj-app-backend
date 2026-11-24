@@ -6,14 +6,15 @@ from sqlalchemy.orm import Session
 
 from auth.deps import get_actor, require_super_admin
 from cityadmin.member_approval import curd
-from cityadmin.member_approval.schema import MemberReviewOut, NewCityApproveIn, PendingPage, RejectIn, Search
+from cityadmin.member_approval.schema import (BulkApproveIn, MemberReviewOut, NewCityApproveIn, PendingPage, RejectIn,
+                                              Search)
 from core.database import get_db
 from superadmin.audit_log.curd import Actor
 from superadmin.city_admin.model import AdminUser
 
-# Read-only view of every city's members (shared curd with /cityadmin/members).
-# Approving and rejecting stay with each city's City Admin (FR-71), except registrations for a city not set up yet
-# (city_id null, `no_city=true`): those have no City Admin, so the Super Admin creates the city, then decides here.
+# Every city's members (shared curd with /cityadmin/members). The Super Admin decides any registration alongside
+# the City Admins; whoever decides first wins (the other gets 409). Registrations for a city not set up yet
+# (city_id null, `no_city=true`) have no City Admin: the Super Admin creates the city, then approves into it here.
 router = APIRouter(prefix="/superadmin/members", tags=["Super Admin: Members"])
 
 
@@ -73,24 +74,38 @@ def delete_member(
     curd.delete_member(db, admin, actor, member_id)
 
 
-@router.post("/{member_id}/approve", response_model=MemberReviewOut)
-def approve_new_city(
-    member_id: UUID,
-    data: NewCityApproveIn,
+@router.post("/bulk-approve")
+def bulk_approve(
+    data: BulkApproveIn,
     admin: AdminUser = Depends(require_super_admin),
     actor: Actor = Depends(get_actor),
     db: Session = Depends(get_db),
 ):
-    """Cityless registrations only (409 otherwise): moves the member into `city_id`, then approves."""
-    return curd.approve_new_city(db, admin, actor, member_id, data.city_id)
+    """All or nothing, any cities; a registration for a city not set up yet fails the batch (409)."""
+    return curd.bulk_approve(db, admin, actor, data.member_ids)
+
+
+@router.post("/{member_id}/approve", response_model=MemberReviewOut)
+def approve(
+    member_id: UUID,
+    data: NewCityApproveIn | None = None,
+    admin: AdminUser = Depends(require_super_admin),
+    actor: Actor = Depends(get_actor),
+    db: Session = Depends(get_db),
+):
+    """Any city's registration. One for a city not set up yet needs `city_id`: the member moves there, then is
+    approved."""
+    if data and data.city_id:
+        return curd.approve_new_city(db, admin, actor, member_id, data.city_id)
+    return curd.approve(db, admin, actor, member_id)
 
 
 @router.post("/{member_id}/reject", response_model=MemberReviewOut)
-def reject_new_city(
+def reject(
     member_id: UUID,
     data: RejectIn,
     admin: AdminUser = Depends(require_super_admin),
     actor: Actor = Depends(get_actor),
     db: Session = Depends(get_db),
 ):
-    return curd.reject_new_city(db, admin, actor, member_id, data.reason)
+    return curd.reject(db, admin, actor, member_id, data.reason)

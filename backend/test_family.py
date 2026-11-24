@@ -46,15 +46,19 @@ with SessionLocal() as db:
     db.flush()
     ca = AdminUser(role="CITY_ADMIN", city_id=city.city_id, full_name="CA", email=f"fam-{tag}@t.local",
                    password_hash=hash_password(secrets.token_hex(8)))
-    db.add(ca)
+    sa = AdminUser(role="SUPER_ADMIN", full_name="SA", email=f"famsa-{tag}@t.local",
+                   password_hash=hash_password(secrets.token_hex(8)))
+    db.add_all([ca, sa])
     db.flush()
-    token = secrets.token_urlsafe(32)
-    db.add(AuthSession(admin_id=ca.admin_id, refresh_token_hash=hash_token(token), mfa_verified=True,
-                       last_activity_at=now, expires_at=now + timedelta(hours=1)))
+    token, sa_token = secrets.token_urlsafe(32), secrets.token_urlsafe(32)
+    for a, t in ((ca, token), (sa, sa_token)):
+        db.add(AuthSession(admin_id=a.admin_id, refresh_token_hash=hash_token(t), mfa_verified=True,
+                           last_activity_at=now, expires_at=now + timedelta(hours=1)))
     head, head_h = new_member(db, city, "Meera", "ACTIVE")
     _, pending_h = new_member(db, city, "Nina", "PENDING")
     db.commit()
-    ca_h, city_id, admin_id, head_id = bearer(token), city.city_id, ca.admin_id, str(head.member_id)
+    ca_h, sa_h, city_id, head_id = bearer(token), bearer(sa_token), city.city_id, str(head.member_id)
+    admin_ids = [ca.admin_id, sa.admin_id]
 
 try:
     son = {"full_name": "Rohan", "relationship": "SON", "gender": "MALE", "dob": "2010-03-04"}
@@ -98,8 +102,20 @@ try:
         ("Priya", "REJECTED", "CA"), ("Rohan", "APPROVED", "CA")], log
 
     # a rejected relative can be requested again; an approved one can't
-    assert add(full_name="Priya", relationship="DAUGHTER", gender="FEMALE").status_code == 201
+    again = add(full_name="Priya", relationship="DAUGHTER", gender="FEMALE")
+    assert again.status_code == 201
     assert add().status_code == 409
+
+    # the Super Admin sees every city's queue and decides too; the City Admin then gets 409, and the decision
+    # lands in the city's log under the Super Admin's name
+    sa_queue = c.get("/superadmin/family-additions", headers=sa_h, params={"city_id": str(city_id)}).json()["items"]
+    assert [(i["full_name"], i["city_id"]) for i in sa_queue] == [("Priya", str(city_id))], sa_queue
+    assert c.get("/superadmin/family-additions", headers=ca_h).status_code == 403
+    priya2 = again.json()["family_member_id"]
+    assert c.post(f"/superadmin/family-additions/{priya2}/approve", headers=sa_h).status_code == 200
+    assert c.post(f"/cityadmin/family-additions/{priya2}/approve", headers=ca_h).status_code == 409
+    log = c.get("/cityadmin/family-additions?status=DECIDED", headers=ca_h).json()["items"]
+    assert (log[0]["full_name"], log[0]["status"], log[0]["reviewed_by_name"]) == ("Priya", "APPROVED", "SA"), log
 
     # a pending member can still see their own (empty) household
     hh = c.get("/member/family", headers=pending_h).json()
@@ -111,6 +127,6 @@ finally:
         db.execute(delete(FamilyMember).where(FamilyMember.household_id.in_(households)))
         db.execute(delete(Member).where(Member.city_id == city_id))
         db.execute(delete(Household).where(Household.city_id == city_id))
-        db.execute(delete(AdminUser).where(AdminUser.admin_id == admin_id))
+        db.execute(delete(AdminUser).where(AdminUser.admin_id.in_(admin_ids)))
         db.execute(delete(City).where(City.city_id == city_id))
         db.commit()

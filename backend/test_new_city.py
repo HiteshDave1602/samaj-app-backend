@@ -89,11 +89,17 @@ try:
     assert bell[mid]["kind"] == "REGISTRATION" and bell[mid]["detail"] == new_city, bell[mid]
     assert mid not in {i["id"] for i in c.get("/admin/requests", headers=ca_h).json()["items"]}
 
-    # approve needs an active city; a member of a set-up city stays with its City Admin
-    assert c.post(f"/superadmin/members/{mid}/approve", headers=sa_h, json={}).status_code == 422
+    # a cityless registration can't be approved without a city; a set-up city's member can't be moved, but the
+    # Super Admin approves them in place, as their City Admin could
+    assert c.post(f"/superadmin/members/{mid}/approve", headers=sa_h, json={}).status_code == 409
+    assert c.post(f"/superadmin/members/{mid}/approve", headers=sa_h).status_code == 409
+    assert c.post("/superadmin/members/bulk-approve", headers=sa_h, json={"member_ids": [mid]}).status_code == 409
     other_mid = c.get("/cityadmin/members/pending", headers=ca_h).json()["items"][0]["member_id"]
     assert c.post(f"/superadmin/members/{other_mid}/approve", headers=sa_h,
                   json={"city_id": str(other.city_id)}).status_code == 409
+    r = c.post(f"/superadmin/members/{other_mid}/approve", headers=sa_h)
+    assert r.status_code == 200 and r.json()["status"] == "ACTIVE" and r.json()["city_id"] == str(other.city_id), r.text
+    assert c.post(f"/cityadmin/members/{other_mid}/approve", headers=ca_h).status_code == 409  # already decided
     assert c.post(f"/superadmin/members/{mid}/approve", headers=ca_h, json={"city_id": str(other.city_id)}).status_code == 403
 
     # the Super Admin creates the city, then approves into it: member and household move in

@@ -194,7 +194,7 @@ try:
     assert ("CROSS_CITY_DENIED", f"POST {mt}/photos/{ph4}/approve", ids["prof_x"]) in events  # target: its profile
     assert len(events) == 6, events  # id-document, member, photo file, profile, photo approve, profile reject
 
-    # Super Admin: read-only view of every city, filterable by city, with per-status counts
+    # Super Admin: every city, filterable by city, with per-status counts
     sm, smt = "/superadmin/members", "/superadmin/matrimony"
     cx, cy = str(city_x.city_id), str(city_y.city_id)
     assert c.get(f"{smt}/profiles", headers=x_h).status_code == 403 and c.get(sm, headers=x_h).status_code == 403
@@ -213,6 +213,26 @@ try:
     assert [(i["full_name"], i["city_id"]) for i in page["items"]] == [("Asha", cx), ("Pending P", cx)], page
     assert c.get(f"{sm}/{ids['my']}", headers=sa_h).json()["city_name"] == f"MY-{tag}"
     assert c.get(f"{sm}/{ids['px']}/id-document", headers=sa_h).content == ID_PDF
+
+    # Super Admin decides matrimony too: a resubmitted profile and a new photo; the City Admin then gets 409, and
+    # the decisions land in the member's city (the Super Admin has none)
+    with SessionLocal() as db:
+        db.get(MatrimonyProfile, py_id).status = "PENDING_MODERATION"
+        sa_photo = MatrimonyPhoto(profile_id=px_id, storage_key=stored(PHOTOS[3]), mime_type="image/png",
+                                  size_bytes=len(PHOTOS[3]), sort_order=5)
+        db.add(sa_photo)
+        db.commit()
+        ph5 = str(sa_photo.photo_id)
+    assert c.post(f"{smt}/profiles/{ids['prof_y']}/approve", headers=x_h).status_code == 403
+    r = c.post(f"{smt}/profiles/{ids['prof_y']}/approve", headers=sa_h)
+    assert r.status_code == 200 and r.json()["status"] == "APPROVED", r.text
+    assert c.post(f"{mt}/profiles/{ids['prof_y']}/approve", headers=y_h).status_code == 409
+    r = c.post(f"{smt}/photos/{ph5}/reject", headers=sa_h, json={"reason": "Blurry"})
+    assert r.status_code == 200 and r.json()["photos"][-1]["status"] == "REJECTED", r.text
+    log = c.get(f"{mt}/decisions", headers=y_h).json()["items"]
+    assert (log[0]["action"], log[0]["admin_name"]) == ("MATRIMONY_APPROVE", "SA"), log
+    log = c.get(f"{mt}/decisions", headers=x_h).json()["items"]
+    assert (log[0]["action"], log[0]["admin_name"], log[0]["reason"]) == ("PHOTO_REJECT", "SA", "Blurry"), log
     print("ok")
 finally:
     with SessionLocal() as db:  # FK order; auth_session, photos and ID documents go via ON DELETE CASCADE

@@ -15,7 +15,7 @@ const QUEUES = {
 }
 const title = (s) => s && s[0] + s.slice(1).toLowerCase().replaceAll('_', ' ')
 
-// Both panels. The Super Admin sees every city (or one) read-only; deciding stays with each City Admin.
+// Both panels. The Super Admin sees every city (or one) and decides alongside each City Admin.
 export default function Matrimony({ me }) {
   const sa = me.role === 'SUPER_ADMIN'
   const base = sa ? '/superadmin/matrimony' : '/cityadmin/matrimony'
@@ -34,7 +34,7 @@ export default function Matrimony({ me }) {
   return (
     <>
       <PageHeader title="Matrimony" subtitle={sa
-        ? "Every city's matrimony profiles and decisions. Each city's City Admin approves or rejects them. Biodata is never shown here."
+        ? "Every city's matrimony profiles and decisions. You can approve or reject any of them, as can its city's City Admin. Reject unsuitable photos first; approving a profile approves its remaining photos. Biodata is never shown here."
         : 'Profiles stay out of search until you approve them. Reject unsuitable photos first; approving a profile approves its remaining photos. Biodata is never shown here.'} />
       {sa && (
         <div className="mb-6 grid gap-3 sm:grid-cols-3">
@@ -78,7 +78,7 @@ export default function Matrimony({ me }) {
               </div>
             </td>
             <td className="whitespace-nowrap">{fmtDateTime(p.updated_at)}</td>
-            <td className="text-right"><Button variant="text" className="h-8 px-3" onClick={() => setOpen(p.profile_id)}>{sa ? 'View' : 'Review'}</Button></td>
+            <td className="text-right"><Button variant="text" className="h-8 px-3" onClick={() => setOpen(p.profile_id)}>Review</Button></td>
           </tr>
         ))}
       </Table>
@@ -115,12 +115,12 @@ export default function Matrimony({ me }) {
           )}
       </Card>
       {log.data && <Pager total={log.data.total} limit={LOG_LIMIT} offset={logOffset} onChange={setLogOffset} />}
-      {open && <Review id={open} base={base} readOnly={sa} onClose={() => { setOpen(null); list.reload(); log.reload(); counts.reload() }} />}
+      {open && <Review id={open} base={base} onClose={() => { setOpen(null); list.reload(); log.reload(); counts.reload() }} />}
     </>
   )
 }
 
-function Review({ id, base, readOnly, onClose }) {
+function Review({ id, base, onClose }) {
   const load = useLoad(`${base}/profiles/${id}`)
   const [fresh, setFresh] = useState(null) // each decision returns the updated profile
   const toast = useToast()
@@ -178,7 +178,7 @@ function Review({ id, base, readOnly, onClose }) {
                       <span className="text-xs text-on-surface-variant">{Math.round(ph.size_bytes / 1024)} KB</span>
                     </div>
                     {ph.rejection_reason && <p className="text-xs text-on-surface-variant">{ph.rejection_reason}</p>}
-                    {ph.status === 'PENDING' && !readOnly && (
+                    {ph.status === 'PENDING' && (
                       <Decide small
                         onApprove={() => act(`photos/${ph.photo_id}/approve`, undefined, 'Photo approved')}
                         onReject={(reason) => act(`photos/${ph.photo_id}/reject`, { reason }, 'Photo rejected')} />
@@ -189,7 +189,7 @@ function Review({ id, base, readOnly, onClose }) {
             )}
           </div>
 
-          {p.status === 'PENDING_MODERATION' && !readOnly && (
+          {p.status === 'PENDING_MODERATION' && (
             <div className="border-t border-outline-variant pt-4">
               <Decide approveLabel="Approve profile"
                 onApprove={() => act(`profiles/${id}/approve`, undefined, 'Profile approved. It now shows in search.')}

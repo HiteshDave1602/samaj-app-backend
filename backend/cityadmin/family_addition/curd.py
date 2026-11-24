@@ -5,6 +5,7 @@ from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, aliased
 
+from cityadmin.member_approval.curd import city_filter
 from core.security import fernet
 from member.notification import curd as notification
 from member.profile.model import FamilyMember, Household, Member
@@ -14,28 +15,31 @@ from superadmin.city_admin.model import AdminUser
 Reviewer = aliased(AdminUser)
 
 
-def _query(admin: AdminUser):
-    # FR-71: a family member belongs to the city of its household.
+def _query(admin: AdminUser, city_id: UUID | None = None):
+    # FR-71: a family member belongs to the city of its household; the Super Admin sees every city (or city_id's).
     return (
-        select(FamilyMember, Household.family_name, Member.full_name, Reviewer.full_name)
+        select(FamilyMember, Household.family_name, Household.city_id, Member.full_name, Reviewer.full_name)
         .join(Household, Household.household_id == FamilyMember.household_id)
         .join(Member, Member.member_id == FamilyMember.requested_by_member_id)
         .outerjoin(Reviewer, Reviewer.admin_id == FamilyMember.reviewed_by_admin_id)
-        .where(Household.city_id == admin.city_id)
+        .where(*city_filter(Household.city_id, admin, city_id))
     )
 
 
-def _out(fm: FamilyMember, family_name: str, requested_by_name: str | None, reviewed_by_name: str | None) -> dict:
+def _out(fm: FamilyMember, family_name: str, city_id: UUID | None, requested_by_name: str | None,
+         reviewed_by_name: str | None) -> dict:
     return {c.name: getattr(fm, c.name) for c in FamilyMember.__table__.columns} | {
-        "family_name": family_name, "requested_by_name": requested_by_name, "reviewed_by_name": reviewed_by_name,
+        "family_name": family_name, "city_id": city_id,
+        "requested_by_name": requested_by_name, "reviewed_by_name": reviewed_by_name,
         "mobile": fernet.decrypt(fm.mobile_enc).decode() if fm.mobile_enc else None,
         "address": fernet.decrypt(fm.address_enc).decode() if fm.address_enc else None,
     }
 
 
-def list_requests(db: Session, admin: AdminUser, limit: int, offset: int, status: str | None = None) -> dict:
+def list_requests(db: Session, admin: AdminUser, limit: int, offset: int, status: str | None = None,
+                  city_id: UUID | None = None) -> dict:
     """DECIDED = the decision log: APPROVED + REJECTED, newest decision first. Other statuses: oldest request first."""
-    q = _query(admin)
+    q = _query(admin, city_id)
     if status == "DECIDED":
         q = q.where(FamilyMember.status != "PENDING")
         order = (FamilyMember.reviewed_at.desc(), FamilyMember.family_member_id)
@@ -52,9 +56,13 @@ def _get_in_city(db: Session, admin: AdminUser, family_member_id: UUID, lock: bo
     fm = db.get(FamilyMember, family_member_id, with_for_update=lock)
     if fm is None:
         raise HTTPException(404, "Family addition request not found")
-    if db.scalar(select(Household.city_id).where(Household.household_id == fm.household_id)) != admin.city_id:
+    if admin.role != "SUPER_ADMIN" and _city(db, fm) != admin.city_id:
         raise audit.Denied("CROSS_CITY_DENIED", "This request belongs to another city", family_member_id)
     return fm
+
+
+def _city(db: Session, fm: FamilyMember) -> UUID | None:
+    return db.scalar(select(Household.city_id).where(Household.household_id == fm.household_id))
 
 
 def get(db: Session, admin: AdminUser, family_member_id: UUID) -> dict:
@@ -72,7 +80,7 @@ def decide(db: Session, admin: AdminUser, actor: audit.Actor, family_member_id: 
     fm.reviewed_by_admin_id, fm.reviewed_at = admin.admin_id, datetime.now(timezone.utc)
     after = {"status": status} | ({"rejection_reason": reason} if reason else {})
     audit.log(db, actor, "FAMILY_APPROVE" if status == "APPROVED" else "FAMILY_REJECT", "family_member",
-              fm.family_member_id, admin.city_id, {"status": "PENDING"}, after)
+              fm.family_member_id, _city(db, fm), {"status": "PENDING"}, after)  # the household's: Super Admin has none
     notification.add(db, fm.requested_by_member_id, "FAMILY_DECISION", approved=status == "APPROVED",
                      reason=reason, name=fm.full_name)
     db.commit()
