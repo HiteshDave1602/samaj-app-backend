@@ -71,8 +71,8 @@ export default function MyMatrimonyProfile() {
 
   useFocusEffect(
     useCallback(() => {
-      // 404 just means "no profile yet"
-      api<MyProfile>('/member/matrimony/profile').then(fill, () => setProfile(null));
+      // null: no profile yet
+      api<MyProfile | null>('/member/matrimony/profile').then((p) => (p ? fill(p) : setProfile(null)), () => setProfile(null));
     }, [fill]),
   );
 

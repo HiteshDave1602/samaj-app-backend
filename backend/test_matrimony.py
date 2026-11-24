@@ -97,7 +97,8 @@ base = {"education_level": "GRADUATE", "family_background": "JOINT", "occupation
 try:
     # FR-19: Active members only
     assert c.post(f"{M}/profile", headers=p_h, json=base).status_code == 403
-    assert c.get(f"{M}/profile", headers=a_h).status_code == 404
+    r = c.get(f"{M}/profile", headers=a_h)  # none yet: 200 null, not an error
+    assert r.status_code == 200 and r.json() is None, r.text
     assert c.post(f"{M}/profile", headers=a_h, json=base | {"education_level": "PHD"}).status_code == 422
     assert c.post(f"{M}/profile", headers=a_h, json=base | {"location_city_id": str(closed_id)}).status_code == 400
     r = c.post(f"{M}/profile", headers=a_h, json=base | {"managed_by": "PARENT"})
