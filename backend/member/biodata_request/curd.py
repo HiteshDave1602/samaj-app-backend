@@ -22,7 +22,8 @@ def _now() -> datetime:
 
 
 def my_profile_id(db: Session, member: Member) -> UUID | None:
-    return db.scalar(select(MatrimonyProfile.profile_id).where(MatrimonyProfile.member_id == member.member_id))
+    return db.scalar(select(MatrimonyProfile.profile_id).where(  # a removed profile: as if there were none
+        MatrimonyProfile.member_id == member.member_id, MatrimonyProfile.deleted_at.is_(None)))
 
 
 def _pair(a: UUID, b: UUID):

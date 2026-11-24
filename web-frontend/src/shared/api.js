@@ -154,6 +154,13 @@ export function useSubmit(fn) {
 export const ToastCtx = createContext(() => {})
 export const useToast = () => useContext(ToastCtx)
 
+/**
+ * The panel's own confirm() (dialog in ui.jsx, mounted by ToastProvider):
+ * `if (!(await confirm({ title, body, action, danger }))) return`. Resolves false on Cancel, Esc or the backdrop.
+ */
+export const ConfirmCtx = createContext(async () => false)
+export const useConfirm = () => useContext(ConfirmCtx)
+
 const dtf = new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeStyle: 'short' })
 const df = new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium' })
 export const fmtDateTime = (iso) => (iso ? dtf.format(new Date(iso)) : '—')

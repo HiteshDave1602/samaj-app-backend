@@ -62,6 +62,17 @@ def get_id_document(member_id: UUID, admin: AdminUser = Depends(require_super_ad
     return Response(data, media_type=mime_type, headers={"Cache-Control": "no-store"})
 
 
+@router.delete("/{member_id}", status_code=204)
+def delete_member(
+    member_id: UUID,
+    admin: AdminUser = Depends(require_super_admin),
+    actor: Actor = Depends(get_actor),
+    db: Session = Depends(get_db),
+):
+    """Any city's member (or one waiting for a new city); they can't log in afterwards."""
+    curd.delete_member(db, admin, actor, member_id)
+
+
 @router.post("/{member_id}/approve", response_model=MemberReviewOut)
 def approve_new_city(
     member_id: UUID,

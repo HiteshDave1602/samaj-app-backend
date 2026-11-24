@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { api, fmtDateTime, qs, useFileUrl, useLoad, useToast } from '../../shared/api'
+import { api, fmtDateTime, qs, useConfirm, useFileUrl, useLoad, useToast } from '../../shared/api'
 import { Badge, Button, Card, Detail, ErrorText, Field, Modal, PageHeader, Pager, Stat, StatusBadge, Table, Toolbar, inputCls } from '../../shared/ui'
 import Decide from '../Decide'
 
@@ -131,6 +131,23 @@ function Review({ id, base, readOnly, onClose }) {
     toast(msg)
   }
 
+  // both panels: a City Admin for their city, the Super Admin for any
+  const confirm = useConfirm()
+  const [deleteError, setDeleteError] = useState(null)
+  async function remove() {
+    if (!(await confirm({
+      title: `Delete ${p.full_name ? `${p.full_name}'s` : 'this'} matrimony profile?`,
+      body: "It leaves search at once, and the member can't open or recreate it.",
+      action: 'Delete profile', danger: true,
+    }))) return
+    setDeleteError(null)
+    try {
+      await api(`${base}/profiles/${id}`, { method: 'DELETE' })
+      toast('Matrimony profile deleted')
+      onClose()
+    } catch (e) { setDeleteError(e.message) }
+  }
+
   return (
     <Modal title="Matrimony profile" onClose={onClose} wide>
       {load.error ? <ErrorText>{load.error}</ErrorText> : !p ? <p className="text-on-surface-variant">Loading…</p> : (
@@ -179,6 +196,10 @@ function Review({ id, base, readOnly, onClose }) {
                 onReject={(reason) => act(`profiles/${id}/reject`, { reason }, 'Profile rejected')} />
             </div>
           )}
+          <div className="flex flex-col items-end gap-2 border-t border-outline-variant pt-4">
+            <ErrorText>{deleteError}</ErrorText>
+            <Button variant="danger" onClick={remove}>Delete profile</Button>
+          </div>
         </div>
       )}
     </Modal>

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { api, download, fmtDateTime, qs, useLoad, useToast } from '../../shared/api'
+import { api, download, fmtDateTime, qs, useConfirm, useLoad, useToast } from '../../shared/api'
 import { Button, Card, ErrorText, Field, Modal, PageHeader, Pager, StatusBadge, Table, Toolbar, inputCls } from '../../shared/ui'
 
 const LIMIT = 20
@@ -78,10 +78,15 @@ function Job({ id, onClose }) {
   const job = useLoad(`${BASE}/${id}`)
   const rows = useLoad(`${BASE}/${id}/rows${qs({ outcome, limit: ROWS, offset })}`)
   const toast = useToast()
+  const confirm = useConfirm()
   const j = job.data
 
   async function commit() {
-    if (!confirm(`Add ${j.new_count} ${j.new_count === 1 ? 'person' : 'people'} and update ${j.updated_count}? Rows with errors are skipped.`)) return
+    if (!(await confirm({
+      title: `Add ${j.new_count} ${j.new_count === 1 ? 'person' : 'people'} and update ${j.updated_count}?`,
+      body: 'Rows with errors are skipped.',
+      action: 'Import',
+    }))) return
     setBusy(true)
     setError(null)
     try {

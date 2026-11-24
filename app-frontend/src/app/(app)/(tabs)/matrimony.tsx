@@ -17,6 +17,7 @@ const MY_STATUS: Record<string, string> = {
   APPROVED: 'Live: other members can find you.',
   REJECTED: 'Not approved: open it to fix and resubmit.',
   ARCHIVED: 'Archived.',
+  REMOVED: 'Your matrimony profile was removed by an admin. Contact your city admin.',
 };
 
 // label -> [age_min, age_max] for GET /profiles
@@ -57,7 +58,10 @@ export default function MatrimonyScreen() {
 
   // my profile and my requests change on other screens, so refetch on focus
   const loadMine = useCallback(() => {
-    api<{ status: string }>('/member/matrimony/profile').then(setMine, () => setMine(null));
+    // 403: an admin removed it; the member can't open or recreate it
+    api<{ status: string }>('/member/matrimony/profile').then(setMine, (e) =>
+      setMine((e as { status?: number }).status === 403 ? { status: 'REMOVED' } : null),
+    );
     const box = (q: string) =>
       api<{ items: BiodataRequest[] }>(`/member/matrimony/biodata-requests?${q}`).then((r) => r.items, () => []);
     Promise.all([box('box=sent'), box('box=received&status=ACCEPTED')]).then(([sent, accepted]) => setExchanges([...sent, ...accepted]));
@@ -84,16 +88,18 @@ export default function MatrimonyScreen() {
           <Text className="mt-1 font-inter text-sm text-on-secondary/80">
             {t(mine ? MY_STATUS[mine.status] : 'Create a matrimonial profile. Your city admin verifies it before others can see it.')}
           </Text>
-          <View className="mt-4 self-start">
-            <Pressable
-              onPress={() => router.push('/matrimony/create')}
-              accessibilityRole="button"
-              className="rounded-full bg-on-secondary px-5 py-2.5 active:opacity-80">
-              <Text className="font-inter-semibold text-sm text-secondary">
-                {t(mine ? 'Manage my profile' : 'Create matrimonial profile')}
-              </Text>
-            </Pressable>
-          </View>
+          {mine?.status !== 'REMOVED' && (
+            <View className="mt-4 self-start">
+              <Pressable
+                onPress={() => router.push('/matrimony/create')}
+                accessibilityRole="button"
+                className="rounded-full bg-on-secondary px-5 py-2.5 active:opacity-80">
+                <Text className="font-inter-semibold text-sm text-secondary">
+                  {t(mine ? 'Manage my profile' : 'Create matrimonial profile')}
+                </Text>
+              </Pressable>
+            </View>
+          )}
         </View>
 
         {exchanges.length > 0 && (

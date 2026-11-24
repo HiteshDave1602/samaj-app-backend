@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { api, fmtDate, fmtDateTime, qs, useFileUrl, useLoad, useToast } from '../../shared/api'
+import { api, fmtDate, fmtDateTime, qs, useConfirm, useFileUrl, useLoad, useToast } from '../../shared/api'
 import { Badge, Button, Detail, ErrorText, Field, Modal, PageHeader, Pager, Stat, StatusBadge, Table, Toolbar, inputCls } from '../../shared/ui'
 import Decide from '../Decide'
 import { Waiting } from './Dashboard'
@@ -18,6 +18,7 @@ export default function Members({ me }) {
   const [open, setOpen] = useState(null) // member_id under review
   const [error, setError] = useState(null)
   const toast = useToast()
+  const confirm = useConfirm()
   const query = q.trim()
   const cities = useLoad(sa ? '/superadmin/cities' : null)
   const cityName = Object.fromEntries(cities.data?.map((c) => [c.city_id, c.name]) ?? [])
@@ -37,7 +38,11 @@ export default function Members({ me }) {
   const toggle = (id) => setPicked((s) => { const n = new Set(s); if (!n.delete(id)) n.add(id); return n })
 
   async function bulkApprove() {
-    if (!confirm(`Approve ${picked.size} member${picked.size === 1 ? '' : 's'}? Only do this after checking their ID documents.`)) return
+    if (!(await confirm({
+      title: `Approve ${picked.size} member${picked.size === 1 ? '' : 's'}?`,
+      body: 'Only do this after checking their ID documents.',
+      action: 'Approve',
+    }))) return
     setError(null)
     try {
       const r = await api('/cityadmin/members/bulk-approve', { method: 'POST', body: { member_ids: [...picked] } })
@@ -147,6 +152,23 @@ function Review({ id, base, readOnly, onClose }) {
     onClose()
   }
 
+  const confirm = useConfirm()
+  const [deleteError, setDeleteError] = useState(null)
+  async function remove() {
+    const name = m.data.full_name ?? 'this member'
+    if (!(await confirm({
+      title: `Delete ${name}?`,
+      body: 'They are removed from the directory and matrimony, and can no longer log in. This cannot be undone here.',
+      action: 'Delete member', danger: true,
+    }))) return
+    setDeleteError(null)
+    try {
+      await api(`${base}/${id}`, { method: 'DELETE' })
+      toast(`${name} deleted`)
+      onClose()
+    } catch (e) { setDeleteError(e.message) }
+  }
+
   const d = m.data
   return (
     <Modal title="Member" onClose={onClose} wide>
@@ -178,6 +200,10 @@ function Review({ id, base, readOnly, onClose }) {
           {d.status === 'PENDING' && readOnly && !d.city_id && (
             <NewCityDecide member={d} onApprove={(city_id) => decide('approve', { city_id })} onReject={(reason) => decide('reject', { reason })} />
           )}
+          <div className="flex flex-col items-end gap-2 border-t border-outline-variant pt-4">
+            <ErrorText>{deleteError}</ErrorText>
+            <Button variant="danger" onClick={remove}>Delete member</Button>
+          </div>
         </div>
       )}
     </Modal>

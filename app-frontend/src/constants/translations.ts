@@ -413,6 +413,14 @@ const T: Record<string, [string, string]> = {
   'Pick a listed city instead': ['યાદીમાંથી શહેર પસંદ કરો', 'सूची से शहर चुनें'],
   'Log in with your mobile number after approval.': ['મંજૂરી પછી તમારા મોબાઇલ નંબરથી લૉગ ઇન કરો.', 'मंज़ूरी के बाद अपने मोबाइल नंबर से लॉग इन करें।'],
   'Go to login': ['લૉગ ઇન પર જાઓ', 'लॉग इन पर जाएँ'],
+  'Your matrimony profile was removed by an admin. Contact your city admin.': [
+    'તમારી લગ્ન પ્રોફાઇલ એડમિને દૂર કરી છે. તમારા શહેરના એડમિનનો સંપર્ક કરો.',
+    'आपकी विवाह प्रोफ़ाइल एडमिन ने हटा दी है। अपने शहर के एडमिन से संपर्क करें।',
+  ],
+  'This account was deleted by an admin. Contact your city admin.': [
+    'આ એકાઉન્ટ એડમિને કાઢી નાખ્યું છે. તમારા શહેરના એડમિનનો સંપર્ક કરો.',
+    'यह खाता एडमिन ने हटा दिया है। अपने शहर के एडमिन से संपर्क करें।',
+  ],
   "You'll log in with this number once approved": ['મંજૂરી પછી તમે આ નંબરથી લૉગ ઇન કરશો', 'मंज़ूरी के बाद आप इसी नंबर से लॉग इन करेंगे'],
   'Your city is not set up yet. The Super Admin will add it and verify your details. You can use the app once your membership is approved.': [
     'તમારું શહેર હજી ઉમેરાયું નથી. સુપર એડમિન તેને ઉમેરીને તમારી વિગતો ચકાસશે. સભ્યપદ મંજૂર થયા પછી તમે એપ વાપરી શકશો.',

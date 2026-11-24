@@ -50,6 +50,7 @@ def _queues(admin: AdminUser):
         return select(id_.label("id"), literal(kind, String).label("kind"), name.label("member_name"),
                       cast(detail, String).label("detail"), at.label("at"), city_id.label("city_id"))
 
+    live = (MatrimonyProfile.deleted_at.is_(None), Member.deleted_at.is_(None))  # deleted: nothing to decide
     # detail: the city typed at registration when it isn't set up yet (city_id null: only the Super Admin sees it)
     registrations = (row(Member.member_id, "REGISTRATION", Member.full_name, Member.requested_city, Member.created_at,
                          Member.city_id)
@@ -58,23 +59,24 @@ def _queues(admin: AdminUser):
                   FamilyMember.created_at, Household.city_id)
               .join(Household, Household.household_id == FamilyMember.household_id)
               .join(Member, Member.member_id == FamilyMember.requested_by_member_id)
-              .where(FamilyMember.status == "PENDING", *city_filter(Household.city_id, admin)))
+              .where(FamilyMember.status == "PENDING", Member.deleted_at.is_(None), *city_filter(Household.city_id, admin)))
     profiles = (row(MatrimonyProfile.profile_id, "PROFILE", Member.full_name, None, MatrimonyProfile.updated_at,
                     Member.city_id)
                 .join(Member, Member.member_id == MatrimonyProfile.member_id)
-                .where(MatrimonyProfile.status == "PENDING_MODERATION", *city_filter(Member.city_id, admin)))
+                .where(MatrimonyProfile.status == "PENDING_MODERATION", *live, *city_filter(Member.city_id, admin)))
     # New profiles' photos are reviewed with the profile (PROFILE above); this is photos added to a profile later.
     photos = (row(MatrimonyProfile.profile_id, "PHOTOS", Member.full_name, func.count(),
                   func.max(MatrimonyPhoto.created_at), Member.city_id)
               .join(MatrimonyProfile, MatrimonyProfile.profile_id == MatrimonyPhoto.profile_id)
               .join(Member, Member.member_id == MatrimonyProfile.member_id)
-              .where(MatrimonyPhoto.status == "PENDING", MatrimonyProfile.status != "PENDING_MODERATION",
+              .where(MatrimonyPhoto.status == "PENDING", MatrimonyProfile.status != "PENDING_MODERATION", *live,
                      *city_filter(Member.city_id, admin))
               .group_by(MatrimonyProfile.profile_id, Member.full_name, Member.city_id))
     news = (row(ContentItem.content_id, "NEWS", Member.full_name, ContentItem.title, ContentItem.created_at,
                 ContentItem.city_id)
             .join(Member, Member.member_id == ContentItem.created_by_member_id)
-            .where(ContentItem.status == "PENDING", *city_filter(ContentItem.city_id, admin)))
+            .where(ContentItem.status == "PENDING", Member.deleted_at.is_(None),
+                   *city_filter(ContentItem.city_id, admin)))
     return union_all(registrations, family, profiles, photos, news).subquery()
 
 

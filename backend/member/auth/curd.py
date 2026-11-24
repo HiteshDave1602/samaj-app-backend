@@ -25,6 +25,7 @@ OTP_MAX_ATTEMPTS = 3  # FR-03
 OTP_SENDS_PER_HOUR = 5  # FR-04
 ACCESS_TTL_SECONDS = 15 * 60  # NFR-16
 REFRESH_TTL = timedelta(days=30)  # NFR-16
+DELETED = "This account was deleted by an admin. Contact your city admin."
 NOTICE_VERSION = "v1"  # bump when the consent notice text changes; the app must show the matching text
 
 
@@ -66,7 +67,10 @@ def send_otp(db: Session, mobile: str, ip: str | None, intent: str | None = None
     mh = mobile_hash(mobile)
     now = _now()
     # The response already said registered or not; failing early just skips the SMS for the wrong screen.
-    registered = _member_by_mobile(db, mh) is not None
+    existing = _member_by_mobile(db, mh)
+    if existing is not None and existing.deleted_at is not None:  # no code: it could never log in
+        raise HTTPException(403, DELETED)
+    registered = existing is not None
     if intent == "login" and not registered:
         raise HTTPException(404, "No account found for this number. Please register first.")
     if intent == "register" and registered:
@@ -131,7 +135,7 @@ def verify_otp(db: Session, mobile: str, code: str) -> dict:
     if member is None:
         return {"registered": False}
     if member.deleted_at is not None:
-        raise HTTPException(403, "This account was deleted. Contact your City Admin to recover it.")
+        raise HTTPException(403, DELETED)
     if not can_log_in(member):
         return {"registered": True, "member_status": member.status, "rejection_reason": member.rejection_reason}
     return {"registered": True, "session": _start_session(db, member)}
@@ -151,7 +155,9 @@ def register(db: Session, data: RegisterIn) -> dict:
     requested = {} if city else {"requested_city": data.requested_city, "requested_state": data.requested_state}
     city_id = city.city_id if city else None
     mh = mobile_hash(mobile)
-    if _member_by_mobile(db, mh):
+    if existing := _member_by_mobile(db, mh):
+        if existing.deleted_at is not None:
+            raise HTTPException(403, DELETED)
         raise HTTPException(409, "Number already registered. Log in instead.")
 
     # ponytail: every registrant heads a new household; joining an existing one comes with family addition (SF-03).

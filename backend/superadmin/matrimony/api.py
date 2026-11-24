@@ -4,10 +4,11 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.orm import Session
 
-from auth.deps import require_super_admin
+from auth.deps import get_actor, require_super_admin
 from cityadmin.matrimony import curd
 from cityadmin.matrimony.schema import DecisionPage, ProfileOut, ProfilePage
 from core.database import get_db
+from superadmin.audit_log.curd import Actor
 from superadmin.city_admin.model import AdminUser
 
 # Read-only view of every city's matrimony moderation (shared curd with /cityadmin/matrimony).
@@ -48,6 +49,17 @@ def list_decisions(
 @router.get("/profiles/{profile_id}", response_model=ProfileOut)
 def get_profile(profile_id: UUID, admin: AdminUser = Depends(require_super_admin), db: Session = Depends(get_db)):
     return curd.get_profile(db, admin, profile_id)
+
+
+@router.delete("/profiles/{profile_id}", status_code=204)
+def delete_profile(
+    profile_id: UUID,
+    admin: AdminUser = Depends(require_super_admin),
+    actor: Actor = Depends(get_actor),
+    db: Session = Depends(get_db),
+):
+    """Removing is open to the Super Admin in any city; moderation stays with City Admins."""
+    curd.delete_profile(db, admin, actor, profile_id)
 
 
 @router.get("/photos/{photo_id}/file", response_class=Response,

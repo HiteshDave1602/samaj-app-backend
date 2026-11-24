@@ -60,6 +60,17 @@ def get_id_document(member_id: UUID, admin: AdminUser = Depends(require_city_adm
     return Response(data, media_type=mime_type, headers={"Cache-Control": "no-store"})
 
 
+@router.delete("/{member_id}", status_code=204)
+def delete_member(
+    member_id: UUID,
+    admin: AdminUser = Depends(require_city_admin),
+    actor: Actor = Depends(get_actor),
+    db: Session = Depends(get_db),
+):
+    """Own city's members only; they can't log in afterwards."""
+    curd.delete_member(db, admin, actor, member_id)
+
+
 @router.post("/{member_id}/approve", response_model=MemberReviewOut)
 def approve(
     member_id: UUID,
