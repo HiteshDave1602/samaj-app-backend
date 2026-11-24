@@ -30,7 +30,7 @@ def own(db: Session, member: Member, lock: bool = False) -> MatrimonyProfile:
     q = select(MatrimonyProfile).where(MatrimonyProfile.member_id == member.member_id)
     profile = db.scalar(q.with_for_update() if lock else q)
     if profile is None:
-        raise HTTPException(404, "Create your matrimony profile first")
+        raise HTTPException(404, "ERR_NO_MATRIMONY_PROFILE: Create your matrimony profile first")  # app: a Create prompt
     if profile.deleted_at is not None:  # every own-profile route comes through here
         raise HTTPException(403, REMOVED)
     return profile

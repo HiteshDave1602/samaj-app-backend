@@ -5,10 +5,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Button, Notice, ScreenHeader, Toast } from '@/components/ui/form';
-import { api, authedImage } from '@/lib/api';
+import { Button, Problem, ScreenHeader, Toast } from '@/components/ui/form';
+import { api, authedImage, isGuidance } from '@/lib/api';
 import { label, loc, tWords, useT } from '@/lib/i18n';
-import { Cover, education, height, NEED_PROFILE, summary, title, type ProfileCard } from '@/lib/matrimony';
+import { Cover, education, height, NEED_PROFILE, needsProfile, summary, title, type ProfileCard } from '@/lib/matrimony';
 import { usePalette } from '@/lib/theme';
 
 // backend member/matrimony/schema.py PublicProfileOut
@@ -35,15 +35,12 @@ export default function MatrimonyProfile() {
   const t = useT();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [p, setP] = useState<Profile>();
-  const [error, setError] = useState<string>();
+  const [error, setError] = useState<unknown>();
   const [busy, setBusy] = useState(false);
-  const [toast, setToast] = useState<string>();
+  const [toast, setToast] = useState<{ message: string; create?: boolean }>();
   const hideToast = useCallback(() => setToast(undefined), []);
 
-  const load = useCallback(
-    () => api<Profile>(`/member/matrimony/profiles/${id}`).then(setP, (e) => setError(e.message)),
-    [id],
-  );
+  const load = useCallback(() => api<Profile>(`/member/matrimony/profiles/${id}`).then(setP, setError), [id]);
   useEffect(() => {
     load();
   }, [load]);
@@ -55,9 +52,10 @@ export default function MatrimonyProfile() {
       await api(path, { method: 'POST' });
       await load();
     } catch (e) {
-      // 404: no profile of my own yet; that's a next step, not an error
-      if ((e as { status?: number }).status === 404) setToast(NEED_PROFILE);
-      else setError((e as Error).message);
+      // the server's "not yet" answers (no profile, not approved, already sent, daily limit) are next steps: a toast
+      if (needsProfile(e)) setToast({ message: NEED_PROFILE, create: true });
+      else if (isGuidance(e)) setToast({ message: (e as Error).message });
+      else setError(e);
     } finally {
       setBusy(false);
     }
@@ -68,7 +66,7 @@ export default function MatrimonyProfile() {
       <SafeAreaView className="flex-1 bg-cream">
         <ScreenHeader title="Profile" back />
         <View className="p-5">
-          {error ? <Notice title="Could not load profile" body={error} tone={palette.rejected} /> : <ActivityIndicator />}
+          {error ? <Problem title="Could not load profile" error={error} /> : <ActivityIndicator />}
         </View>
       </SafeAreaView>
     );
@@ -126,7 +124,7 @@ export default function MatrimonyProfile() {
           </Text>
         </View>
 
-        {error && <Notice title="Something went wrong" body={error} tone={palette.rejected} />}
+        <Problem title="Something went wrong" error={error} />
         {canRequest && (
           <Button
             title={busy ? 'Sending…' : 'Send biodata request'}
@@ -146,7 +144,12 @@ export default function MatrimonyProfile() {
           </>
         )}
       </ScrollView>
-      <Toast message={toast} action="Create" onAction={() => router.push('/matrimony/create')} onHide={hideToast} />
+      <Toast
+        message={toast?.message}
+        action={toast?.create ? 'Create' : undefined}
+        onAction={() => router.push('/matrimony/create')}
+        onHide={hideToast}
+      />
     </SafeAreaView>
   );
 }

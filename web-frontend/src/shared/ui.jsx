@@ -32,6 +32,23 @@ export function Field({ label, hint, children, className = '' }) {
   )
 }
 
+const ClearX = (props) => (
+  <button type="button" aria-label="Clear" {...props}
+    className="absolute top-1/2 right-2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-variant hover:text-on-surface">✕</button>
+)
+
+/** Text filter with a ✕ that empties it. `onChange` gets `{ target: { value } }` either way. */
+export function SearchInput({ value, onChange, className = '', ...props }) {
+  const ref = useRef(null)
+  return (
+    <div className="relative">
+      <input ref={ref} type="search" value={value} onChange={onChange} {...props}
+        className={`${inputCls} pr-9 [&::-webkit-search-cancel-button]:hidden ${className}`} />
+      {value && <ClearX onClick={() => { onChange({ target: { value: '' } }); ref.current?.focus() }} />}
+    </div>
+  )
+}
+
 /**
  * Type-to-filter picker. Submits the chosen option's value under `name` (hidden input);
  * the visible box is only valid once a listed option is picked (native `pattern`).
@@ -76,7 +93,9 @@ export function Combobox({ name, options, placeholder, required }) {
         onKeyDown={onKeyDown}
         className={`${inputCls} pr-9`}
       />
-      <span aria-hidden className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-xs text-on-surface-variant">▾</span>
+      {text
+        ? <ClearX onMouseDown={(e) => e.preventDefault()} onClick={() => { setText(''); setPicked(null); setOpen(true); setActive(0) }} />
+        : <span aria-hidden className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-xs text-on-surface-variant">▾</span>}
       <input type="hidden" name={name} value={picked?.label === text ? picked.value : ''} />
       {open && (
         <ul ref={listRef} role="listbox" className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-lg border border-outline-variant bg-surface py-1 text-sm shadow-xl">

@@ -4,7 +4,7 @@ import { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Notice, ScreenHeader } from '@/components/ui/form';
+import { Notice, Problem, ScreenHeader } from '@/components/ui/form';
 import { api } from '@/lib/api';
 import { formatDate } from '@/lib/feed';
 import { useLoc, useT } from '@/lib/i18n';
@@ -73,7 +73,7 @@ export default function NotificationsScreen() {
   const t = useT();
   const loc = useLoc();
   const [items, setItems] = useState<Note[]>();
-  const [error, setError] = useState<string>();
+  const [error, setError] = useState<unknown>();
 
   // opening the screen reads everything; the list keeps this visit's unread marks so new ones stand out
   useFocusEffect(
@@ -84,7 +84,7 @@ export default function NotificationsScreen() {
           setError(undefined);
           if (r.unread) api('/member/notifications/read', { method: 'POST' }).catch(() => {});
         },
-        (e) => setError(e.message),
+        setError,
       );
     }, []),
   );
@@ -93,7 +93,7 @@ export default function NotificationsScreen() {
     <SafeAreaView className="flex-1 bg-cream">
       <ScreenHeader title="Notifications" back />
       <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40, gap: 12 }}>
-        {error && <Notice title="Something went wrong" body={error} tone={palette.rejected} />}
+        <Problem title="Could not load notifications" error={error} />
         {!items && !error && <ActivityIndicator color={palette.primary.DEFAULT} />}
         {items?.length === 0 && (
           <Notice title="No notifications yet" body="News, admin decisions and biodata requests will show up here." tone={palette.info} />

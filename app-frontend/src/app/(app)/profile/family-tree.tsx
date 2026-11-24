@@ -2,7 +2,7 @@ import { Fragment } from 'react';
 import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Avatar, Notice, ScreenHeader } from '@/components/ui/form';
+import { Avatar, Problem, ScreenHeader } from '@/components/ui/form';
 import { label, loc, useT } from '@/lib/i18n';
 import { useHousehold } from '@/lib/family';
 import { usePalette } from '@/lib/theme';
@@ -41,8 +41,8 @@ export default function FamilyTree() {
     <SafeAreaView className="flex-1 bg-cream">
       <ScreenHeader title={household ? t('{name} family', { name: loc(household.family_name, household.family_name_i18n)! }) : 'Family tree'} back />
       <ScrollView contentContainerStyle={{ padding: 20, alignItems: 'center' }}>
-        {error && <Notice title="Could not load your family" body={error} tone={palette.rejected} />}
-        {!household && !error && <ActivityIndicator color={palette.primary.DEFAULT} />}
+        <Problem title="Could not load your family" error={error} />
+        {!household && !error &&<ActivityIndicator color={palette.primary.DEFAULT} />}
         {rows.map((row, i) => (
           <Fragment key={i}>
             {i > 0 && <View className="h-8 w-0.5 bg-line" />}

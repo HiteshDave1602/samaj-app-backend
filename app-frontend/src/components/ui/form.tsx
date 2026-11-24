@@ -5,10 +5,22 @@ import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import { SymbolView, type SymbolViewProps } from 'expo-symbols';
 import { useEffect, useState, type ReactNode } from 'react';
-import { ActivityIndicator, Platform, Pressable, Text, TextInput, View, type TextInputProps } from 'react-native';
+import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+  type TextInputProps,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { mediaUrl, parseDmy, toDmy, type PickedFile } from '@/lib/api';
-import { useT } from '@/lib/i18n';
+import { isGuidance, mediaUrl, parseDmy, toDmy, type PickedFile } from '@/lib/api';
+import { useLoc, useT } from '@/lib/i18n';
 import { usePalette } from '@/lib/theme';
 
 type Tone = { DEFAULT: string; container: string };
@@ -217,6 +229,114 @@ export function Chips<T extends string>({
   );
 }
 
+type CityOption = { city_id: string; name: string; name_i18n: Record<string, string> };
+const CITY_PREVIEW = 12;
+
+/** One city from a long list: a search box narrows it; otherwise the first few show, with the picked one always among them.
+ * Tapping the picked city again clears it. */
+export function CityChips({ cities, value, onChange }: { cities: CityOption[]; value?: string; onChange: (id?: string) => void }) {
+  const palette = usePalette();
+  const t = useT();
+  const place = useLoc();
+  const [q, setQ] = useState('');
+  const [all, setAll] = useState(false);
+  const named = cities.map((c) => ({ id: c.city_id, label: place(c.name, c.name_i18n) ?? c.name }));
+  const needle = q.trim().toLowerCase();
+  const matches = needle ? named.filter((c) => c.label.toLowerCase().includes(needle) || cities.find((x) => x.city_id === c.id)!.name.toLowerCase().includes(needle)) : named;
+  const picked = matches.find((c) => c.id === value);
+  const shown = needle || all ? matches : [...(picked ? [picked] : []), ...matches.filter((c) => c !== picked)].slice(0, CITY_PREVIEW);
+  return (
+    <View>
+      <Text className="mb-1.5 font-inter-medium text-sm text-ink">{t('City')}</Text>
+      <View className="mb-3 h-11 flex-row items-center gap-2 rounded-full border border-line bg-cream px-4">
+        <SymbolView name={{ ios: 'magnifyingglass', android: 'search', web: 'search' }} size={18} tintColor={palette.muted} />
+        <TextInput
+          value={q}
+          onChangeText={setQ}
+          placeholder={t('Search city')}
+          placeholderTextColor={palette.muted}
+          accessibilityLabel={t('Search city')}
+          className="flex-1 font-inter text-sm text-ink"
+        />
+        {q !== '' && (
+          <Pressable onPress={() => setQ('')} hitSlop={8} accessibilityRole="button" accessibilityLabel={t('Clear search')}>
+            <SymbolView name={{ ios: 'xmark.circle.fill', android: 'cancel', web: 'cancel' }} size={18} tintColor={palette.muted} />
+          </Pressable>
+        )}
+      </View>
+      <View className="flex-row flex-wrap gap-2">
+        {shown.map((c) => (
+          <Pressable
+            key={c.id}
+            onPress={() => onChange(c.id === value ? undefined : c.id)}
+            accessibilityRole="radio"
+            accessibilityState={{ selected: c.id === value }}
+            className={`flex-row items-center gap-1 rounded-full border px-3.5 py-2 ${c.id === value ? 'border-primary bg-primary-container' : 'border-line bg-cream'}`}>
+            {c.id === value && <SymbolView name={{ ios: 'checkmark', android: 'check', web: 'check' }} size={14} tintColor={palette.primary.DEFAULT} />}
+            <Text className={`font-inter-medium text-sm ${c.id === value ? 'text-primary' : 'text-subtle'}`}>{c.label}</Text>
+          </Pressable>
+        ))}
+        {shown.length === 0 && <Text className="font-inter text-sm text-muted">{t('No city found')}</Text>}
+      </View>
+      {!needle && named.length > CITY_PREVIEW && (
+        <Pressable onPress={() => setAll(!all)} accessibilityRole="button" className="mt-3 self-start">
+          <Text className="font-inter-semibold text-sm text-primary">
+            {all ? t('Show less') : t('Show all {n} cities', { n: String(named.length) })}
+          </Text>
+        </Pressable>
+      )}
+    </View>
+  );
+}
+
+/** Bottom sheet for list filters. The screen keeps a draft while it's open; Apply commits it and closes, closing any other way discards it. */
+export function FilterSheet({
+  visible,
+  onClose,
+  onReset,
+  onApply,
+  children,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  onReset: () => void;
+  onApply: () => void;
+  children: ReactNode;
+}) {
+  const palette = usePalette();
+  const t = useT();
+  const insets = useSafeAreaInsets();
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} className="flex-1 justify-end">
+        <Pressable onPress={onClose} accessibilityLabel={t('Close')} className="absolute inset-0 bg-black/50" />
+        <View className="max-h-[85%] rounded-t-3xl border border-line bg-card" style={{ paddingBottom: insets.bottom + 12 }}>
+          <View className="items-center pt-2.5">
+            <View className="h-1 w-10 rounded-full bg-line" />
+          </View>
+          <View className="flex-row items-center justify-between px-5 pb-2 pt-3">
+            <Text className="font-headline text-xl text-brand">{t('Filters')}</Text>
+            <Pressable onPress={onClose} hitSlop={8} accessibilityRole="button" accessibilityLabel={t('Close')}>
+              <SymbolView name={{ ios: 'xmark', android: 'close', web: 'close' }} size={22} tintColor={palette.ink} />
+            </Pressable>
+          </View>
+          <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: 20, paddingVertical: 8, gap: 20 }}>
+            {children}
+          </ScrollView>
+          <View className="flex-row gap-3 border-t border-line px-5 pt-3">
+            <View className="flex-1">
+              <Button title="Reset" variant="outlined" onPress={onReset} />
+            </View>
+            <View className="flex-1">
+              <Button title="Apply" onPress={onApply} />
+            </View>
+          </View>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
 /** Photos open the gallery; `pdf` also allows PDFs through the document picker. onPick does the upload. */
 export function UploadBox({
   label,
@@ -278,14 +398,30 @@ export function UploadBox({
   );
 }
 
-export function Notice({ title, body, tone: given }: { title: string; body: string; tone?: Tone }) {
+export function Notice({ title, body, tone: given }: { title?: string; body: string; tone?: Tone }) {
   const palette = usePalette();
   const tone = given ?? palette.pending;
   const t = useT();
   return (
     <View className="rounded-2xl p-4" style={{ backgroundColor: tone.container }}>
-      <Text className="font-inter-semibold text-sm" style={{ color: tone.DEFAULT }}>{t(title)}</Text>
-      <Text className="mt-0.5 font-inter text-sm" style={{ color: tone.DEFAULT }}>{t(body)}</Text>
+      {title && <Text className="mb-0.5 font-inter-semibold text-sm" style={{ color: tone.DEFAULT }}>{t(title)}</Text>}
+      <Text className="font-inter text-sm" style={{ color: tone.DEFAULT }}>{t(body)}</Text>
+    </View>
+  );
+}
+
+/** An API error in place: a 4xx (the server saying what to do next) as a calm info note with an icon, anything else
+ * (no connection, server error) as a red failure under `title`. */
+export function Problem({ title, error }: { title: string; error?: unknown }) {
+  const palette = usePalette();
+  const t = useT();
+  if (!error) return null;
+  const message = (error as Error).message ?? String(error);
+  if (!isGuidance(error)) return <Notice title={title} body={message} tone={palette.rejected} />;
+  return (
+    <View accessibilityLiveRegion="polite" className="flex-row gap-3 rounded-2xl p-4" style={{ backgroundColor: palette.info.container }}>
+      <SymbolView name={{ ios: 'info.circle.fill', android: 'info', web: 'info' }} size={20} tintColor={palette.info.DEFAULT} />
+      <Text className="flex-1 font-inter text-sm" style={{ color: palette.info.DEFAULT }}>{t(message)}</Text>
     </View>
   );
 }

@@ -50,9 +50,9 @@ export default function EditProfile() {
   });
   const [marital, setMarital] = useState<Marital>();
   const [blood, setBlood] = useState<Blood>();
-  // English has no spellings to correct; gu/hi edit the auto-transliterated ones
-  const current = useLang();
-  const lang = current === 'en' ? undefined : current;
+  // gu/hi edit the auto-transliterated spellings; English only has one to edit when the name was typed in Gujarati/Hindi
+  const lang = useLang();
+  const fixable = (typed?: string | null) => lang !== 'en' || /[^\x00-\x7F]/.test(typed ?? '');
   const [gender, setGender] = useState<GenderLabel>();
   const [flags, setFlags] = useState({ hide_phone: false, hide_address: false, notify_news: true });
   const [busy, setBusy] = useState(false);
@@ -68,9 +68,9 @@ export default function EditProfile() {
       address: m.address ?? '',
       family: m.family_name ?? '',
       native: m.native_place ?? '',
-      nameLoc: (lang && m.full_name_i18n[lang]) ?? '',
-      familyLoc: (lang && m.family_name_i18n[lang]) ?? '',
-      nativeLoc: (lang && m.native_place_i18n[lang]) ?? '',
+      nameLoc: m.full_name_i18n[lang] ?? '',
+      familyLoc: m.family_name_i18n[lang] ?? '',
+      nativeLoc: m.native_place_i18n[lang] ?? '',
       gotra: m.gotra ?? '',
       education: m.education ?? '',
       occupation: m.occupation ?? '',
@@ -99,7 +99,7 @@ export default function EditProfile() {
 
   // only what changed is sent, so only what changed is judged: an older stored value never blocks saving the rest
   const changed = (v: string, stored?: string | null) => v.trim() !== (stored ?? '');
-  const loc = (m?: Record<string, string>) => (lang && m?.[lang]) || '';
+  const loc = (m?: Record<string, string>) => m?.[lang] || '';
   const errors = {
     name: changed(form.name, me?.full_name) ? rules.personName(form.name, { required: true }) : '',
     nameLoc: changed(form.nameLoc, loc(me?.full_name_i18n)) ? rules.personName(form.nameLoc) : '',
@@ -135,15 +135,14 @@ export default function EditProfile() {
       if (changed(form[k], me[k])) body[k] = form[k].trim() || null; // blank clears it
     if (marital && marital !== me.marital_status) body.marital_status = marital;
     if (blood && blood !== me.blood_group) body.blood_group = blood;
-    if (lang) {
-      const fix = (v: string, stored: Record<string, string>) => (v.trim() && v.trim() !== stored[lang] ? { [lang]: v } : undefined);
-      body.full_name_i18n = fix(form.nameLoc, me.full_name_i18n);
-      if (me.is_household_head) {
-        body.family_name_i18n = fix(form.familyLoc, me.family_name_i18n);
-        body.native_place_i18n = fix(form.nativeLoc, me.native_place_i18n);
-      }
-      for (const k of ['full_name_i18n', 'family_name_i18n', 'native_place_i18n']) if (!body[k]) delete body[k];
+    // fields not shown still hold the stored spelling, so they never count as a change
+    const fix = (v: string, stored: Record<string, string>) => (v.trim() && v.trim() !== stored[lang] ? { [lang]: v } : undefined);
+    body.full_name_i18n = fix(form.nameLoc, me.full_name_i18n);
+    if (me.is_household_head) {
+      body.family_name_i18n = fix(form.familyLoc, me.family_name_i18n);
+      body.native_place_i18n = fix(form.nativeLoc, me.native_place_i18n);
     }
+    for (const k of ['full_name_i18n', 'family_name_i18n', 'native_place_i18n']) if (!body[k]) delete body[k];
     for (const k of Object.keys(flags) as (keyof typeof flags)[]) if (flags[k] !== me[k]) body[k] = flags[k];
     try {
       const m = await api<Me>('/member/me', { method: 'PUT', body });
@@ -204,7 +203,7 @@ export default function EditProfile() {
             }
           />
           <Field label="Full name" value={form.name} onChangeText={set('name')} autoComplete="name" maxLength={120} error={errors.name} />
-          {lang && (
+          {fixable(me.full_name) && (
             <Field
               label={t('Full name in {language}', { language: LANGUAGES[lang] })}
               value={form.nameLoc}
@@ -220,7 +219,7 @@ export default function EditProfile() {
           {me.is_household_head && (
             <>
               <Field label="Family name" value={form.family} onChangeText={set('family')} maxLength={120} error={errors.family} />
-              {lang && (
+              {fixable(me.family_name) && (
                 <Field
                   label={t('Family name in {language}', { language: LANGUAGES[lang] })}
                   value={form.familyLoc}
@@ -230,7 +229,7 @@ export default function EditProfile() {
                 />
               )}
               <Field label="Native place (optional)" value={form.native} onChangeText={set('native')} maxLength={120} error={errors.native} />
-              {lang && form.native.trim() !== '' && (
+              {fixable(me.native_place) && form.native.trim() !== '' && (
                 <Field
                   label={t('Native place in {language}', { language: LANGUAGES[lang] })}
                   value={form.nativeLoc}

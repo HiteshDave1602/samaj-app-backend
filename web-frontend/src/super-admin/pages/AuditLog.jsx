@@ -1,6 +1,6 @@
 import { Fragment, useState } from 'react'
 import { download, fmtDateTime, qs, useLoad } from '../../shared/api'
-import { Button, ErrorText, Field, PageHeader, Pager, Table, Toolbar, inputCls } from '../../shared/ui'
+import { Button, ErrorText, Field, PageHeader, Pager, SearchInput, Table, Toolbar, inputCls } from '../../shared/ui'
 
 const LIMIT = 50
 const EMPTY = { date_from: '', date_to: '', action: '', city_id: '' }
@@ -28,7 +28,7 @@ export default function AuditLog() {
       <Toolbar>
         <Field label="From"><input type="date" value={filters.date_from} onChange={set('date_from')} className={inputCls} /></Field>
         <Field label="To"><input type="date" value={filters.date_to} onChange={set('date_to')} className={inputCls} /></Field>
-        <Field label="Action"><input value={filters.action} onChange={set('action')} placeholder="e.g. CITY_CREATE" maxLength={40} className={`${inputCls} font-mono`} /></Field>
+        <Field label="Action"><SearchInput value={filters.action} onChange={set('action')} placeholder="e.g. CITY_CREATE" maxLength={40} className="font-mono" /></Field>
         <Field label="City">
           <select value={filters.city_id} onChange={set('city_id')} className={inputCls}>
             <option value="">All cities</option>

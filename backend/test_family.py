@@ -81,7 +81,7 @@ try:
                   json={"reason": "Already registered as a member"}).status_code == 200
     hh = c.get("/member/family", headers=head_h).json()
     assert hh["family_name"] == "Meera family", hh
-    assert hh["members"] == [{"member_id": head_id, "full_name": "Meera", "full_name_i18n": {"gu": "મીરા", "hi": "मीरा"},
+    assert hh["members"] == [{"member_id": head_id, "full_name": "Meera", "full_name_i18n": {"en": "Meera", "gu": "મીરા", "hi": "मीरा"},
                               "is_household_head": True}], hh
     rel = {r["full_name"]: (r["status"], r["rejection_reason"], r["relationship"]) for r in hh["relatives"]}
     assert rel == {"Rohan": ("APPROVED", None, "SON"),

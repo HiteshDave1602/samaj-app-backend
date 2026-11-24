@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { api, fmtDate, fmtDateTime, qs, useConfirm, useFileUrl, useLoad, useToast } from '../../shared/api'
-import { Badge, Button, Detail, ErrorText, Field, Modal, PageHeader, Pager, Stat, StatusBadge, Table, Toolbar, inputCls } from '../../shared/ui'
+import { Badge, Button, Detail, ErrorText, Field, Modal, PageHeader, Pager, SearchInput, Stat, StatusBadge, Table, Toolbar, inputCls } from '../../shared/ui'
 import Decide from '../Decide'
 import { Waiting } from './Dashboard'
 
@@ -86,7 +86,7 @@ export default function Members({ me }) {
           </select>
         </Field>
         <Field label="Search">
-          <input type="search" value={q} onChange={refilter(setQ)} placeholder="Name or family name" maxLength={120} className={inputCls} />
+          <SearchInput value={q} onChange={refilter(setQ)} placeholder="Name or family name" maxLength={120} />
         </Field>
         {pendingIds.length > 0 && (
           <Button variant="text" onClick={() => setPicked(picked.size === pendingIds.length ? new Set() : new Set(pendingIds))}>

@@ -55,10 +55,18 @@ WORDS: dict[str, str | tuple[str, str]] = {
     "jagdish": "जगदीश", "arvind": "अरविंद", "ashwin": "अश्विन", "bipin": "बिपिन", "sneha": "स्नेहा",
     "kirti": "कीर्ति", "radhika": "राधिका", "nitin": "नितिन", "hemant": "हेमंत", "vasant": "वसंत",
     "kaushik": "कौशिक", "mayur": "मयूर", "pankaj": "पंकज", "rajni": "रजनी", "smita": "स्मिता", "taral": "तरल",
+    "shukla": ("શુક્લ", "शुक्ला"), "dr": "डॉ",
     # endings, also used as suffixes: Shantaben, Rameshbhai, Bhavnagar
-    "ben": "बेन", "bhai": "भाई", "kumar": "कुमार", "nagar": "नगर", "pur": "पुर", "abad": "आबाद",
-    "gadh": "गढ़", "wala": "वाला", "vala": "वाला",
+    "ben": "बेन", "bahen": ("બહેન", "बहन"), "bhai": "भाई", "kumar": "कुमार", "nagar": "नगर", "pur": "पुर",
+    "abad": "आबाद", "gadh": "गढ़", "wala": "वाला", "vala": "वाला",
 }
 
 # Longest first, so "nagar" wins over "pur" style overlaps.
-SUFFIXES = sorted(("ben", "bhai", "kumar", "nagar", "pur", "abad", "gadh", "wala", "vala"), key=len, reverse=True)
+SUFFIXES = sorted(("ben", "bahen", "bhai", "kumar", "nagar", "pur", "abad", "gadh", "wala", "vala"), key=len, reverse=True)
+
+# English letters as written in Gujarati, for initials ("બી. પાઠક" is B. Pathak)
+INITIALS = {
+    "એ": "A", "બી": "B", "સી": "C", "ડી": "D", "ઈ": "E", "એફ": "F", "જી": "G", "એચ": "H", "આઈ": "I", "જે": "J",
+    "કે": "K", "એલ": "L", "એમ": "M", "એન": "N", "ઓ": "O", "પી": "P", "ક્યુ": "Q", "આર": "R", "એસ": "S", "ટી": "T",
+    "યુ": "U", "વી": "V", "ડબલ્યુ": "W", "એક્સ": "X", "વાય": "Y", "ઝેડ": "Z",
+}

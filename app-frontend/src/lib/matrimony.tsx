@@ -35,8 +35,11 @@ export type BiodataRequest = {
   counterpart: ProfileCard | null;
 };
 
-/** '26 yrs · Surat' */
 export const NEED_PROFILE = 'Create your matrimony profile first to express interest.';
+/** The member has no matrimony profile yet (backend matrimony.own): a next step, offered with a Create button. */
+export const needsProfile = (e: unknown) => (e as { code?: string })?.code === 'ERR_NO_MATRIMONY_PROFILE';
+
+/** '26 yrs · Surat' */
 
 export const summary = (p: ProfileCard) =>
   [p.age && t('{n} yrs', { n: p.age }), loc(p.location_city_name, p.location_city_name_i18n)].filter(Boolean).join(' · ');

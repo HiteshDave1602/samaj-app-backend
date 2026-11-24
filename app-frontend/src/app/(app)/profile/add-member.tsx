@@ -3,10 +3,9 @@ import { useState } from 'react';
 import { ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Button, Chips, DateField, Field, Notice, ScreenHeader, StatusView } from '@/components/ui/form';
+import { Button, Chips, DateField, Field, Notice, Problem, ScreenHeader, StatusView } from '@/components/ui/form';
 import { api, isoDate, parseDmy } from '@/lib/api';
 import { useT } from '@/lib/i18n';
-import { usePalette } from '@/lib/theme';
 import { rules } from '@/lib/validate';
 
 // backend member/family/schema.py Relationship (to the household head) and auth Gender
@@ -18,14 +17,13 @@ const RELATIONS = {
 const GENDERS = { Male: 'MALE', Female: 'FEMALE', Other: 'OTHER' } as const;
 
 export default function AddMember() {
-  const palette = usePalette();
   const t = useT();
   const [name, setName] = useState('');
   const [relation, setRelation] = useState<keyof typeof RELATIONS>();
   const [gender, setGender] = useState<keyof typeof GENDERS>();
   const [dob, setDob] = useState('');
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string>();
+  const [error, setError] = useState<unknown>();
   const [sent, setSent] = useState(false);
   const dobOk = !!parseDmy(dob); // a real past date, not just the DD/MM/YYYY shape
   const nameError = rules.personName(name, { required: true });
@@ -40,7 +38,7 @@ export default function AddMember() {
       });
       setSent(true);
     } catch (e) {
-      setError((e as Error).message);
+      setError(e);
     } finally {
       setBusy(false);
     }
@@ -70,7 +68,7 @@ export default function AddMember() {
             <Chips label="Gender" options={Object.keys(GENDERS) as (keyof typeof GENDERS)[]} value={gender} onChange={setGender} />
             <DateField label="Date of birth" value={dob} onChange={setDob} />
             <Notice title="Needs approval" body="Your city admin will review before it appears in the family tree." />
-            {error && <Notice title="Could not send request" body={error} tone={palette.rejected} />}
+            <Problem title="Could not send request" error={error} />
             <Button
               title={busy ? 'Sending…' : 'Send request'}
               disabled={busy || !!nameError || !relation || !gender || !dobOk}

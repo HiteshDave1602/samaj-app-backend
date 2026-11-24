@@ -5,10 +5,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Button, Chips, Notice, ScreenHeader, Toast } from '@/components/ui/form';
-import { api } from '@/lib/api';
+import { Button, Chips, CityChips, FilterSheet, Notice, Problem, ScreenHeader, Toast } from '@/components/ui/form';
+import { api, isGuidance } from '@/lib/api';
 import { label, tWords, useLoc, useT } from '@/lib/i18n';
-import { Cover, education, height, NEED_PROFILE, photo, summary, title, useReceivedRequests, type BiodataRequest, type ProfileCard } from '@/lib/matrimony';
+import { Cover, education, height, NEED_PROFILE, needsProfile, photo, summary, title, useReceivedRequests, type BiodataRequest, type ProfileCard } from '@/lib/matrimony';
 import { usePalette } from '@/lib/theme';
 
 const MY_STATUS: Record<string, string> = {
@@ -32,11 +32,12 @@ export default function MatrimonyScreen() {
   const [profiles, setProfiles] = useState<ProfileCard[]>();
   const [mine, setMine] = useState<{ status: string } | null>(); // null: no profile yet
   const [exchanges, setExchanges] = useState<BiodataRequest[]>([]);
-  const [error, setError] = useState<string>();
+  const [error, setError] = useState<unknown>();
   const { requests, reload } = useReceivedRequests();
   const [cities, setCities] = useState<City[]>([]);
-  const [cityId, setCityId] = useState<string>(); // by id: the name changes with the language
-  const [ageBand, setAgeBand] = useState<string>();
+  // applied filters; the sheet edits `draft` and Apply copies it here. cityId by id: the name changes with the language
+  const [{ cityId, ageBand }, setFilters] = useState<{ cityId?: string; ageBand?: string }>({});
+  const [draft, setDraft] = useState({ cityId, ageBand });
   const [showFilters, setShowFilters] = useState(false);
   const activeFilters = [ageBand, cityId].filter(Boolean).length;
 
@@ -52,7 +53,7 @@ export default function MatrimonyScreen() {
     if (cityId) params.set('city_id', cityId);
     api<{ items: ProfileCard[] }>(`/member/matrimony/profiles?${params}`).then(
       (r) => (setProfiles(r.items), setError(undefined)),
-      (e) => setError(e.message),
+      setError,
     );
   }, [ageBand, cityId]);
 
@@ -70,19 +71,20 @@ export default function MatrimonyScreen() {
 
   // latest request either way per profile, so each card knows whether interest was already expressed
   const requestFor = new Map([...requests, ...exchanges].map((r) => [r.counterpart_profile_id, r]));
-  const [toast, setToast] = useState<string>();
+  const [toast, setToast] = useState<{ message: string; create?: boolean }>();
   const hideToast = useCallback(() => setToast(undefined), []);
-  // 404: no profile of my own yet; that's a next step, not an error
+  // the server's "not yet" answers (no profile, not approved, already sent, daily limit) are next steps: a toast
+  const answer = (e: unknown) =>
+    needsProfile(e)
+      ? setToast({ message: NEED_PROFILE, create: true })
+      : isGuidance(e)
+        ? setToast({ message: (e as Error).message })
+        : setError(e);
   const expressInterest = (id: string) =>
-    api(`/member/matrimony/profiles/${id}/biodata-request`, { method: 'POST' }).then(loadMine, (e) =>
-      (e as { status?: number }).status === 404 ? setToast(NEED_PROFILE) : setError(e.message),
-    );
+    api(`/member/matrimony/profiles/${id}/biodata-request`, { method: 'POST' }).then(loadMine, answer);
 
   const respond = (id: string, action: 'accept' | 'decline') =>
-    api(`/member/matrimony/biodata-requests/${id}/${action}`, { method: 'POST' }).then(
-      () => (reload(), loadMine()),
-      (e) => setError(e.message),
-    );
+    api(`/member/matrimony/biodata-requests/${id}/${action}`, { method: 'POST' }).then(() => (reload(), loadMine()), answer);
 
   return (
     <SafeAreaView edges={['top']} className="flex-1 bg-cream">
@@ -131,7 +133,7 @@ export default function MatrimonyScreen() {
           </View>
         )}
 
-        {error && <Notice title="Something went wrong" body={error} tone={palette.rejected} />}
+        <Problem title="Something went wrong" error={error} />
 
         {requests.length > 0 && (
           <View className="gap-3">
@@ -163,15 +165,14 @@ export default function MatrimonyScreen() {
           <View className="flex-row items-center justify-between">
             <Text className="font-headline text-xl text-brand">{t('Verified profiles')}</Text>
             <Pressable
-              onPress={() => setShowFilters(!showFilters)}
+              onPress={() => (setDraft({ cityId, ageBand }), setShowFilters(true))}
               accessibilityRole="button"
               accessibilityLabel={t('Filters')}
-              accessibilityState={{ expanded: showFilters }}
-              className={`h-12 w-12 items-center justify-center rounded-full ${showFilters || activeFilters ? 'bg-secondary' : 'border border-line bg-card'}`}>
+              className={`h-12 w-12 items-center justify-center rounded-full ${activeFilters ? 'bg-secondary' : 'border border-line bg-card'}`}>
               <SymbolView
                 name={{ ios: 'line.3.horizontal.decrease', android: 'tune', web: 'tune' }}
                 size={20}
-                tintColor={showFilters || activeFilters ? palette['on-secondary'] : palette.ink}
+                tintColor={activeFilters ? palette['on-secondary'] : palette.ink}
               />
               {activeFilters > 0 && (
                 <View className="absolute -right-0.5 -top-0.5 h-5 w-5 items-center justify-center rounded-full border-2 border-cream bg-accent">
@@ -180,33 +181,6 @@ export default function MatrimonyScreen() {
               )}
             </Pressable>
           </View>
-          {/* tapping the selected chip again clears it */}
-          {showFilters && (
-          <View className="gap-4 rounded-3xl border border-line bg-card p-4">
-            <Chips label="Age" options={Object.keys(AGES)} value={ageBand} onChange={(v) => setAgeBand(v === ageBand ? undefined : v)} />
-            <Chips
-              label="City"
-              options={cities.map((c) => c.city_id)}
-              display={(id) => {
-                const c = cities.find((x) => x.city_id === id)!;
-                return place(c.name, c.name_i18n)!;
-              }}
-              value={cityId}
-              onChange={(v) => setCityId(v === cityId ? undefined : v)}
-            />
-            {activeFilters > 0 && (
-              <Pressable
-                onPress={() => {
-                  setAgeBand(undefined);
-                  setCityId(undefined);
-                }}
-                accessibilityRole="button"
-                className="self-start">
-                <Text className="font-inter-semibold text-sm text-secondary">{t('Clear filters')}</Text>
-              </Pressable>
-            )}
-          </View>
-          )}
           {!profiles && !error && <ActivityIndicator color={palette.secondary.DEFAULT} />}
           {profiles?.length === 0 &&
             (ageBand || cityId ? (
@@ -291,7 +265,21 @@ export default function MatrimonyScreen() {
           })}
         </View>
       </ScrollView>
-      <Toast message={toast} action="Create" onAction={() => router.push('/matrimony/create')} onHide={hideToast} />
+      <FilterSheet
+        visible={showFilters}
+        onClose={() => setShowFilters(false)}
+        onReset={() => setDraft({ cityId: undefined, ageBand: undefined })}
+        onApply={() => (setFilters(draft), setShowFilters(false))}>
+        {/* tapping the selected chip again clears it */}
+        <Chips label="Age" options={Object.keys(AGES)} value={draft.ageBand} onChange={(v) => setDraft((d) => ({ ...d, ageBand: v === d.ageBand ? undefined : v }))} />
+        <CityChips cities={cities} value={draft.cityId} onChange={(id) => setDraft((d) => ({ ...d, cityId: id }))} />
+      </FilterSheet>
+      <Toast
+        message={toast?.message}
+        action={toast?.create ? 'Create' : undefined}
+        onAction={() => router.push('/matrimony/create')}
+        onHide={hideToast}
+      />
     </SafeAreaView>
   );
 }
