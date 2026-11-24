@@ -5,10 +5,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Button, Chips, Notice, ScreenHeader } from '@/components/ui/form';
+import { Button, Chips, Notice, ScreenHeader, Toast } from '@/components/ui/form';
 import { api } from '@/lib/api';
 import { label, tWords, useLoc, useT } from '@/lib/i18n';
-import { Cover, education, height, photo, summary, title, useReceivedRequests, type BiodataRequest, type ProfileCard } from '@/lib/matrimony';
+import { Cover, education, height, NEED_PROFILE, photo, summary, title, useReceivedRequests, type BiodataRequest, type ProfileCard } from '@/lib/matrimony';
 import { usePalette } from '@/lib/theme';
 
 const MY_STATUS: Record<string, string> = {
@@ -70,8 +70,13 @@ export default function MatrimonyScreen() {
 
   // latest request either way per profile, so each card knows whether interest was already expressed
   const requestFor = new Map([...requests, ...exchanges].map((r) => [r.counterpart_profile_id, r]));
+  const [toast, setToast] = useState<string>();
+  const hideToast = useCallback(() => setToast(undefined), []);
+  // 404: no profile of my own yet; that's a next step, not an error
   const expressInterest = (id: string) =>
-    api(`/member/matrimony/profiles/${id}/biodata-request`, { method: 'POST' }).then(loadMine, (e) => setError(e.message));
+    api(`/member/matrimony/profiles/${id}/biodata-request`, { method: 'POST' }).then(loadMine, (e) =>
+      (e as { status?: number }).status === 404 ? setToast(NEED_PROFILE) : setError(e.message),
+    );
 
   const respond = (id: string, action: 'accept' | 'decline') =>
     api(`/member/matrimony/biodata-requests/${id}/${action}`, { method: 'POST' }).then(
@@ -286,6 +291,7 @@ export default function MatrimonyScreen() {
           })}
         </View>
       </ScrollView>
+      <Toast message={toast} action="Create" onAction={() => router.push('/matrimony/create')} onHide={hideToast} />
     </SafeAreaView>
   );
 }

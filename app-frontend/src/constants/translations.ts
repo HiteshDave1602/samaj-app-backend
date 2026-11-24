@@ -233,6 +233,11 @@ const T: Record<string, [string, string]> = {
   'Interest sent': ['રસ મોકલાયો', 'रुचि भेजी गई'],
   Height: ['ઊંચાઈ', 'लंबाई'],
   'Something went wrong': ['કંઈક ખોટું થયું', 'कुछ गलत हो गया'],
+  'Create your matrimony profile first to express interest.': [
+    'રસ દર્શાવવા માટે પહેલા તમારી લગ્ન પ્રોફાઇલ બનાવો.',
+    'रुचि दिखाने के लिए पहले अपनी विवाह प्रोफ़ाइल बनाएँ।',
+  ],
+  Create: ['બનાવો', 'बनाएँ'],
   '{who} wants to view your biodata.': ['{who} તમારો બાયોડેટા જોવા માંગે છે.', '{who} आपका बायोडाटा देखना चाहते हैं।'],
   'A member': ['એક સભ્ય', 'एक सदस्य'],
   Accept: ['સ્વીકારો', 'स्वीकार करें'],
