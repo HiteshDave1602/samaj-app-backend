@@ -46,6 +46,12 @@ class ContentUpdate(Strict):
     status: Literal["DRAFT", "SCHEDULED", "CANCELLED"] | None = None  # CANCELLED is final
 
 
+class ApproveIn(Strict):
+    """Member news: the admin may change the run window while approving; omitted = the member's dates."""
+    start_at: AwareDatetime | None = None
+    end_at: AwareDatetime | None = None
+
+
 class NewsSubmit(Strict):
     """Member news (POST /member/news); images from POST /member/news/media."""
     title: Title

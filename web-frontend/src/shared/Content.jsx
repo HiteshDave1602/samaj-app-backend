@@ -20,6 +20,7 @@ export default function Content({ me }) {
   const [filters, setFilters] = useState({ content_type: '', status: '', scope: '' })
   const [offset, setOffset] = useState(0)
   const [editing, setEditing] = useState(null) // {} for new
+  const [approving, setApproving] = useState(null) // member news, to set its dates before approving
   const cities = useLoad(cityAdmin ? null : '/superadmin/cities')
   const scope = filters.scope === 'all' ? { all_cities: true } : { city_id: filters.scope }
   const list = useLoad(`${base}${qs({ content_type: filters.content_type, status: filters.status, ...scope, limit: LIMIT, offset })}`)
@@ -27,10 +28,10 @@ export default function Content({ me }) {
   const set = (k) => (e) => { setFilters((f) => ({ ...f, [k]: e.target.value })); setOffset(0) }
   const toast = useToast()
 
-  // member-submitted news (City Admin only): approving puts it live now
+  // member-submitted news and ads: approve (with the dates the admin set) or reject
   async function decide(c, action, body) {
-    await api(`${base}/${c.content_id}/${action}`, { method: 'POST', body })
-    toast(action === 'approve' ? `"${c.title}" is live` : 'Rejected')
+    const r = await api(`${base}/${c.content_id}/${action}`, { method: 'POST', body })
+    toast(action === 'reject' ? 'Rejected' : r.status === 'LIVE' ? `"${c.title}" is live` : `"${c.title}" is scheduled`)
     list.reload()
   }
 
@@ -90,7 +91,7 @@ export default function Content({ me }) {
             <td className="text-xs whitespace-nowrap text-on-surface-variant">{fmtDateTime(c.start_at)}<br />to {fmtDateTime(c.end_at)}</td>
             <td><StatusBadge status={c.status} /></td>
             <td className="text-right">
-              {c.status === 'PENDING' && cityAdmin && <Decide small onApprove={() => decide(c, 'approve')} onReject={(reason) => decide(c, 'reject', { reason })} />}
+              {c.status === 'PENDING' && <Decide small onApprove={() => setApproving(c)} onReject={(reason) => decide(c, 'reject', { reason })} />}
               {!['EXPIRED', 'CANCELLED', 'PENDING', 'REJECTED'].includes(c.status) && <Button variant="text" className="h-8 px-3" onClick={() => setEditing(c)}>Edit</Button>}
             </td>
           </tr>
@@ -101,7 +102,25 @@ export default function Content({ me }) {
         <ContentForm item={editing} base={base} cities={cityAdmin ? null : cities.data?.filter((c) => c.is_active || c.city_id === editing.city_id) ?? []}
           onClose={() => setEditing(null)} onSaved={() => { setEditing(null); list.reload() }} />
       )}
+      {approving && <ApproveForm item={approving} onClose={() => setApproving(null)}
+        onApprove={(dates) => decide(approving, 'approve', dates).then(() => setApproving(null))} />}
     </>
+  )
+}
+
+/** Approve member news / ads: the run window starts as the member's and can be changed first. */
+function ApproveForm({ item, onClose, onApprove }) {
+  const { onSubmit, busy, error } = useSubmit((f) => onApprove({ start_at: toIso(f.start_at), end_at: toIso(f.end_at) }))
+  return (
+    <Modal title={`Approve ${item.content_type === 'AD' ? 'ad' : 'news'}: ${item.title}`} onClose={onClose}>
+      <form onSubmit={onSubmit} className="grid gap-4 sm:grid-cols-2">
+        <p className="text-sm text-on-surface-variant sm:col-span-2">These are the dates the member asked for. Change them if needed; a start time already passed goes live now.</p>
+        <Field label="Starts"><input name="start_at" type="datetime-local" required defaultValue={toLocalInput(item.start_at)} className={inputCls} /></Field>
+        <Field label="Ends"><input name="end_at" type="datetime-local" required defaultValue={toLocalInput(item.end_at)} className={inputCls} /></Field>
+        <div className="sm:col-span-2"><ErrorText>{error}</ErrorText></div>
+        <div className="sm:col-span-2"><FormActions busy={busy} label="Approve" onCancel={onClose} /></div>
+      </form>
+    </Modal>
   )
 }
 

@@ -156,19 +156,24 @@ def update(db: Session, admin: AdminUser, actor: audit.Actor, content_id: UUID, 
 
 
 def decide(db: Session, admin: AdminUser, actor: audit.Actor, content_id: UUID, status: str,
-           reason: str | None = None) -> dict:
-    """Member news: approving schedules it for the member's chosen window (a start already passed becomes now);
-    rejecting keeps it out of the feed."""
+           reason: str | None = None, start_at: datetime | None = None, end_at: datetime | None = None) -> dict:
+    """Member news: approving schedules it for the member's window, or the start_at / end_at the admin set
+    (a start already passed becomes now); rejecting keeps it out of the feed."""
     item, current = _get_own(db, admin, content_id, lock=True)  # lock: a double-click can't decide twice
     if current != "PENDING":
         raise HTTPException(409, f"This news is already {current}")
+    after = {"status": status} | ({"rejection_reason": reason} if reason else {})
     if status == "SCHEDULED":
+        before = (item.start_at, item.end_at)
+        item.start_at, item.end_at = start_at or item.start_at, end_at or item.end_at
         now = datetime.now(timezone.utc)
         if item.end_at <= now:
-            raise HTTPException(409, "The member's end date has already passed; reject it instead")
+            raise HTTPException(409, "The end date has already passed; set a later end date or reject it")
         item.start_at = max(item.start_at, now)
+        _check(item)  # end after start, same rule as editing
+        if (item.start_at, item.end_at) != before:
+            after |= {"start_at": item.start_at.isoformat(), "end_at": item.end_at.isoformat()}
     item.status = status
-    after = {"status": status} | ({"rejection_reason": reason} if reason else {})
     audit.log(db, actor, "CONTENT_APPROVE" if status == "SCHEDULED" else "CONTENT_REJECT", "content_item",
               item.content_id, item.city_id, {"status": "PENDING"}, after)
     if item.created_by_member_id:  # PENDING is member news only; admins' own items have no member to tell

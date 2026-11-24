@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from auth.deps import get_actor, require_city_admin
 from cityadmin.content import curd
-from cityadmin.content.schema import ContentCreate, ContentOut, ContentPage, ContentUpdate, MediaOut
+from cityadmin.content.schema import ApproveIn, ContentCreate, ContentOut, ContentPage, ContentUpdate, MediaOut
 from cityadmin.member_approval.schema import RejectIn
 from core import media
 from core.database import get_db
@@ -15,7 +15,8 @@ from superadmin.city_admin.model import AdminUser
 
 # Flow: POST /media (image) -> POST "" with its media_key -> live between start_at and end_at.
 # No DELETE: set status CANCELLED, which keeps the audit trail readable.
-# Member news arrives PENDING (list ?status=PENDING): approve makes it live now, reject keeps it out.
+# Member news arrives PENDING (list ?status=PENDING): approve schedules it for its window (the admin may
+# change start_at / end_at in the approve body), reject keeps it out.
 router = APIRouter(prefix="/cityadmin/content", tags=["City Admin: News & Ads"])
 
 
@@ -66,11 +67,13 @@ def update_content(
 @router.post("/{content_id}/approve", response_model=ContentOut)
 def approve(
     content_id: UUID,
+    data: ApproveIn | None = None,
     admin: AdminUser = Depends(require_city_admin),
     actor: Actor = Depends(get_actor),
     db: Session = Depends(get_db),
 ):
-    return curd.decide(db, admin, actor, content_id, "SCHEDULED")
+    data = data or ApproveIn()
+    return curd.decide(db, admin, actor, content_id, "SCHEDULED", start_at=data.start_at, end_at=data.end_at)
 
 
 @router.post("/{content_id}/reject", response_model=ContentOut)

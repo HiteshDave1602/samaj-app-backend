@@ -5,13 +5,35 @@ import { Button, Card, ErrorText, Field, PageHeader, ToastProvider, inputCls } f
 
 const pageFromHash = (pages) => pages.find((p) => p.id === location.hash.slice(1)) ?? pages[0]
 
-const NavLink = ({ p, active }) => (
+const NavLink = ({ p, active, count }) => (
   <a href={`#${p.id}`} aria-current={active ? 'page' : undefined}
     className={`flex shrink-0 items-center gap-3 rounded-full px-4 py-2.5 text-sm font-semibold transition-colors ${active ? 'bg-primary-container text-on-primary-container' : 'text-on-surface-variant hover:bg-surface-variant'}`}>
     <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={p.icon} /></svg>
     {p.label}
+    {count > 0 && (
+      <span className="ml-auto min-w-5 rounded-full bg-error px-1.5 text-center text-xs leading-5 font-bold text-on-error" aria-label={`${count} new`}>
+        {count > 49 ? '50+' : count}
+      </span>
+    )}
   </a>
 )
+
+/** Members' pending requests for the bell, polled every minute. Read state is stored per admin on the server. */
+function useInbox(me, hasPage) {
+  const scope = me && (me.city_id ?? 'all')
+  // Tagged with scope, so after a city switch the previous city's list never shows.
+  const [res, setRes] = useState({})
+  const load = () => api('/admin/requests').then((data) => setRes({ scope, data }), (e) => setRes((r) => ({ ...r, scope, error: e.message })))
+  useEffect(() => {
+    if (!scope) return // not signed in yet
+    load()
+    const t = setInterval(load, 60_000)
+    return () => clearInterval(t)
+  }, [scope]) // eslint-disable-line react-hooks/exhaustive-deps
+  const { data, error } = res.scope === scope ? res : {}
+  const markSeen = () => api('/admin/requests/read', { method: 'POST' }).then(load, () => {})
+  return { data, error, unread: data?.unread ?? 0, markSeen, hasPage }
+}
 
 function useTheme() {
   const [theme, setTheme] = useState(() => {
@@ -58,6 +80,7 @@ export default function Panel({ role, label, pages }) {
   const [choosingCity, setChoosingCity] = useState(false)
   const [page, setPage] = useState(() => pageFromHash(pages))
   const [theme, toggleTheme] = useTheme()
+  const inbox = useInbox(me,(id) => pages.some((p) => p.id === id))
 
   const loadMe = () => api('/admin/auth/me').then((m) => (m.role === role ? setMe(m) : toSignIn()))
 
@@ -102,7 +125,7 @@ export default function Panel({ role, label, pages }) {
               : <button type="button" onClick={logout} className="ml-auto text-sm font-semibold text-primary md:hidden">Sign out</button>}
           </div>
           <nav className="flex gap-1 overflow-x-auto px-3 pb-3 md:flex-1 md:flex-col md:overflow-y-auto md:pb-0">
-            {pages.filter((p) => p !== profile).map((p) => <NavLink key={p.id} p={p} active={p.id === page.id} />)}
+            {pages.filter((p) => p !== profile).map((p) => <NavLink key={p.id} p={p} active={p.id === page.id} count={p.id === 'notifications' ? inbox.unread : 0} />)}
           </nav>
           <div className="hidden border-t border-outline-variant p-4 md:block">
             <div className="truncate text-sm font-semibold">{me.full_name}</div>
@@ -121,7 +144,7 @@ export default function Panel({ role, label, pages }) {
           {actingSuperAdmin && (choosingCity || !me.city_id)
             ? <ChooseCity me={me} onChosen={() => loadMe().then(() => setChoosingCity(false))} />
             // key: a new city remounts the page, so nothing from the previous city stays on screen
-            : <Page key={me.city_id} me={me} reloadMe={loadMe} theme={theme} toggleTheme={toggleTheme} logout={logout} />}
+            : <Page key={me.city_id} me={me} inbox={inbox} reloadMe={loadMe} theme={theme} toggleTheme={toggleTheme} logout={logout} />}
         </main>
       </div>
     </ToastProvider>

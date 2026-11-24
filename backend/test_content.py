@@ -256,6 +256,14 @@ try:
     assert r["status"] == "SCHEDULED" and r["end_at"].startswith(iso(later + timedelta(days=3))[:16]), r
     assert "Future window" not in feed(mx_h)
     c.put(f"{base}/{fw}", headers=x_h, json={"status": "CANCELLED"})
+    # the admin's own window while approving (City Admin or Super Admin); same end-after-start rule as editing
+    ed = post(title="Edited window").json()["content_id"]
+    s2, e2 = later + timedelta(days=1), later + timedelta(days=5)
+    assert c.post(f"{base}/{ed}/approve", headers=x_h, json={"start_at": iso(e2), "end_at": iso(s2)}).status_code == 400
+    assert c.post(f"{base}/{ed}/approve", headers=x_h, json={"end_at": iso(now - timedelta(hours=1))}).status_code == 409
+    r = c.post(f"{sa_base}/{ed}/approve", headers=sa_h, json={"start_at": iso(s2), "end_at": iso(e2)}).json()
+    assert (r["status"], r["start_at"][:16], r["end_at"][:16]) == ("SCHEDULED", iso(s2)[:16], iso(e2)[:16]), r
+    c.put(f"{base}/{ed}", headers=x_h, json={"status": "CANCELLED"})
     rn = post(title="Spam").json()["content_id"]
     assert c.post(f"{base}/{rn}/reject", headers=x_h, json={"reason": ""}).status_code == 422
     r = c.post(f"{base}/{rn}/reject", headers=x_h, json={"reason": "Off topic"})

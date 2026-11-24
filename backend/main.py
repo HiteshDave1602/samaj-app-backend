@@ -14,6 +14,7 @@ from cityadmin.member_approval.api import router as member_approval_router
 from cityadmin.member_export.api import router as member_export_router
 from cityadmin.member_import.api import router as member_import_router
 from cityadmin.panchang.api import router as panchang_router
+from cityadmin.requests.api import router as admin_requests_router
 from core import guard, media
 from core.admission import AdmissionLimit
 from core.config import settings
@@ -70,6 +71,7 @@ app.include_router(content_router)
 app.include_router(family_addition_router)
 app.include_router(matrimony_router)
 app.include_router(panchang_router)
+app.include_router(admin_requests_router)
 app.include_router(member_import_router)
 app.include_router(member_export_router)
 app.include_router(superadmin_content_router)
