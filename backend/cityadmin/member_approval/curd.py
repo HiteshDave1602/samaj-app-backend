@@ -11,46 +11,52 @@ from member.notification import curd as notification
 from member.profile.curd import latest_document, to_profile
 from member.profile.model import Household, IdentityDocument, Member
 from superadmin.audit_log import curd as audit
+from superadmin.city.model import City
 from superadmin.city_admin.model import AdminUser
 
 
-def city_filter(column, admin: AdminUser, city_id: UUID | None = None) -> list:
-    """FR-71: a City Admin sees only their own city (city_id ignored); the Super Admin every city, or city_id's."""
+def city_filter(column, admin: AdminUser, city_id: UUID | None = None, no_city: bool = False) -> list:
+    """FR-71: a City Admin sees only their own city (city_id ignored); the Super Admin every city, or city_id's,
+    or (no_city) only registrations waiting for a city that isn't set up yet."""
     if admin.role != "SUPER_ADMIN":
         return [column == admin.city_id]
+    if no_city:
+        return [column.is_(None)]
     return [column == city_id] if city_id else []
 
 
 def _page(db: Session, admin: AdminUser, limit: int, offset: int, filters: list, order_by: list,
-          city_id: UUID | None = None) -> dict:
+          city_id: UUID | None = None, no_city: bool = False) -> dict:
     q = (
         select(Member, Household.family_name, Household.native_place)
         .outerjoin(Household, Household.household_id == Member.household_id)
-        .where(*city_filter(Member.city_id, admin, city_id), Member.deleted_at.is_(None), *filters)
+        .where(*city_filter(Member.city_id, admin, city_id, no_city), Member.deleted_at.is_(None), *filters)
     )
     total = db.scalar(select(func.count()).select_from(q.subquery()))
     rows = db.execute(q.order_by(*order_by).limit(limit).offset(offset))
     return {"total": total, "items": [{
-        "member_id": m.member_id, "city_id": m.city_id, "full_name": m.full_name, "gender": m.gender, "dob": m.dob,
+        "member_id": m.member_id, "city_id": m.city_id, "requested_city": m.requested_city,
+        "requested_state": m.requested_state, "full_name": m.full_name, "gender": m.gender, "dob": m.dob,
         "family_name": family_name, "native_place": native_place, "mobile_last4": m.mobile_last4,
         "status": m.status, "created_at": m.created_at,
     } for m, family_name, native_place in rows]}
 
 
-def list_pending(db: Session, admin: AdminUser, limit: int, offset: int, city_id: UUID | None = None) -> dict:
+def list_pending(db: Session, admin: AdminUser, limit: int, offset: int, city_id: UUID | None = None,
+                 no_city: bool = False) -> dict:
     # FR-12: oldest first.
-    return _page(db, admin, limit, offset, [Member.status == "PENDING"], [Member.created_at], city_id)
+    return _page(db, admin, limit, offset, [Member.status == "PENDING"], [Member.created_at], city_id, no_city)
 
 
-def list_members(db: Session, admin: AdminUser, limit: int, offset: int,
-                 status: str | None = None, search: str | None = None, city_id: UUID | None = None) -> dict:
+def list_members(db: Session, admin: AdminUser, limit: int, offset: int, status: str | None = None,
+                 search: str | None = None, city_id: UUID | None = None, no_city: bool = False) -> dict:
     filters = []
     if status:
         filters.append(Member.status == status)
     if search:  # name or family name, case-insensitive; autoescape keeps % and _ literal
         filters.append(or_(Member.full_name.icontains(search, autoescape=True),
                            Household.family_name.icontains(search, autoescape=True)))
-    return _page(db, admin, limit, offset, filters, [Member.full_name, Member.member_id], city_id)
+    return _page(db, admin, limit, offset, filters, [Member.full_name, Member.member_id], city_id, no_city)
 
 
 def counts(db: Session, admin: AdminUser, city_id: UUID | None = None) -> dict:
@@ -129,6 +135,39 @@ def approve(db: Session, admin: AdminUser, actor: audit.Actor, member_id: UUID) 
 
 def reject(db: Session, admin: AdminUser, actor: audit.Actor, member_id: UUID, reason: str) -> dict:
     member = _get_in_city(db, admin, member_id, lock=True)
+    _decide(db, admin, actor, member, "REJECTED", reason)
+    db.commit()
+    _notify(member)
+    return get_member(db, admin, member_id)
+
+
+def _get_cityless(db: Session, admin: AdminUser, member_id: UUID) -> Member:
+    """A registration for a city not set up yet: it has no City Admin, so the Super Admin decides it."""
+    member = _get_in_city(db, admin, member_id, lock=True)
+    if member.city_id is not None:
+        raise HTTPException(409, "This member's city is set up; its City Admin approves the registration")
+    return member
+
+
+def approve_new_city(db: Session, admin: AdminUser, actor: audit.Actor, member_id: UUID, city_id: UUID) -> dict:
+    """The Super Admin created the member's city (or picked an existing one): move them, and their household, in."""
+    member = _get_cityless(db, admin, member_id)
+    city = db.get(City, city_id)
+    if city is None or not city.is_active:
+        raise HTTPException(400, "Select an active city")
+    if member.status != "PENDING":  # before the move: a REJECTED member must stay out of the city
+        raise HTTPException(409, f"{member.full_name} is already {member.status}")
+    member.city_id = city.city_id
+    if member.household_id and (household := db.get(Household, member.household_id)) and household.city_id is None:
+        household.city_id = city.city_id  # ORM, not bulk UPDATE: the search outbox must see it
+    _decide(db, admin, actor, member, "ACTIVE")
+    db.commit()
+    _notify(member)
+    return get_member(db, admin, member_id)
+
+
+def reject_new_city(db: Session, admin: AdminUser, actor: audit.Actor, member_id: UUID, reason: str) -> dict:
+    member = _get_cityless(db, admin, member_id)
     _decide(db, admin, actor, member, "REJECTED", reason)
     db.commit()
     _notify(member)

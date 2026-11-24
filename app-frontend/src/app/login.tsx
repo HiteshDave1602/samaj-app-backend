@@ -10,13 +10,14 @@ import { syncLang, useT } from '@/lib/i18n';
 import { usePalette } from '@/lib/theme';
 import { rules } from '@/lib/validate';
 
-type VerifyOut = { registered: boolean; session?: Session; registration_ticket?: string };
+// no session: not approved yet (member_status PENDING / REJECTED), or no account at all (registered false)
+type VerifyOut = { registered: boolean; session?: Session; member_status?: string; rejection_reason?: string };
 // The samaj's name as written on its logo, the same in every app language
 const ORG = 'શ્રી સુરત અઠ્ઠાવીશી મોઢ ચાતુર્વેદી બ્રાહ્મણ પરિવાર';
 const MANDAL = 'પ્રગતિ મંડળ';
 
 // SF-01: the number is checked first, so an unknown number gets "register first" instead of a code. Registering opens
-// the form straight away with the number filled in; register.tsx asks for the code at submit.
+// the form with the number filled in (no code there). Only approved members get past the code; others see /pending.
 export default function Login() {
   const palette = usePalette();
   const t = useT();
@@ -67,8 +68,14 @@ export default function Login() {
         await saveSession(r.session);
         syncLang(); // the language picked on this device wins over the server's copy
         router.replace('/home');
+      } else if (r.member_status) {
+        // only approved members log in; the rest see where their registration stands
+        router.replace({
+          pathname: '/pending',
+          params: { status: r.member_status, ...(r.rejection_reason && { reason: r.rejection_reason }) },
+        });
       } else {
-        router.replace({ pathname: '/register', params: { ticket: r.registration_ticket! } });
+        register(); // no account (e.g. deleted meanwhile): the form, number filled in
       }
     });
 

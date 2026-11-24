@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { api, fmtDate, fmtDateTime, qs, useFileUrl, useLoad, useToast } from '../../shared/api'
-import { Button, Detail, ErrorText, Field, Modal, PageHeader, Pager, Stat, StatusBadge, Table, Toolbar, inputCls } from '../../shared/ui'
+import { Badge, Button, Detail, ErrorText, Field, Modal, PageHeader, Pager, Stat, StatusBadge, Table, Toolbar, inputCls } from '../../shared/ui'
 import Decide from '../Decide'
 import { Waiting } from './Dashboard'
 
@@ -21,12 +21,14 @@ export default function Members({ me }) {
   const query = q.trim()
   const cities = useLoad(sa ? '/superadmin/cities' : null)
   const cityName = Object.fromEntries(cities.data?.map((c) => [c.city_id, c.name]) ?? [])
-  const counts = useLoad(sa ? `${base}/counts${qs({ city_id: cityId })}` : null)
+  // 'none': registrations for a city that isn't set up yet; the Super Admin decides those (no City Admin exists)
+  const scope = cityId === 'none' ? { no_city: true } : { city_id: cityId }
+  const counts = useLoad(sa ? `${base}/counts${qs({ city_id: cityId === 'none' ? '' : cityId })}` : null)
   const n = (s) => counts.data && (counts.data[s] ?? 0)
   // The pending queue is oldest first (the 72 h clock); everything else, and any search, is by name.
   const path = status === 'PENDING' && !query
-    ? `${base}/pending${qs({ city_id: cityId, limit: LIMIT, offset })}`
-    : `${base}${qs({ status, q: query, city_id: cityId, limit: LIMIT, offset })}`
+    ? `${base}/pending${qs({ ...scope, limit: LIMIT, offset })}`
+    : `${base}${qs({ status, q: query, ...scope, limit: LIMIT, offset })}`
   const list = useLoad(path)
   const items = list.data?.items ?? []
   const pendingIds = sa ? [] : items.filter((m) => m.status === 'PENDING').map((m) => m.member_id)
@@ -48,7 +50,7 @@ export default function Members({ me }) {
   return (
     <>
       <PageHeader title="Members" subtitle={sa
-        ? "Every city's members and their profiles. Each city's City Admin approves or rejects registrations."
+        ? "Every city's members and their profiles. Each city's City Admin approves or rejects registrations; you decide those for a new city that isn't set up yet."
         : 'Approve new registrations after checking the ID document. Rejected members see your reason in the app.'}>
         {picked.size > 0 && <Button onClick={bulkApprove}>Approve {picked.size} selected</Button>}
       </PageHeader>
@@ -64,6 +66,7 @@ export default function Members({ me }) {
           <Field label="City">
             <select value={cityId} onChange={refilter(setCityId)} className={inputCls}>
               <option value="">All cities</option>
+              <option value="none">New city requested (not set up)</option>
               {cities.data?.map((c) => <option key={c.city_id} value={c.city_id}>{c.name}</option>)}
             </select>
           </Field>
@@ -103,7 +106,13 @@ export default function Members({ me }) {
               <div className="font-semibold">{m.full_name ?? <span className="font-normal text-on-surface-variant italic">No name yet</span>}</div>
               <div className="text-xs text-on-surface-variant">{[gender(m.gender), m.dob && fmtDate(m.dob)].filter(Boolean).join(' · ')}</div>
             </td>
-            {sa && <td>{cityName[m.city_id] ?? '…'}</td>}
+            {sa && (
+              <td>
+                {m.city_id ? cityName[m.city_id] ?? '…' : (
+                  <><div>{m.requested_city}</div><Badge tone="warning">New city</Badge></>
+                )}
+              </td>
+            )}
             <td>
               <div>{m.family_name ?? '—'}</div>
               {m.native_place && <div className="text-xs text-on-surface-variant">{m.native_place}</div>}
@@ -115,7 +124,7 @@ export default function Members({ me }) {
               {m.status === 'PENDING' && <div className="mt-1"><Waiting since={m.created_at} /></div>}
             </td>
             <td className="text-right">
-              <Button variant="text" className="h-8 px-3" onClick={() => setOpen(m.member_id)}>{m.status === 'PENDING' && !sa ? 'Review' : 'View'}</Button>
+              <Button variant="text" className="h-8 px-3" onClick={() => setOpen(m.member_id)}>{m.status === 'PENDING' && (!sa || !m.city_id) ? 'Review' : 'View'}</Button>
             </td>
           </tr>
         ))}
@@ -148,7 +157,7 @@ function Review({ id, base, readOnly, onClose }) {
             <StatusBadge status={d.status} />
           </div>
           <dl className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
-            {readOnly && <Detail label="City">{d.city_name}</Detail>}
+            {readOnly && <Detail label="City">{d.city_id ? d.city_name : `${d.requested_city}, ${d.requested_state} (not set up yet)`}</Detail>}
             <Detail label="Mobile">{d.mobile ? <a href={`tel:${d.mobile}`} className="font-mono text-primary">{d.mobile}</a> : '—'}</Detail>
             <Detail label="Gender">{gender(d.gender) ?? '—'}</Detail>
             <Detail label="Date of birth">{d.dob ? fmtDate(d.dob) : '—'}</Detail>
@@ -166,12 +175,66 @@ function Review({ id, base, readOnly, onClose }) {
           {d.status === 'PENDING' && !readOnly && (
             <Decide onApprove={() => decide('approve')} onReject={(reason) => decide('reject', { reason })} approveLabel="Approve member" />
           )}
+          {d.status === 'PENDING' && readOnly && !d.city_id && (
+            <NewCityDecide member={d} onApprove={(city_id) => decide('approve', { city_id })} onReject={(reason) => decide('reject', { reason })} />
+          )}
         </div>
       )}
     </Modal>
   )
 }
 
+/** Super Admin only: the member typed a city that isn't set up, so nobody else can approve. Create the city
+ * (or pick one, e.g. a spelling variant), then approve into it. */
+function NewCityDecide({ member, onApprove, onReject }) {
+  const cities = useLoad('/superadmin/cities?is_active=true')
+  const toast = useToast()
+  const same = (c) => c.name.toLowerCase() === member.requested_city.toLowerCase()
+    && c.state.toLowerCase() === member.requested_state.toLowerCase()
+  const [cityId, setCityId] = useState('')
+  const [error, setError] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const match = cities.data?.find(same)
+  const picked = cityId || match?.city_id || ''
+
+  async function create() {
+    setError(null)
+    setBusy(true)
+    try {
+      const c = await api('/superadmin/cities', { method: 'POST', body: { name: member.requested_city, state: member.requested_state } })
+      toast(`${c.name} added`)
+      setCityId(c.city_id)
+      cities.reload()
+    } catch (e) { setError(e.message) } finally { setBusy(false) }
+  }
+
+  return (
+    <div className="flex flex-col gap-3 rounded-lg border border-outline-variant p-4">
+      <p className="text-sm">
+        Registered for <b>{member.requested_city}, {member.requested_state}</b>, a city that isn't set up yet, so it has no City Admin.
+        {!match && ' Create the city, or pick an existing one if it is spelled differently, then approve.'}
+      </p>
+      <div className="flex flex-wrap items-end gap-3">
+        <Field label="City">
+          <select value={picked} onChange={(e) => setCityId(e.target.value)} className={inputCls}>
+            <option value="">Choose a city…</option>
+            {cities.data?.map((c) => <option key={c.city_id} value={c.city_id}>{c.name}, {c.state}</option>)}
+          </select>
+        </Field>
+        {!match && (
+          <Button variant="outline" onClick={create} disabled={busy}>
+            {busy ? 'Creating…' : `Create “${member.requested_city}, ${member.requested_state}”`}
+          </Button>
+        )}
+      </div>
+      <ErrorText>{error}</ErrorText>
+      <Decide onApprove={() => {
+        if (!picked) throw new Error('Choose or create the city first')
+        return onApprove(picked)
+      }} onReject={onReject} approveLabel="Approve into this city" />
+    </div>
+  )
+}
 
 function IdDocument({ path, doc }) {
   const url = useFileUrl(path)

@@ -35,7 +35,7 @@ def latest_document(db: Session, member_id: UUID) -> IdentityDocument | None:
 def to_profile(db: Session, member: Member) -> dict:
     household = db.get(Household, member.household_id) if member.household_id else None
     doc = latest_document(db, member.member_id)
-    city = db.get(City, member.city_id)
+    city = member.city_id and db.get(City, member.city_id)  # None: waiting for the Super Admin to create it
     return {
         "member_id": member.member_id,
         "full_name": member.full_name,
@@ -47,8 +47,10 @@ def to_profile(db: Session, member: Member) -> dict:
         "photo_url": media.url(member.photo_key),
         "address": fernet.decrypt(member.address_enc).decode() if member.address_enc else None,
         "city_id": member.city_id,
-        "city_name": city.name,
-        "city_name_i18n": city.name_i18n,
+        "city_name": city.name if city else member.requested_city,
+        "city_name_i18n": city.name_i18n if city else localized(member.requested_city),
+        "requested_city": member.requested_city,
+        "requested_state": member.requested_state,
         "household_id": member.household_id,
         "family_name": household.family_name if household else None,
         "family_name_i18n": household.family_name_i18n if household else {},

@@ -18,7 +18,7 @@ from core import media
 from core.database import SessionLocal
 from core.security import fernet
 from main import app
-from member.auth.curd import _seal, _start_session, mobile_hash
+from member.auth.curd import _start_session, mobile_hash
 from member.profile.model import FamilyMember, Household, Member
 from superadmin.city.model import City
 
@@ -103,9 +103,9 @@ try:
     r = c.post("/admin/auth/login", json={"email": "not-an-email", "password": "hunter2-very-secret"})
     assert r.status_code == 422 and "hunter2-very-secret" not in r.text and "input" not in r.text, r.text
 
-    # registration: the same rules, and the ticket's mobile can't be swapped by an extra field
+    # registration: the same rules, placeholder numbers included
     reg_mobile = f"+919{secrets.randbelow(10**9):09d}"
-    form = {"registration_ticket": _seal("reg", m=reg_mobile), "full_name": "Kiran Shah", "gender": "MALE",
+    form = {"mobile": reg_mobile, "full_name": "Kiran Shah", "gender": "MALE",
             "dob": "1990-01-01", "city_id": str(city_id), "address": "4 MG Road", "family_name": "Shah",
             "consent": True, "notice_version": "v1"}
     e = err(c.post("/member/auth/register", json=form | {"full_name": "qwerty", "mobile": "+919999999999"}),

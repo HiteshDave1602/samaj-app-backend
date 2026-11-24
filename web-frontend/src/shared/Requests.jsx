@@ -4,7 +4,12 @@ import { Badge, Card, ErrorText, PageHeader } from './ui'
 
 // kind -> what the member sent, and the page where it's decided
 const KINDS = {
-  REGISTRATION: { label: 'New registration', text: () => 'registered and is waiting for approval', page: 'members' },
+  // detail: a city that isn't set up yet (Super Admin only): create it, then approve on the Members page
+  REGISTRATION: {
+    label: 'New registration',
+    text: (d) => d ? `registered for ${d}, a city that isn't set up yet. Create it, then approve` : 'registered and is waiting for approval',
+    page: 'members',
+  },
   FAMILY: { label: 'Family addition', text: (d) => `asked to add ${d} to their family`, page: 'family' },
   PROFILE: { label: 'Matrimony profile', text: () => 'submitted a matrimony profile for review', page: 'matrimony' },
   PHOTOS: { label: 'Matrimony photos', text: (d) => `added ${d} photo${d === '1' ? '' : 's'} to review`, page: 'matrimony' },

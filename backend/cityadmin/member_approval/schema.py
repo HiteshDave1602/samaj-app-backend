@@ -10,7 +10,9 @@ from member.profile.schema import IdDocumentOut as MemberIdDocumentOut, MemberOu
 
 class PendingMemberOut(BaseModel):
     member_id: UUID
-    city_id: UUID
+    city_id: UUID | None  # None: waiting for the Super Admin to create requested_city
+    requested_city: str | None
+    requested_state: str | None
     full_name: str | None
     gender: str | None
     dob: date | None
@@ -43,6 +45,10 @@ class MemberReviewOut(MemberOut):
 class RejectIn(Strict):
     # FR-13: Reject needs a reason; the member sees it in the app.
     reason: Text(500, multiline=True)
+
+
+class NewCityApproveIn(Strict):
+    city_id: UUID  # the city the Super Admin created (or picked) for the member's requested_city
 
 
 class BulkApproveIn(Strict):

@@ -25,7 +25,6 @@ OTP_MAX_ATTEMPTS = 3  # FR-03
 OTP_SENDS_PER_HOUR = 5  # FR-04
 ACCESS_TTL_SECONDS = 15 * 60  # NFR-16
 REFRESH_TTL = timedelta(days=30)  # NFR-16
-TICKET_TTL_SECONDS = 15 * 60  # time to fill the profile form after the OTP
 NOTICE_VERSION = "v1"  # bump when the consent notice text changes; the app must show the matching text
 
 
@@ -54,6 +53,13 @@ def _unseal(token: str, kind: str, ttl: int) -> dict:
 
 def _member_by_mobile(db: Session, mh: bytes) -> Member | None:
     return db.scalar(select(Member).where(Member.mobile_hash == mh))
+
+
+def can_log_in(member: Member) -> bool:
+    """Only approved members get a session. A once-approved member back in review after an edit (ASM-10: PENDING with
+    reviewed_at set) keeps access; a first-time registration (never reviewed) and a REJECTED one wait outside.
+    ponytail: ARCHIVED members log in as-is; re-approval on return (FR-95) lands with archiving (SF-15)."""
+    return member.status in ("ACTIVE", "ARCHIVED") or (member.status == "PENDING" and member.reviewed_at is not None)
 
 
 def send_otp(db: Session, mobile: str, ip: str | None, intent: str | None = None) -> dict:
@@ -121,33 +127,40 @@ def verify_otp(db: Session, mobile: str, code: str) -> dict:
     ch.consumed_at = _now()
 
     member = _member_by_mobile(db, mh)
+    db.commit()
     if member is None:
-        db.commit()
-        return {"registered": False, "registration_ticket": _seal("reg", m=mobile)}
+        return {"registered": False}
     if member.deleted_at is not None:
-        db.commit()
         raise HTTPException(403, "This account was deleted. Contact your City Admin to recover it.")
-    # ponytail: ARCHIVED members log in as-is; re-approval on return (FR-95) lands with archiving (SF-15).
+    if not can_log_in(member):
+        return {"registered": True, "member_status": member.status, "rejection_reason": member.rejection_reason}
     return {"registered": True, "session": _start_session(db, member)}
 
 
 def register(db: Session, data: RegisterIn) -> dict:
-    mobile = _unseal(data.registration_ticket, "reg", TICKET_TTL_SECONDS)["m"]
+    mobile = data.mobile
     if data.notice_version != NOTICE_VERSION:
         raise HTTPException(409, "The consent notice has changed. Show the current notice and ask again.")
-    city = db.get(City, data.city_id)
-    if city is None or not city.is_active:
-        raise HTTPException(400, "Select an active city")
+    if data.city_id:
+        city = db.get(City, data.city_id)
+        if city is None or not city.is_active:
+            raise HTTPException(400, "Select an active city")
+    else:  # typed a city: use it if it exists after all, else it waits for the Super Admin with no city
+        city = db.scalar(select(City).where(func.lower(City.name) == data.requested_city.lower(),
+                                            func.lower(City.state) == data.requested_state.lower(), City.is_active))
+    requested = {} if city else {"requested_city": data.requested_city, "requested_state": data.requested_state}
+    city_id = city.city_id if city else None
     mh = mobile_hash(mobile)
     if _member_by_mobile(db, mh):
         raise HTTPException(409, "Number already registered. Log in instead.")
 
     # ponytail: every registrant heads a new household; joining an existing one comes with family addition (SF-03).
-    household = Household(household_id=uuid4(), city_id=city.city_id,
+    household = Household(household_id=uuid4(), city_id=city_id,
                           family_name=data.family_name, native_place=data.native_place)
     member = Member(
         member_id=uuid4(),
-        city_id=city.city_id,
+        city_id=city_id,
+        **requested,
         household_id=household.household_id,
         is_household_head=True,
         mobile_enc=fernet.encrypt(mobile.encode()),
@@ -169,7 +182,8 @@ def register(db: Session, data: RegisterIn) -> dict:
     except IntegrityError:  # same number registered in parallel
         db.rollback()
         raise HTTPException(409, "Number already registered. Log in instead.")
-    return _start_session(db, member)  # PENDING members can log in; the app limits them to Panchang and News
+    db.commit()
+    return {"member_status": member.status}  # no session: they log in with an OTP once approved
 
 
 def _tokens(sess: AuthSession, member: Member, refresh_token: str) -> dict:
@@ -207,7 +221,7 @@ def refresh(db: Session, refresh_token: str) -> dict:
     if sess is None or now >= sess.expires_at:
         raise HTTPException(401, "Session expired. Log in again.")
     member = db.get(Member, sess.member_id)
-    if member.deleted_at is not None:
+    if member.deleted_at is not None or not can_log_in(member):  # e.g. a session from before login needed approval
         sess.revoked_at = now
         db.commit()
         raise HTTPException(401, "Session expired. Log in again.")

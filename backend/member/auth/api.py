@@ -6,12 +6,15 @@ from core import ratelimit
 from core.config import settings
 from core.database import get_db
 from member.auth import curd
-from member.auth.schema import OtpSendIn, OtpSendOut, OtpVerifyIn, OtpVerifyOut, RefreshIn, RegisterIn, TokenOut
+from member.auth.schema import (
+    OtpSendIn, OtpSendOut, OtpVerifyIn, OtpVerifyOut, RefreshIn, RegisterIn, RegisterOut, TokenOut,
+)
 from superadmin.city import curd as city_curd
 from superadmin.city.schema import CityOut
 
-# Flow: POST /otp/send -> POST /otp/verify -> registered: session | new: registration_ticket -> POST /register.
-# Then send access_token as Bearer; when it expires (15 min) POST /refresh with the refresh_token.
+# Flow: POST /register (no OTP) -> PENDING, no session. Once an admin approves: POST /otp/send -> POST /otp/verify
+# -> session (not approved yet: member_status, no session). Then send access_token as Bearer; when it expires
+# (15 min) POST /refresh with the refresh_token.
 router = APIRouter(prefix="/member/auth", tags=["Member Auth"])
 
 
@@ -32,8 +35,10 @@ def cities(db: Session = Depends(get_db)):
     return city_curd.list_cities(db, True)
 
 
-@router.post("/register", response_model=TokenOut, status_code=201)
-def register(data: RegisterIn, db: Session = Depends(get_db)):
+@router.post("/register", response_model=RegisterOut, status_code=201)
+def register(data: RegisterIn, request: Request, db: Session = Depends(get_db)):
+    # No OTP in front of it any more, so a per-IP limit keeps a bot from flooding the approval queues.
+    ratelimit.check("register", client_ip(request), settings.register_ip_rate_per_hour, per=3600)
     return curd.register(db, data)
 
 

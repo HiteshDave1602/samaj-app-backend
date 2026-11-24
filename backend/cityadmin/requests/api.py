@@ -28,7 +28,7 @@ class RequestOut(BaseModel):
     id: UUID
     kind: str  # REGISTRATION | FAMILY | PROFILE | PHOTOS | NEWS
     member_name: str | None
-    detail: str | None  # FAMILY: the relative's name; PHOTOS: how many; NEWS: the title
+    detail: str | None  # REGISTRATION: city not set up yet; FAMILY: the relative's name; PHOTOS: how many; NEWS: title
     at: datetime
     city_name: str | None
     unread: bool
@@ -50,7 +50,9 @@ def _queues(admin: AdminUser):
         return select(id_.label("id"), literal(kind, String).label("kind"), name.label("member_name"),
                       cast(detail, String).label("detail"), at.label("at"), city_id.label("city_id"))
 
-    registrations = (row(Member.member_id, "REGISTRATION", Member.full_name, None, Member.created_at, Member.city_id)
+    # detail: the city typed at registration when it isn't set up yet (city_id null: only the Super Admin sees it)
+    registrations = (row(Member.member_id, "REGISTRATION", Member.full_name, Member.requested_city, Member.created_at,
+                         Member.city_id)
                      .where(Member.status == "PENDING", Member.deleted_at.is_(None), *city_filter(Member.city_id, admin)))
     family = (row(FamilyMember.family_member_id, "FAMILY", Member.full_name, FamilyMember.full_name,
                   FamilyMember.created_at, Household.city_id)
