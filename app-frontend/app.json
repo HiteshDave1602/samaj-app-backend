@@ -25,7 +25,7 @@
       "permissions": [
         "android.permission.RECORD_AUDIO"
       ],
-      "package": "com.anonymous.appfrontend"
+      "package": "com.vrattiks.samaj"
     },
     "web": {
       "output": "server",
@@ -65,6 +65,17 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "projectId": "35717659-e152-45a2-ac6d-2fd2c6084b8e"
+      }
+    },
+    "owner": "vrattiksintern2"
   }
 }
