@@ -7,6 +7,7 @@ import {
   Inter_600SemiBold,
   useFonts,
 } from '@expo-google-fonts/inter';
+import * as Sentry from '@sentry/react-native';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
@@ -17,9 +18,22 @@ import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { loadLang } from '@/lib/i18n';
 import { loadTheme, usePalette, useScheme } from '@/lib/theme';
 
+// JS errors, unhandled rejections and native crashes (dev/EAS builds; Expo Go has no native module) go to Sentry.
+// Empty DSN: off. __DEV__ splits development (metro) from production (release builds).
+if (process.env.EXPO_PUBLIC_SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
+    environment: __DEV__ ? 'development' : 'production',
+    sendDefaultPii: false,
+    initialScope: { tags: { app: 'mobile' } },
+  });
+}
+
 SplashScreen.preventAutoHideAsync();
 
-export default function RootLayout() {
+export default Sentry.wrap(RootLayout);
+
+function RootLayout() {
   const [fontsLoaded] = useFonts({
     BalooBhai2_700Bold,
     Inter_400Regular,

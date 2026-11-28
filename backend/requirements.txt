@@ -11,4 +11,5 @@ python-multipart
 httpx
 openpyxl
 msoffcrypto-tool
+sentry-sdk>=3,<4
 elasticsearch>=9.5,<10  # client major must match the server image in docker-compose.yml

@@ -1,3 +1,4 @@
+import { rootOptions } from '../shared/sentry'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import '../index.css'
@@ -28,7 +29,7 @@ const PAGES = [
   { id: 'profile', label: 'Profile', icon: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM4 20a8 8 0 0 1 16 0', el: Profile },
 ]
 
-createRoot(document.getElementById('root')).render(
+createRoot(document.getElementById('root'), rootOptions).render(
   <StrictMode>
     <Panel role="SUPER_ADMIN" label="Super Admin" pages={PAGES} />
   </StrictMode>,
