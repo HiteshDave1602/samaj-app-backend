@@ -39,6 +39,11 @@ class Settings(BaseSettings):
     elasticsearch_max_connections: int = 40
     search_rate_per_minute: int = 60  # per member per API process; 429 above it
 
+    # Error reporting. Empty DSN: Sentry stays off (tests, local runs without a .env entry).
+    sentry_dsn: str = ""
+    sentry_environment: str = "development"  # "production" on the live server
+    sentry_traces_sample_rate: float = 0.0  # performance tracing off by default; e.g. 0.1 to sample 10%
+
     # Request limits (core/ratelimit.py), 429 above them. Per API process except the OTP-send ones (Postgres).
     member_rate_per_minute: int = 60  # every member API, per member (SRS)
     member_file_rate_per_minute: int = 300  # photo / ID file downloads, per member: list thumbnails

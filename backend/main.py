@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
 
+import sentry_sdk
 from fastapi import Depends, FastAPI
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
@@ -42,6 +43,15 @@ from superadmin.pending_member.api import router as pending_member_router
 from superadmin.search.api import router as search_status_router
 from search import es
 import search.outbox  # noqa: F401  registers the listener that queues search-index updates with each commit
+
+if settings.sentry_dsn:
+    # FastAPI/Starlette integrations turn on by themselves: unhandled exceptions (still re-raised after guard.on_crash
+    # answers 500) and logger.error/exception calls become Sentry events. No user identity or request bodies:
+    # bodies carry members' mobiles, passwords and ID data.
+    sentry_sdk.init(dsn=settings.sentry_dsn, environment=settings.sentry_environment,
+                    data_collection={"user_info": False, "http_bodies": []},
+                    traces_sample_rate=settings.sentry_traces_sample_rate)
+    sentry_sdk.set_tag("app", "backend")
 
 
 @asynccontextmanager
